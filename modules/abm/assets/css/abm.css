@@ -1,0 +1,39 @@
+/* ABM — estilos del formulario tipo "unbound form" (portado de RDN/ajustes). */
+:root { --fc-primary:#0ea5e9; --fc-grid-header-bg:#e2e8f0; --fc-grid-header-color:#1e293b;
+        --fc-grid-row-alt:#f8fafc; --fc-grid-row-hover:#f1f5f9; --fc-grid-input-bg:#fff; }
+[data-bs-theme="dark"] { --fc-grid-header-bg:#334155; --fc-grid-header-color:#e2e8f0;
+        --fc-grid-row-alt:#1e293b; --fc-grid-row-hover:#334155; --fc-grid-input-bg:#1e293b; }
+
+.fc-card { border-radius:.5rem; margin-bottom:.75rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+.fc-card .card-header { font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+    padding:.4rem .75rem; cursor:pointer; user-select:none; display:flex; align-items:center; justify-content:space-between; }
+.fc-card .card-header .collapse-icon { transition:transform .2s; font-size:.7rem; }
+.fc-card .card-header.collapsed .collapse-icon { transform:rotate(-90deg); }
+.fc-card .card-body { padding:.6rem .75rem; }
+
+.fc-form .form-label { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em;
+    margin-bottom:.15rem; color:var(--bs-secondary-color); }
+.fc-form .form-control, .fc-form .form-select { font-size:.82rem; padding:.25rem .5rem; height:auto; }
+
+/* grilla de hijos */
+.fc-grid { width:100%; font-size:.78rem; margin-bottom:0; border-collapse:collapse; }
+.fc-grid thead th { background:var(--fc-grid-header-bg); color:var(--fc-grid-header-color); font-size:.72rem;
+    font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:.35rem .4rem; white-space:nowrap;
+    border-bottom:2px solid var(--fc-primary); text-align:left; }
+.fc-grid tbody tr { border-bottom:1px solid var(--bs-border-color); }
+.fc-grid tbody tr:nth-child(even) { background:var(--fc-grid-row-alt); }
+.fc-grid tbody td { padding:.15rem .25rem; vertical-align:middle; }
+.fc-grid tbody td input, .fc-grid tbody td select {
+    background:var(--fc-grid-input-bg); border:1px solid var(--bs-border-color);
+    font-size:.78rem; padding:.15rem .3rem; width:100%; border-radius:.2rem; }
+.fc-grid .btn-remove-row { padding:.1rem .35rem; font-size:.7rem; line-height:1; }
+
+/* modo solo-lectura: bloquea edición */
+.fc-form.mode-view .form-control, .fc-form.mode-view .form-select { pointer-events:none; opacity:.85; background:var(--bs-body-bg); }
+.fc-form.mode-view .fc-grid td input, .fc-form.mode-view .fc-grid td select { pointer-events:none; opacity:.85; }
+.fc-form.mode-view .hb-add, .fc-form.mode-view .btn-remove-row { display:none !important; }
+.fc-form.mode-view .fc-grid thead th:last-child { display:none; }
+.fc-form.mode-view .fc-grid td:last-child { visibility:hidden; }
+
+.modal .table tbody tr { cursor:pointer; }
+.fc-toast-container { position:fixed; bottom:1rem; right:1rem; z-index:1060; }

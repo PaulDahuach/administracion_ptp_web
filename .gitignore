@@ -1,0 +1,11 @@
+# Config con rutas/secretos por instalación
+config/system.php
+config/certs/
+
+# Logs y temporales
+log/
+*.log
+
+# Sistema
+Thumbs.db
+.DS_Store

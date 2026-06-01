@@ -1,0 +1,5 @@
+# Proyecto desplegado en Windows: archivos de texto en CRLF (para el Bloc de notas).
+* text=auto eol=crlf
+*.jpg binary
+*.png binary
+*.rar binary
