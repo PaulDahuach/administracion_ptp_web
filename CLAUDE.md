@@ -31,10 +31,12 @@ Exclusiones), `Tbl Cuentas Contables`, `Tbl Cuentas Bancarias`, `Tbl Cheques`, `
 Login + dashboard OK, conectado a datos reales (readonly). Mapa del menú legacy en
 `docs/menu_legacy.md` (120 opciones, solapas CD/IC/SI/CA/VS/RE).
 
-**Módulo HECHO: `modules/resumen_cuenta/`** (Resumen de Cuenta de Deudores, solo lectura).
-Referencia: `RDN/resumen` + `RDN/cuentas/api.php`. Autocomplete cliente + desde/hasta + stats
-(saldo anterior/débitos/créditos/saldo) + grilla con saldo corrido + imprimir. Validado vs
-`SOPCUE`: 112/120 cuentas coinciden al centavo.
+**Módulos HECHOS (Deudores, solo lectura):**
+- `modules/resumen_cuenta/` — Resumen de Cuenta (cta cte de un cliente). Ref: `RDN/resumen` +
+  `RDN/cuentas/api.php`. Autocomplete + desde/hasta + stats + saldo corrido + imprimir. Validado
+  vs SOPCUE: 112/120 al centavo.
+- `modules/saldos_actuales/` — "Quién me debe": una fila por deudor con saldo **Blanco/Negro/Total**
+  (DataTable, click fila → resumen del cliente). 166 deudores. Total Blanco $27.9M / Negro $81.4M.
 
 ### Hallazgos del modelo de datos (CLAVE para los próximos módulos)
 - `Tbl Movimientos` deudores: `CODORI='D'`, `CODCUE`, `CODOPE` (410=Remito RV no mueve cta cte,
@@ -42,9 +44,12 @@ Referencia: `RDN/resumen` + `RDN/cuentas/api.php`. Autocomplete cliente + desde/
   `CICMOV`(cod RV/FV/NC/ND/RC)+`CIIMOV`(letra)+`CIPMOV`(pdv)+`CINMOV`(nº), `FEXMOV` (**serial
   Access entero**, comparar numérico: `iso_to_serial`), `DEBMOV`/`CREMOV`, `DETMOV`, `DENMOV`,
   `CAEMOV`. Saldo cta cte = Σ(DEBMOV−CREMOV) sobre codopes 420/440/460/480.
-- **`ESTMOV` NO es el flag de capacitación de inside.** Es booleano (True/False) y AMBOS valores
-  llevan saldo real (prob. blanco/negro). Filtrar por ESTMOV da resultados INCORRECTOS → el
-  resumen NO filtra por ESTMOV (validado: neto sin filtro = SOPCUE en 93%).
+- **`ESTMOV` = dual-ledger BLANCO (−1/True) / NEGRO (0/False)** — NO es capacitación como en
+  inside. CONFIRMADO en el VBA (`Frm CD Facturas/Recibos`): `SOCMOV = DSum(DEBMOV) − DSum(CREMOV)`
+  **filtrado por `[ESTMOV]=IIf(Me.ESTMOV,-1,0)`** → el saldo se lleva por libro SEPARADO. El
+  `chkEst` del Menú elige en cuál se opera. SOPCUE (cacheado) = blanco + negro = total.
+  ⇒ Los reportes de cta cte deben respetar estmov: `saldos_actuales` muestra Blanco/Negro/Total
+  por columna; `resumen_cuenta` hoy muestra el total (TODO opcional: agregar selector de libro).
 - `SOPCUE` (en `Tbl Cuentas Corrientes`, CODORI='D') = saldo operativo cacheado. ~7% de cuentas
   (alto volumen o especiales como cc=127 "Pendientes de Facturación") tienen drift vs el ledger
   calculado; el ledger de comprobantes es la fuente de verdad.
