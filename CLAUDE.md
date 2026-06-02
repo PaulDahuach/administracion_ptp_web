@@ -97,6 +97,12 @@ Próximo: confirmar con Paul el siguiente módulo (Emisiones requieren readwrite
   (0,11 de redondeo del dato legacy). Roll-up jerárquico en PHP: cada hoja se acumula en sus CN1..CN5.
   OJO: el saldo del Balance difiere del de Plan/Mayor por el INICUE de cada cuenta (ej CAJA 2.205).
   Query pesada (~10s, escanea 517k imputaciones hasta hasta) — aceptable para reporte mensual.
+- `modules/bancos/` — **Bancos / Conciliación**: ledger de una cuenta bancaria (Cuentas Contables con
+  CODCBX no null: 6 bancos + 6 posdatados). Saldo corrido + detalle de cheque (LEFT JOIN Tbl Cheques
+  por CODCHQ → banco+SYNCHQ) + FAXMOV (acreditación) + estado CONMOV. Fecha Comp(FEXMOV en M)/Acred
+  (FAXMOV en MI). Validado: BANCO SANTANDER full = 71.317,93 = Plan; ago-2023 ant −837.034,02 = Balance.
+  OJO: en este backend `CONMOV` está TODO en false (nunca conciliaron) → la columna conciliación está
+  lista pero todo figura pendiente. La "conciliación" real (marcar CONMOV) sería readwrite (Frm IC Conciliacion).
 
 ### Varios
 - `modules/comprobantes/` — **Búsqueda de Comprobantes** sobre `Tbl Movimientos`. Filtros: texto
