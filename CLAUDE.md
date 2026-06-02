@@ -80,6 +80,19 @@ Login + dashboard OK, conectado a datos reales (readonly). Mapa del menú legacy
 
 Próximo: confirmar con Paul el siguiente módulo (Emisiones requieren readwrite + AFIP).
 
+### Imputaciones Contables (IC)
+- `Tbl Cuentas Contables` (480) = Plan de Cuentas jerárquico 5 niveles (CN1CUE..CN5CUE; nivel = nº de
+  CNxCUE no nulos). `IMPCUE`=true → imputable (hoja, 441). Saldo cacheado = INICUE + DEBCUE − CRECUE.
+- `Tbl Movimientos Imputaciones` (517k) = asientos: NUMMOV+ORDMOV, CODCUE (cuenta contable, string),
+  DEBMOV/CREMOV, CODCDC (centro de costo → `Tbl Centros de Costo`). La FECHA viene del `Tbl Movimientos`
+  padre (join por NUMMOV): FEXMOV (comprobante) o FIXMOV (movimiento). VALIDADO: Σ imputaciones por
+  cuenta = DEBCUE/CRECUE cacheados (CAJA al centavo).
+- `modules/plan_cuentas/` — listado jerárquico (padres en negrita, hojas indentadas, click→mayor).
+- `modules/mayor/` — Libro Mayor x cuenta+período. Saldo anterior = INICUE + Σ(DEB−CRE) antes de desde;
+  asientos con saldo corrido. Selector Fecha Comprobante/Movimiento. Validado: CAJA full = 74.737.790,82
+  = INICUE+DEB−CRE. Porta "Imputaciones Contables x Cuenta". (Balance de Sumas y Saldos = pendiente:
+  query en `Rpt IC Balance de Sumas y Saldos`, usa FEXMOV, self-joins a Cuentas Contables para padres.)
+
 ## Reglas técnicas (ver también CLAUDE.md del kit y de produccion_ptp)
 - **PHP 5.5** target (server cliente Win 2008 R2 + WAMP 32-bit): NO `??`, `intdiv`, arrow fns,
   `match`, spread. JS ES6 OK (usan Chrome).
