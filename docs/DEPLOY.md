@@ -6,7 +6,7 @@ Corre **en una PC Windows** (la del cliente o un servidor de su red) y abre la *
 y la web conviven sobre el mismo archivo.
 
 ```
-Navegador ──HTTP(S)──> Apache+PHP (Windows) ──COM/ADODB──> ProcesadoraTextilParque_w2.mdb
+Navegador ──HTTP(S)──> Apache+PHP (Windows) ──COM/ADODB──> ProcesadoraTextilParque_d.mdb
                                                               (+ backend ...­_d.mdb vinculado)
                                                             <── App de escritorio (Access)
 ```
@@ -29,9 +29,10 @@ Navegador ──HTTP(S)──> Apache+PHP (Windows) ──COM/ADODB──> Proce
 
 1. Copiar la carpeta `administracion_ptp/` a la raíz web del WAMP del cliente
    (ej. `C:\wamp64\www\administracion_ptp\`), o descomprimir el ZIP de deploy ahí.
-2. Editar `config/system.php` → **`mdb_path`** con la ruta REAL del front-end administrativo en
-   esa PC (la `ProcesadoraTextilParque_w2.mdb` que usa el Access). El backend (`_d.mdb`) lo
-   resuelve solo el vínculo interno de la .mdb, siempre que esté donde el escritorio lo tiene.
+2. Editar `config/system.php` → **`mdb_path`** con la ruta REAL del archivo de DATOS en esa PC:
+   **`ProcesadoraTextilParque_d.mdb`** (el backend con las tablas reales). Apuntamos DIRECTO al
+   `_d.mdb`, no al front-end `_w2.mdb` — así no depende de que el vínculo resuelva.
+   Default del paquete: `C:\_Inforemp\ProcesadoraTextilParque_d.mdb` (verificar que sea la ruta real).
 3. Listo: PHP + librerías por CDN, sin build ni dependencias.
 
 ## 3. Configuración (`config/system.php`)
@@ -40,7 +41,7 @@ Navegador ──HTTP(S)──> Apache+PHP (Windows) ──COM/ADODB──> Proce
 return [
     'base_url'    => '/administracion_ptp',                 // o '' si vive en la raíz del host
     'name'        => 'Administración PTP',
-    'mdb_path'    => 'C:\\ruta\\real\\ProcesadoraTextilParque_w2.mdb',  // ⟨EDITAR: ruta del cliente⟩
+    'mdb_path'    => 'C:\\ruta\\real\\ProcesadoraTextilParque_d.mdb',  // ⟨EDITAR: ruta del cliente⟩
     'mdb_provider'=> 'Microsoft.ACE.OLEDB.12.0',
     'mode'        => 'readonly',                            // ARRANCA EN SOLO LECTURA (cero riesgo)
     'auth' => ['table'=>'Tbl Usuarios','col_id'=>'CODUSR','col_name'=>'DENUSR','col_pass'=>'ACCUSR'],
