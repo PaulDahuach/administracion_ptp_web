@@ -108,9 +108,9 @@ function auth_libro_unico() {       // '' = ve ambos | 'blanco' | 'negro'
     $a = sys('auth');
     if (empty($a['col_cat'])) return '';
     $c = isset($_SESSION['ucat']) ? strtoupper(trim($_SESSION['ucat'])) : '';
-    if ($c === 'S' || $c === 'A') return '';
-    if ($c === 'C') return 'negro';
-    return 'blanco';
+    if ($c === 'S') return '';          // SÓLO supervisor/dueño ve ambos libros (info unificada)
+    if ($c === 'C') return 'negro';     // capacitación → negro
+    return 'blanco';                    // operador, AUDITOR ('A') y cualquier otro → sólo blanco (seguro: no expone el negro)
 }
 function auth_ve_ambos() { return auth_libro_unico() === ''; }
 
