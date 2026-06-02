@@ -90,8 +90,13 @@ Próximo: confirmar con Paul el siguiente módulo (Emisiones requieren readwrite
 - `modules/plan_cuentas/` — listado jerárquico (padres en negrita, hojas indentadas, click→mayor).
 - `modules/mayor/` — Libro Mayor x cuenta+período. Saldo anterior = INICUE + Σ(DEB−CRE) antes de desde;
   asientos con saldo corrido. Selector Fecha Comprobante/Movimiento. Validado: CAJA full = 74.737.790,82
-  = INICUE+DEB−CRE. Porta "Imputaciones Contables x Cuenta". (Balance de Sumas y Saldos = pendiente:
-  query en `Rpt IC Balance de Sumas y Saldos`, usa FEXMOV, self-joins a Cuentas Contables para padres.)
+  = INICUE+DEB−CRE. Porta "Imputaciones Contables x Cuenta".
+- `modules/balance/` — **Balance de Sumas y Saldos** (Rpt IC Balance de Sumas y Saldos). Por cuenta y
+  período (FEXMOV): saldo anterior=Σ(DEB−CRE) antes de desde, debe/haber del período, saldo. **SIN INICUE**
+  (el legacy no lo suma; Σ INICUE=145.070,86≠0 lo desbalancearía) → cierra: Σ Debe=Σ Haber, Σ Saldo≈0
+  (0,11 de redondeo del dato legacy). Roll-up jerárquico en PHP: cada hoja se acumula en sus CN1..CN5.
+  OJO: el saldo del Balance difiere del de Plan/Mayor por el INICUE de cada cuenta (ej CAJA 2.205).
+  Query pesada (~10s, escanea 517k imputaciones hasta hasta) — aceptable para reporte mensual.
 
 ## Reglas técnicas (ver también CLAUDE.md del kit y de produccion_ptp)
 - **PHP 5.5** target (server cliente Win 2008 R2 + WAMP 32-bit): NO `??`, `intdiv`, arrow fns,
