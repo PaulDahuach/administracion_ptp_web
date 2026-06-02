@@ -31,12 +31,18 @@ Exclusiones), `Tbl Cuentas Contables`, `Tbl Cuentas Bancarias`, `Tbl Cheques`, `
 Login + dashboard OK, conectado a datos reales (readonly). Mapa del menú legacy en
 `docs/menu_legacy.md` (120 opciones, solapas CD/IC/SI/CA/VS/RE).
 
-**Módulos HECHOS (Deudores, solo lectura):**
-- `modules/resumen_cuenta/` — Resumen de Cuenta (cta cte de un cliente). Ref: `RDN/resumen` +
-  `RDN/cuentas/api.php`. Autocomplete + desde/hasta + stats + saldo corrido + imprimir. Validado
-  vs SOPCUE: 112/120 al centavo.
-- `modules/saldos_actuales/` — "Quién me debe": una fila por deudor con saldo **Blanco/Negro/Total**
-  (DataTable, click fila → resumen del cliente). 166 deudores. Total Blanco $27.9M / Negro $81.4M.
+**Módulos HECHOS (solo lectura):**
+- `modules/resumen_cuenta/` + `modules/resumen_cuenta_acr/` — Resumen de cta cte (deudor /
+  acreedor). Autocomplete + desde/hasta + selector **Libro (Todos/Blanco/Negro)** + stats + saldo
+  corrido + imprimir. Validado vs SOPCUE. Ref: `RDN/resumen`+`RDN/cuentas/api.php`.
+- `modules/saldos_actuales/` + `modules/saldos_actuales_acr/` — "Quién me debe / a quién le debo":
+  fila por cuenta con **Blanco/Negro/Total** (DataTable, click → resumen). Deudores: 166, Total
+  Blanco $27.9M/Negro $81.4M. Acreedores: 42, Total a Pagar $27.1M.
+- **Acreedores = espejo de deudores** con `CODORI='A'` + codopes **310 CP,320 NC,330 ND,340 OP,
+  350 CancAntic** (300 Remito no mueve). Misma fórmula saldo=Σ(DEBMOV−CREMOV); aquí **negativo =
+  le debemos** (color invertido). Validado vs SOPCUE 42/45.
+- **OJO DataTables:** las columnas numéricas con formato es-AR necesitan `columnDefs:[{targets,
+  type:'num'}]` o el orden sale mal (no respeta data-order). Aplicado en ambos saldos.
 
 ### Hallazgos del modelo de datos (CLAVE para los próximos módulos)
 - `Tbl Movimientos` deudores: `CODORI='D'`, `CODCUE`, `CODOPE` (410=Remito RV no mueve cta cte,
