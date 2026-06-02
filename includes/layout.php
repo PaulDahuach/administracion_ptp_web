@@ -35,6 +35,7 @@ function module_head($title, $icon = 'bi-app', $buttons_html = '') {
 <div class="fc-topbar">
     <div class="d-flex align-items-center gap-3">
         <a href="<?= bu('/app/index.php') ?>" class="btn btn-outline-light btn-sm me-2" title="Menú"><i class="bi bi-house-door"></i></a>
+        <?php if (sys('portal_url')): ?><a href="<?= h(sys('portal_url')) ?>" class="btn btn-outline-light btn-sm me-2" title="Portal de Sistemas"><i class="bi bi-grid-3x3-gap"></i></a><?php endif; ?>
         <h1><i class="bi <?= h($icon) ?> me-2"></i><?= h($title) ?></h1>
         <?php if ($ro): ?><span class="badge bg-warning text-dark"><i class="bi bi-eye me-1"></i>Sólo lectura</span><?php endif; ?>
         <?php if (function_exists('auth_sector_login') && auth_sector_login() && auth_sector()): ?>

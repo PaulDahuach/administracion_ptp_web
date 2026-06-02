@@ -54,6 +54,7 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
             <kbd class="tb-kbd">Ctrl K</kbd>
         </div>
         <div class="d-flex align-items-center gap-3">
+            <?php if (sys('portal_url')): ?><a href="<?= h(sys('portal_url')) ?>" class="btn btn-outline-light btn-sm" title="Portal de Sistemas"><i class="bi bi-grid-3x3-gap me-1"></i>Portal</a><?php endif; ?>
             <span class="text-light d-none d-md-inline"><i class="bi bi-person-circle me-1"></i><?= h(auth_user()) ?></span>
             <button id="btnLogout" class="btn btn-outline-light btn-sm"><i class="bi bi-box-arrow-right me-1"></i>Salir</button>
             <div class="theme-toggle">
