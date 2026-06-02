@@ -104,6 +104,10 @@ Próximo: confirmar con Paul el siguiente módulo (Emisiones requieren readwrite
   server-side), importe (TOTMOV ±0,5), rango FEXMOV, libro (ESTMOV). TOP 200, orden FEXMOV DESC.
   Operación = CODOPE→DENOPE (Tbl Operaciones). Filas clickeables → resumen_cuenta (D) / _acr (A).
   Marca anulados (ANUMOV). Tipos CICMOV: FV/RV/NC/ND/RC/CP/OP/AD/AA/DB/BD/TB/CV/SI/RS/AS/DC/CA/VC/RG/RA.
+- `modules/cheques/` — **Cheques** (de terceros) sobre `Tbl Cheques` (50.985). Estados: A Depositar
+  (VADCHQ=true, 15 = $4,24M = cuenta VALORES A DEPOSITAR), Diferidos (DIFCHQ=true, 16), En cartera
+  (ambos, 31), Todos. Cols: CODBAN→banco (Tbl Bancos), SYNCHQ(nº), FEXCHQ(emisión)/FAXCHQ(acred),
+  LIBCHQ(librador)/CITCHQ, LOCCHQ('E CHEQ'=echeq), IMPCHQ. Filtros texto/importe/fecha(emi|acred). TOP 500.
 
 ## Reglas técnicas (ver también CLAUDE.md del kit y de produccion_ptp)
 - **PHP 5.5** target (server cliente Win 2008 R2 + WAMP 32-bit): NO `??`, `intdiv`, arrow fns,
