@@ -57,15 +57,16 @@ function resumen() {
     $codcue = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
     $desde  = isset($_GET['desde']) ? $_GET['desde'] : '';
     $hasta  = isset($_GET['hasta']) ? $_GET['hasta'] : '';
+    $libro  = isset($_GET['libro']) ? $_GET['libro'] : 'todos';  // todos|blanco|negro
     if (!$codcue) { fail('codcue requerido'); return; }
 
     $sDesde = iso_to_serial($desde);
     $sHasta = iso_to_serial($hasta);
 
-    // NO se filtra por ESTMOV: en PTP ambos valores (True/False) llevan saldo real
-    // (no es el flag de capacitación de inside). Validado: neto de TODOS los
-    // movimientos de cta cte = SOPCUE en 93% de las cuentas.
+    // ESTMOV = dual-ledger BLANCO (-1) / NEGRO (0). 'todos' = ambos (= SOPCUE).
     $base = "CODORI='D' AND CODCUE=$codcue AND CODOPE IN (" . OPS_CC . ")";
+    if ($libro === 'blanco')     $base .= " AND ESTMOV=True";
+    elseif ($libro === 'negro')  $base .= " AND ESTMOV=False";
 
     // ── Saldo anterior (movimientos con FEXMOV < desde) ──
     $saldoAnterior = 0;

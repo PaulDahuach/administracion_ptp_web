@@ -48,8 +48,8 @@ Login + dashboard OK, conectado a datos reales (readonly). Mapa del menú legacy
   inside. CONFIRMADO en el VBA (`Frm CD Facturas/Recibos`): `SOCMOV = DSum(DEBMOV) − DSum(CREMOV)`
   **filtrado por `[ESTMOV]=IIf(Me.ESTMOV,-1,0)`** → el saldo se lleva por libro SEPARADO. El
   `chkEst` del Menú elige en cuál se opera. SOPCUE (cacheado) = blanco + negro = total.
-  ⇒ Los reportes de cta cte deben respetar estmov: `saldos_actuales` muestra Blanco/Negro/Total
-  por columna; `resumen_cuenta` hoy muestra el total (TODO opcional: agregar selector de libro).
+  ⇒ Los reportes de cta cte respetan estmov: `saldos_actuales` muestra Blanco/Negro/Total por
+  columna; `resumen_cuenta` tiene selector Todos/Blanco/Negro (param `libro` en la API).
 - `SOPCUE` (en `Tbl Cuentas Corrientes`, CODORI='D') = saldo operativo cacheado. ~7% de cuentas
   (alto volumen o especiales como cc=127 "Pendientes de Facturación") tienen drift vs el ledger
   calculado; el ledger de comprobantes es la fuente de verdad.

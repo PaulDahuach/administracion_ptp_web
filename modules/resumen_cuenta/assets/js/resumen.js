@@ -25,6 +25,7 @@ const App = {
         document.addEventListener('click', e => { if (!e.target.closest('.ac-wrap')) this.el('acList').classList.remove('show'); });
         this.el('btnConsultar').addEventListener('click', () => this.consultar());
         this.el('btnImprimir').addEventListener('click', () => window.print());
+        this.el('cboLibro').addEventListener('change', () => { if (this.el('hdnCodcue').value) this.consultar(); });
         ['txtDesde', 'txtHasta'].forEach(id => this.el(id).addEventListener('keydown', e => { if (e.key === 'Enter') this.consultar(); }));
     },
 
@@ -49,20 +50,21 @@ const App = {
     async consultar() {
         const cc = this.el('hdnCodcue').value;
         if (!cc) { return; }
-        const desde = this.el('txtDesde').value, hasta = this.el('txtHasta').value;
+        const desde = this.el('txtDesde').value, hasta = this.el('txtHasta').value, libro = this.el('cboLibro').value;
         this.el('cardCliente').style.display = '';
         this.el('cardGrid').style.display = '';
         this.el('tbodyResumen').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Cargando…</td></tr>';
 
-        const params = { codcue: cc };
+        const params = { codcue: cc, libro };
         if (desde) params.desde = desde;
         if (hasta) params.hasta = hasta;
         const r = await this.api('resumen', params);
         if (!r.ok) { this.el('tbodyResumen').innerHTML = `<tr><td colspan="7" class="text-danger text-center py-3">${this.esc(r.error)}</td></tr>`; return; }
 
+        const libroTxt = libro === 'blanco' ? ' · Libro Blanco' : (libro === 'negro' ? ' · Libro Negro' : '');
         this.el('lblCliente').textContent = (this.cli.DENCUE || '').trim();
         this.el('lblCuit').textContent = this.cli.CITCUE ? 'CUIT: ' + this.cli.CITCUE : '';
-        this.el('lblPeriodo').textContent = (desde ? this.dmy(desde) : 'Inicio') + ' – ' + (hasta ? this.dmy(hasta) : 'Hoy');
+        this.el('lblPeriodo').textContent = (desde ? this.dmy(desde) : 'Inicio') + ' – ' + (hasta ? this.dmy(hasta) : 'Hoy') + libroTxt;
         this.el('lblCantMov').textContent = r.data.movimientos.length;
 
         this.renderGrid(r.data);

@@ -59,8 +59,17 @@ module_head('Resumen de Cuenta', 'bi-journal-text',
                 <label class="form-label mb-1">Hasta</label>
                 <input type="date" id="txtHasta" class="form-control">
             </div>
-            <div class="col-md-2">
-                <button id="btnConsultar" class="btn btn-primary w-100" disabled><i class="bi bi-search me-1"></i>Consultar</button>
+            <div class="col-md-1">
+                <label class="form-label mb-1">Libro</label>
+                <select id="cboLibro" class="form-select">
+                    <option value="todos" selected>Todos</option>
+                    <option value="blanco">Blanco</option>
+                    <option value="negro">Negro</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label mb-1 d-none d-md-block">&nbsp;</label>
+                <button id="btnConsultar" class="btn btn-primary w-100" disabled><i class="bi bi-search"></i></button>
             </div>
         </div>
     </div>
