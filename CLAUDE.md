@@ -43,6 +43,13 @@ Login + dashboard OK, conectado a datos reales (readonly). Mapa del menú legacy
   le debemos** (color invertido). Validado vs SOPCUE 42/45.
 - **OJO DataTables:** las columnas numéricas con formato es-AR necesitan `columnDefs:[{targets,
   type:'num'}]` o el orden sale mal (no respeta data-order). Aplicado en ambos saldos.
+- `modules/iva_ventas/` — Libro **I.V.A. Ventas** por período + libro blanco/negro/todos. Porta
+  `Rpt CD IVA`. Inclusión por **`Tbl Operaciones Auxiliares.IVAAUX=True`** (JOIN por CODAUX, NO por
+  codope). Columnas (NC=460 negado): Neto=NETMOV, IVA=IRIMOV, NoGrav=NOGMOV, Ajuste=ABIMOV+ARDMOV,
+  Percep.IIBB=PIXMOV, Total=TOTMOV. Cond.IVA=INICRI (Tbl Categorias Resp. IVA por CODCRI). Resumen
+  por comprobante+alícuota (alic=IVA/Neto). Validado vs PDF Ago-2023 al centavo (los 60 comps que
+  existen; 2 FV del PDF ya no existen en el backend 2025 = data drift, NO bug). PDFs de validación
+  en la fuente: `_ProcesadoraTextilParque\2023-08 IVA Ventas *.pdf`.
 
 ### Hallazgos del modelo de datos (CLAVE para los próximos módulos)
 - `Tbl Movimientos` deudores: `CODORI='D'`, `CODCUE`, `CODOPE` (410=Remito RV no mueve cta cte,
