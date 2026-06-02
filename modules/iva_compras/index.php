@@ -40,6 +40,7 @@ module_head('I.V.A. Compras', 'bi-percent',
                 <label class="form-label mb-1">Hasta</label>
                 <input type="date" id="txtHasta" class="form-control" value="<?= $hasta_def ?>">
             </div>
+            <?php if (auth_ve_ambos()): ?>
             <div class="col-md-2">
                 <label class="form-label mb-1">Libro</label>
                 <select id="cboLibro" class="form-select">
@@ -48,6 +49,7 @@ module_head('I.V.A. Compras', 'bi-percent',
                     <option value="todos">Todos</option>
                 </select>
             </div>
+            <?php endif; ?>
             <div class="col-md-2">
                 <label class="form-label mb-1 d-none d-md-block">&nbsp;</label>
                 <button id="btnConsultar" class="btn btn-primary w-100"><i class="bi bi-search me-1"></i>Consultar</button>

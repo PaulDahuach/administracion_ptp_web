@@ -58,6 +58,9 @@ function resumen() {
     $desde  = isset($_GET['desde']) ? $_GET['desde'] : '';
     $hasta  = isset($_GET['hasta']) ? $_GET['hasta'] : '';
     $libro  = isset($_GET['libro']) ? $_GET['libro'] : 'todos';  // todos|blanco|negro
+    // Visibilidad por categoría: operador→blanco, capacitación→negro (ignora el param).
+    $forz = auth_libro_unico();
+    if ($forz !== '') $libro = $forz;
     if (!$codcue) { fail('codcue requerido'); return; }
 
     $sDesde = iso_to_serial($desde);

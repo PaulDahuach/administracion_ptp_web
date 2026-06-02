@@ -26,8 +26,12 @@ function listar() {
         $name[(int) $c['CODCUE']] = array('den' => trim((string) nz($c['DENCUE'], '')), 'cit' => trim((string) nz($c['CITCUE'], '')));
     }
 
+    $ve = auth_ve_ambos();
+    $unico = auth_libro_unico();   // '' | 'blanco' | 'negro'
+    $estW = ($unico === 'blanco') ? ' AND ESTMOV=True' : (($unico === 'negro') ? ' AND ESTMOV=False' : '');
+
     $rows = db_query("SELECT CODCUE, ESTMOV, SUM(DEBMOV) AS D, SUM(CREMOV) AS C
-        FROM [Tbl Movimientos] WHERE CODORI='A' AND CODOPE IN (310,320,330,340,350)
+        FROM [Tbl Movimientos] WHERE CODORI='A' AND CODOPE IN (310,320,330,340,350)$estW
         GROUP BY CODCUE, ESTMOV");
 
     $acc = array();
@@ -40,30 +44,36 @@ function listar() {
     }
 
     $out = array();
-    $tb = 0.0; $tn = 0.0; $aPagar = 0.0; $aFavor = 0.0;
+    $tb = 0.0; $tn = 0.0; $aPagar = 0.0;
     foreach ($acc as $cc => $v) {
         $b = round($v['b'], 2); $n = round($v['n'], 2); $t = round($b + $n, 2);
         if (abs($b) < 0.005 && abs($n) < 0.005) continue;
         $tb += $b; $tn += $n;
-        if ($t < 0) $aPagar += -$t; elseif ($t > 0) $aFavor += $t;
+        $sal = $ve ? $t : (($unico === 'negro') ? $n : $b);
+        if ($sal < 0) $aPagar += -$sal;
         $nm = isset($name[$cc]) ? $name[$cc] : array('den' => '(' . $cc . ')', 'cit' => '');
-        $out[] = array('codcue' => $cc, 'den' => $nm['den'], 'cit' => $nm['cit'],
-                       'blanco' => $b, 'negro' => $n, 'total' => $t);
+        if ($ve) {
+            $out[] = array('codcue' => $cc, 'den' => $nm['den'], 'cit' => $nm['cit'],
+                           'blanco' => $b, 'negro' => $n, 'total' => $t);
+        } else {
+            $out[] = array('codcue' => $cc, 'den' => $nm['den'], 'cit' => $nm['cit'], 'saldo' => round($sal, 2));
+        }
     }
 
-    // Orden por total ASC (más negativo = mayor deuda nuestra arriba)
-    usort($out, function ($a, $b) {
-        if ($a['total'] == $b['total']) return 0;
-        return ($a['total'] < $b['total']) ? -1 : 1;
+    // Orden por saldo ASC (más negativo = mayor deuda nuestra arriba)
+    usort($out, function ($a, $b) use ($ve) {
+        $ka = $ve ? $a['total'] : $a['saldo'];
+        $kb = $ve ? $b['total'] : $b['saldo'];
+        if ($ka == $kb) return 0;
+        return ($ka < $kb) ? -1 : 1;
     });
 
-    ok(array(
-        'clientes'  => $out,
-        'cantidad'  => count($out),
-        'totBlanco' => round($tb, 2),
-        'totNegro'  => round($tn, 2),
-        'totTotal'  => round($tb + $tn, 2),
-        'totPagar'  => round($aPagar, 2),
-        'totFavor'  => round($aFavor, 2),
-    ));
+    if ($ve) {
+        ok(array('clientes' => $out, 'cantidad' => count($out), 've_ambos' => true,
+                 'totBlanco' => round($tb, 2), 'totNegro' => round($tn, 2), 'totTotal' => round($tb + $tn, 2),
+                 'totPagar' => round($aPagar, 2)));
+    } else {
+        ok(array('clientes' => $out, 'cantidad' => count($out), 've_ambos' => false,
+                 'libro' => $unico, 'totPagar' => round($aPagar, 2)));
+    }
 }

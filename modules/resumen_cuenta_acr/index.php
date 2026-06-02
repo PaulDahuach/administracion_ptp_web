@@ -58,6 +58,7 @@ module_head('Resumen de Cuenta — Proveedores', 'bi-journal-text',
                 <label class="form-label mb-1">Hasta</label>
                 <input type="date" id="txtHasta" class="form-control">
             </div>
+            <?php if (auth_ve_ambos()): ?>
             <div class="col-md-1">
                 <label class="form-label mb-1">Libro</label>
                 <select id="cboLibro" class="form-select">
@@ -66,6 +67,7 @@ module_head('Resumen de Cuenta — Proveedores', 'bi-journal-text',
                     <option value="negro">Negro</option>
                 </select>
             </div>
+            <?php endif; ?>
             <div class="col-md-1">
                 <label class="form-label mb-1 d-none d-md-block">&nbsp;</label>
                 <button id="btnConsultar" class="btn btn-primary w-100" disabled><i class="bi bi-search"></i></button>

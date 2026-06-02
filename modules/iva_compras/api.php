@@ -38,6 +38,8 @@ function listar() {
     $desde = isset($_GET['desde']) ? $_GET['desde'] : '';
     $hasta = isset($_GET['hasta']) ? $_GET['hasta'] : '';
     $libro = isset($_GET['libro']) ? $_GET['libro'] : 'blanco';
+    $forz = auth_libro_unico();
+    if ($forz !== '') $libro = $forz;  // operador→blanco, capacitación→negro
     $sd = iso_to_serial($desde);
     $sh = iso_to_serial($hasta);
     if ($sd === null || $sh === null) { fail('Indicá el período (desde / hasta)'); return; }

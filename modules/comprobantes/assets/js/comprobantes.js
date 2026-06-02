@@ -17,7 +17,7 @@ const App = {
         url.searchParams.set('q', this.el('txtQ').value.trim());
         url.searchParams.set('tipo', this.el('cboTipo').value);
         url.searchParams.set('importe', this.el('txtImporte').value || '');
-        url.searchParams.set('libro', this.el('cboLibro').value);
+        url.searchParams.set('libro', (this.el('cboLibro') ? this.el('cboLibro').value : 'todos'));
         if (this.el('txtDesde').value) url.searchParams.set('desde', this.el('txtDesde').value);
         if (this.el('txtHasta').value) url.searchParams.set('hasta', this.el('txtHasta').value);
 

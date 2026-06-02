@@ -1,6 +1,6 @@
 /**
- * Saldos Actuales (Acreedores / Proveedores) — Frontend. Solo lectura.
- * Fila por proveedor: Blanco/Negro/Total. Negativo = le debemos (rojo).
+ * Saldos Actuales (Acreedores) — Frontend. Solo lectura.
+ * Negativo = le debemos (rojo). VE_AMBOS=true: Blanco/Negro/Total. false: un solo "Saldo".
  * Click → Resumen de Cuenta del proveedor.
  */
 const App = {
@@ -10,19 +10,20 @@ const App = {
         const r = await (await fetch('api.php?action=list')).json();
         if (!r.ok) { alert('Error: ' + r.error); return; }
         const d = r.data;
-
-        this.el('stPagar').textContent = '$' + this.num(d.totPagar);
-        this.el('stBlanco').textContent = '$' + this.num(d.totBlanco);
-        this.el('stNegro').textContent = '$' + this.num(d.totNegro);
-        this.el('stCant').textContent = d.cantidad;
-        this.el('ftBlanco').textContent = this.num(d.totBlanco);
-        this.el('ftNegro').textContent = this.num(d.totNegro);
-        this.el('ftTotal').textContent = this.num(d.totTotal);
-
-        // Acreedores: negativo (le debemos) = rojo; positivo (a favor) = verde
+        const ve = !!window.VE_AMBOS;
         const cls = v => v < 0 ? 'saldo-pos' : (v > 0 ? 'saldo-neg' : 'text-muted');
         const tb = document.querySelector('#tblSaldos tbody');
-        tb.innerHTML = d.clientes.map(c => `<tr data-codcue="${c.codcue}">
+
+        this.el('stPagar').textContent = '$' + this.num(d.totPagar);
+        this.el('stCant').textContent = d.cantidad;
+
+        if (ve) {
+            this.el('stBlanco').textContent = '$' + this.num(d.totBlanco);
+            this.el('stNegro').textContent = '$' + this.num(d.totNegro);
+            this.el('ftBlanco').textContent = this.num(d.totBlanco);
+            this.el('ftNegro').textContent = this.num(d.totNegro);
+            this.el('ftTotal').textContent = this.num(d.totTotal);
+            tb.innerHTML = d.clientes.map(c => `<tr data-codcue="${c.codcue}">
                 <td class="text-muted">${c.codcue}</td>
                 <td>${this.esc(c.den)}</td>
                 <td class="text-muted">${this.esc(c.cit)}</td>
@@ -30,16 +31,25 @@ const App = {
                 <td class="text-end ${cls(c.negro)}" data-order="${c.negro}">${c.negro ? this.num(c.negro) : '—'}</td>
                 <td class="text-end fw-bold ${cls(c.total)}" data-order="${c.total}">${this.num(c.total)}</td>
             </tr>`).join('');
+        } else {
+            this.el('ftTotal').textContent = '';
+            tb.innerHTML = d.clientes.map(c => `<tr data-codcue="${c.codcue}">
+                <td class="text-muted">${c.codcue}</td>
+                <td>${this.esc(c.den)}</td>
+                <td class="text-muted">${this.esc(c.cit)}</td>
+                <td class="text-end fw-bold ${cls(c.saldo)}" data-order="${c.saldo}">${this.num(c.saldo)}</td>
+            </tr>`).join('');
+        }
 
-        tb.querySelectorAll('tr').forEach(tr => tr.addEventListener('click', () => {
-            location.href = '../resumen_cuenta_acr/?codcue=' + tr.dataset.codcue;
-        }));
+        document.querySelectorAll('#tblSaldos tbody tr').forEach(tr =>
+            tr.addEventListener('click', () => { location.href = '../resumen_cuenta_acr/?codcue=' + tr.dataset.codcue; }));
 
-        if ($.fn.dataTable.isDataTable('#tblSaldos')) $('#tblSaldos').DataTable().destroy();
+        const numCol = ve ? [0, 3, 4, 5] : [0, 3];
+        const orderCol = ve ? 5 : 3;
         $('#tblSaldos').DataTable({
-            order: [[5, 'asc']],   // más negativo (mayor deuda) primero
+            order: [[orderCol, 'asc']],
             pageLength: 25,
-            columnDefs: [{ targets: [0, 3, 4, 5], type: 'num' }],
+            columnDefs: [{ targets: numCol, type: 'num' }],
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-AR.json' },
         });
         this.el('btnImprimir').disabled = false;

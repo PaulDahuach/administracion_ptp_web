@@ -25,7 +25,7 @@ const App = {
         document.addEventListener('click', e => { if (!e.target.closest('.ac-wrap')) this.el('acList').classList.remove('show'); });
         this.el('btnConsultar').addEventListener('click', () => this.consultar());
         this.el('btnImprimir').addEventListener('click', () => window.print());
-        this.el('cboLibro').addEventListener('change', () => { if (this.el('hdnCodcue').value) this.consultar(); });
+        if (this.el('cboLibro')) this.el('cboLibro').addEventListener('change', () => { if (this.el('hdnCodcue').value) this.consultar(); });
         ['txtDesde', 'txtHasta'].forEach(id => this.el(id).addEventListener('keydown', e => { if (e.key === 'Enter') this.consultar(); }));
     },
 
@@ -50,7 +50,7 @@ const App = {
     async consultar() {
         const cc = this.el('hdnCodcue').value;
         if (!cc) { return; }
-        const desde = this.el('txtDesde').value, hasta = this.el('txtHasta').value, libro = this.el('cboLibro').value;
+        const desde = this.el('txtDesde').value, hasta = this.el('txtHasta').value, libro = (this.el('cboLibro') ? this.el('cboLibro').value : 'todos');
         this.el('cardCliente').style.display = '';
         this.el('cardGrid').style.display = '';
         this.el('tbodyResumen').innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Cargando…</td></tr>';

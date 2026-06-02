@@ -10,7 +10,7 @@ const App = {
     },
 
     async consultar() {
-        const desde = this.el('txtDesde').value, hasta = this.el('txtHasta').value, libro = this.el('cboLibro').value;
+        const desde = this.el('txtDesde').value, hasta = this.el('txtHasta').value, libro = (this.el('cboLibro') ? this.el('cboLibro').value : 'blanco');
         if (!desde || !hasta) return;
         this.el('cardGrid').style.display = '';
         this.el('tbodyIva').innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">Cargando…</td></tr>';

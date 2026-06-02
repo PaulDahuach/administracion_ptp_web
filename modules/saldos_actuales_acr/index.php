@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/layout.php';
 auth_require_login();
+$ve = auth_ve_ambos();
 
 module_head('Saldos Actuales — Acreedores', 'bi-cash-stack',
     '<button id="btnImprimir" class="btn btn-outline-light btn-sm" disabled><i class="bi bi-printer me-1"></i>Imprimir</button>');
@@ -33,8 +34,10 @@ module_head('Saldos Actuales — Acreedores', 'bi-cash-stack',
 
 <div class="row g-2 mb-2 stats-row">
     <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-icon bg-danger-subtle text-danger"><i class="bi bi-cash-stack"></i></div><div><div class="stat-value saldo-pos" id="stPagar">$0,00</div><div class="stat-label">Total a Pagar</div></div></div></div>
+    <?php if ($ve): ?>
     <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-icon bg-light text-dark border"><i class="bi bi-circle"></i></div><div><div class="stat-value" id="stBlanco">$0,00</div><div class="stat-label">Saldo en Blanco</div></div></div></div>
     <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-icon bg-dark text-light"><i class="bi bi-circle-fill"></i></div><div><div class="stat-value" id="stNegro">$0,00</div><div class="stat-label">Saldo en Negro</div></div></div></div>
+    <?php endif; ?>
     <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-building"></i></div><div><div class="stat-value" id="stCant">0</div><div class="stat-label">Proveedores</div></div></div></div>
 </div>
 
@@ -48,24 +51,33 @@ module_head('Saldos Actuales — Acreedores', 'bi-cash-stack',
                     <th style="width:70px">Código</th>
                     <th>Proveedor</th>
                     <th style="width:130px">CUIT</th>
+                    <?php if ($ve): ?>
                     <th class="text-end" style="width:140px">Blanco</th>
                     <th class="text-end" style="width:140px">Negro</th>
                     <th class="text-end" style="width:150px">Total</th>
+                    <?php else: ?>
+                    <th class="text-end" style="width:160px">Saldo</th>
+                    <?php endif; ?>
                 </tr>
             </thead>
             <tbody></tbody>
             <tfoot class="fw-bold">
                 <tr>
                     <th colspan="3" class="text-end">Totales:</th>
+                    <?php if ($ve): ?>
                     <th class="text-end" id="ftBlanco"></th>
                     <th class="text-end" id="ftNegro"></th>
                     <th class="text-end" id="ftTotal"></th>
+                    <?php else: ?>
+                    <th class="text-end" id="ftTotal"></th>
+                    <?php endif; ?>
                 </tr>
             </tfoot>
         </table>
     </div>
 </div>
 
+<script>window.VE_AMBOS = <?= $ve ? 'true' : 'false' ?>;</script>
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>

@@ -51,6 +51,7 @@ module_head('Búsqueda de Comprobantes', 'bi-search', '');
                 <label class="form-label mb-1">Importe</label>
                 <input type="number" step="0.01" id="txtImporte" class="form-control" placeholder="Total exacto">
             </div>
+            <?php if (auth_ve_ambos()): ?>
             <div class="col-md-1">
                 <label class="form-label mb-1">Libro</label>
                 <select id="cboLibro" class="form-select">
@@ -59,6 +60,7 @@ module_head('Búsqueda de Comprobantes', 'bi-search', '');
                     <option value="negro">Negro</option>
                 </select>
             </div>
+            <?php endif; ?>
             <div class="col-md-1">
                 <label class="form-label mb-1 d-none d-md-block">&nbsp;</label>
                 <button id="btnBuscar" class="btn btn-primary w-100"><i class="bi bi-search"></i></button>

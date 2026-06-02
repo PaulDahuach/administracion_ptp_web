@@ -1,50 +1,56 @@
 /**
  * Saldos Actuales (Deudores) — Frontend. Solo lectura.
- * Una fila por deudor: Blanco / Negro / Total. Click → Resumen de Cuenta.
+ * VE_AMBOS=true: columnas Blanco/Negro/Total. false: un solo "Saldo" (operador/capacitación).
+ * Click → Resumen de Cuenta del cliente.
  */
 const App = {
-    init() {
-        this.load();
-    },
+    init() { this.load(); },
 
     async load() {
         const r = await (await fetch('api.php?action=list')).json();
         if (!r.ok) { alert('Error: ' + r.error); return; }
         const d = r.data;
-
-        this.el('stBlanco').textContent = '$' + this.num(d.totBlanco);
-        this.el('stNegro').textContent = '$' + this.num(d.totNegro);
-        this.el('stTotal').textContent = '$' + this.num(d.totTotal);
-        this.el('stTotal').className = 'stat-value ' + (d.totTotal >= 0 ? 'saldo-pos' : 'saldo-neg');
-        this.el('stCant').textContent = d.cantidad;
-        this.el('ftBlanco').textContent = this.num(d.totBlanco);
-        this.el('ftNegro').textContent = this.num(d.totNegro);
-        this.el('ftTotal').textContent = this.num(d.totTotal);
-
+        const ve = !!window.VE_AMBOS;
+        const cls = v => v > 0 ? 'saldo-pos' : (v < 0 ? 'saldo-neg' : 'text-muted');
         const tb = document.querySelector('#tblSaldos tbody');
-        tb.innerHTML = d.clientes.map(c => {
-            const cls = v => v > 0 ? 'saldo-pos' : (v < 0 ? 'saldo-neg' : 'text-muted');
-            return `<tr data-codcue="${c.codcue}">
+
+        if (ve) {
+            this.el('stBlanco').textContent = '$' + this.num(d.totBlanco);
+            this.el('stNegro').textContent = '$' + this.num(d.totNegro);
+            this.el('stTotal').textContent = '$' + this.num(d.totTotal);
+            this.el('stCant').textContent = d.cantidad;
+            this.el('ftBlanco').textContent = this.num(d.totBlanco);
+            this.el('ftNegro').textContent = this.num(d.totNegro);
+            this.el('ftTotal').textContent = this.num(d.totTotal);
+            tb.innerHTML = d.clientes.map(c => `<tr data-codcue="${c.codcue}">
                 <td class="text-muted">${c.codcue}</td>
                 <td>${this.esc(c.den)}</td>
                 <td class="text-muted">${this.esc(c.cit)}</td>
                 <td class="text-end ${cls(c.blanco)}" data-order="${c.blanco}">${c.blanco ? this.num(c.blanco) : '—'}</td>
                 <td class="text-end ${cls(c.negro)}" data-order="${c.negro}">${c.negro ? this.num(c.negro) : '—'}</td>
                 <td class="text-end fw-bold ${cls(c.total)}" data-order="${c.total}">${this.num(c.total)}</td>
-            </tr>`;
-        }).join('');
+            </tr>`).join('');
+        } else {
+            this.el('stTotal').textContent = '$' + this.num(d.total);
+            this.el('stCant').textContent = d.cantidad;
+            this.el('ftTotal').textContent = this.num(d.total);
+            tb.innerHTML = d.clientes.map(c => `<tr data-codcue="${c.codcue}">
+                <td class="text-muted">${c.codcue}</td>
+                <td>${this.esc(c.den)}</td>
+                <td class="text-muted">${this.esc(c.cit)}</td>
+                <td class="text-end fw-bold ${cls(c.saldo)}" data-order="${c.saldo}">${this.num(c.saldo)}</td>
+            </tr>`).join('');
+        }
 
-        // Click fila → resumen de cuenta del cliente
-        tb.querySelectorAll('tr').forEach(tr => tr.addEventListener('click', () => {
-            location.href = '../resumen_cuenta/?codcue=' + tr.dataset.codcue;
-        }));
+        document.querySelectorAll('#tblSaldos tbody tr').forEach(tr =>
+            tr.addEventListener('click', () => { location.href = '../resumen_cuenta/?codcue=' + tr.dataset.codcue; }));
 
-        // DataTable (orden por Total desc por defecto)
-        if ($.fn.dataTable.isDataTable('#tblSaldos')) $('#tblSaldos').DataTable().destroy();
+        const numCol = ve ? [0, 3, 4, 5] : [0, 3];
+        const orderCol = ve ? 5 : 3;
         $('#tblSaldos').DataTable({
-            order: [[5, 'desc']],
+            order: [[orderCol, 'desc']],
             pageLength: 25,
-            columnDefs: [{ targets: [0, 3, 4, 5], type: 'num' }],
+            columnDefs: [{ targets: numCol, type: 'num' }],
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-AR.json' },
         });
         this.el('btnImprimir').disabled = false;

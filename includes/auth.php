@@ -83,7 +83,8 @@ function auth_lookup_by_pass($pass) {
 /** Valida id+nombre+clave y abre sesión (paso 2). */
 function auth_login($id, $name, $pass) {
     $a = sys('auth');
-    $sql = "SELECT [{$a['col_id']}] AS id FROM [{$a['table']}] WHERE "
+    $catCol = !empty($a['col_cat']) ? ", [{$a['col_cat']}] AS cat" : '';
+    $sql = "SELECT [{$a['col_id']}] AS id{$catCol} FROM [{$a['table']}] WHERE "
          . "[{$a['col_id']}]=" . intval($id) . " AND "
          . "[{$a['col_name']}]='" . db_esc($name) . "' AND "
          . "[{$a['col_pass']}]='" . db_esc($pass) . "';";
@@ -91,9 +92,34 @@ function auth_login($id, $name, $pass) {
     if ($row) {
         $_SESSION['uid']   = $id;
         $_SESSION['uname'] = $name;
+        $_SESSION['ucat']  = isset($row['cat']) ? $row['cat'] : '';
         return true;
     }
     return false;
+}
+
+/**
+ * Visibilidad blanco/negro (ESTMOV) por categoría de usuario (col 'col_cat' en 'auth').
+ * Operador (O) → sólo blanco · Capacitación (C) → sólo negro · Supervisor (S)/Admin (A) → ambos.
+ * Sin col_cat configurado → sin restricción (otros sistemas no exponen blanco/negro).
+ * Default seguro: categoría desconocida ve sólo blanco (no se filtra negro sin querer).
+ */
+function auth_libro_unico() {       // '' = ve ambos | 'blanco' | 'negro'
+    $a = sys('auth');
+    if (empty($a['col_cat'])) return '';
+    $c = isset($_SESSION['ucat']) ? strtoupper(trim($_SESSION['ucat'])) : '';
+    if ($c === 'S' || $c === 'A') return '';
+    if ($c === 'C') return 'negro';
+    return 'blanco';
+}
+function auth_ve_ambos() { return auth_libro_unico() === ''; }
+
+/** Condición SQL de ESTMOV según categoría ('' = sin filtro). */
+function auth_estmov_filter() {
+    $l = auth_libro_unico();
+    if ($l === 'blanco') return 'ESTMOV=True';
+    if ($l === 'negro')  return 'ESTMOV=False';
+    return '';
 }
 
 /** Cierra la sesión. */
