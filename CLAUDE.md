@@ -50,6 +50,13 @@ Login + dashboard OK, conectado a datos reales (readonly). Mapa del menú legacy
   por comprobante+alícuota (alic=IVA/Neto). Validado vs PDF Ago-2023 al centavo (los 60 comps que
   existen; 2 FV del PDF ya no existen en el backend 2025 = data drift, NO bug). PDFs de validación
   en la fuente: `_ProcesadoraTextilParque\2023-08 IVA Ventas *.pdf`.
+- `modules/iva_compras/` — Libro **I.V.A. Compras** (Crédito Fiscal). Porta `Rpt 00 IVA` (Caption
+  "I.V.A. Compras"). Diferencias vs ventas: fecha=**FIXMOV**, **CODORI IN ('A','I')** (acreedores +
+  internos), inclusión=**A.IVAAUX=True OR O.IVAOPE=True** (join a Tbl Operaciones por CODOPE),
+  negación cuando **CODAUX=139 o CODOPE=330**, dos percepciones **IP1MOV (Percep IVA) / IP2MOV
+  (Percep IIBB)**. Sin PDF de validación (solo ventas) → revisado por coherencia. Multi-alícuota
+  (10.5/21/27%). NOTA: el resumen usa alícuota efectiva=IVA/Neto (aprox en mixtas); para split
+  exacto por alícuota la fuente es `Tbl Movimientos IVA`.
 
 ### Hallazgos del modelo de datos (CLAVE para los próximos módulos)
 - `Tbl Movimientos` deudores: `CODORI='D'`, `CODCUE`, `CODOPE` (410=Remito RV no mueve cta cte,
