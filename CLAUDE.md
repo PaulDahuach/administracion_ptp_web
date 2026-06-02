@@ -47,16 +47,18 @@ Login + dashboard OK, conectado a datos reales (readonly). Mapa del menú legacy
   `Rpt CD IVA`. Inclusión por **`Tbl Operaciones Auxiliares.IVAAUX=True`** (JOIN por CODAUX, NO por
   codope). Columnas (NC=460 negado): Neto=NETMOV, IVA=IRIMOV, NoGrav=NOGMOV, Ajuste=ABIMOV+ARDMOV,
   Percep.IIBB=PIXMOV, Total=TOTMOV. Cond.IVA=INICRI (Tbl Categorias Resp. IVA por CODCRI). Resumen
-  por comprobante+alícuota (alic=IVA/Neto). Validado vs PDF Ago-2023 al centavo (los 60 comps que
-  existen; 2 FV del PDF ya no existen en el backend 2025 = data drift, NO bug). PDFs de validación
-  en la fuente: `_ProcesadoraTextilParque\2023-08 IVA Ventas *.pdf`.
+  por comprobante+alícuota EXACTO desde **`Tbl Movimientos IVA`** (cols NUMMOV/ALIMOV/NETMOV/IRIMOV/
+  DECMOV; join por NUMMOV, GROUP BY CICMOV/CODOPE/ALIMOV — `resumen_alicuotas()`). Reconcilia: Σ IVA
+  por alícuota = IVA del header. Validado vs PDF Ago-2023 al centavo (los 60 comps que existen; 2 FV
+  del PDF ya no existen en el backend 2025 = data drift, NO bug). PDFs: `_ProcesadoraTextilParque\
+  2023-08 IVA Ventas *.pdf`. (OJO: en ACE NO usar `NZ()`/`CCur()` vía ADO → com_exception.)
 - `modules/iva_compras/` — Libro **I.V.A. Compras** (Crédito Fiscal). Porta `Rpt 00 IVA` (Caption
   "I.V.A. Compras"). Diferencias vs ventas: fecha=**FIXMOV**, **CODORI IN ('A','I')** (acreedores +
   internos), inclusión=**A.IVAAUX=True OR O.IVAOPE=True** (join a Tbl Operaciones por CODOPE),
   negación cuando **CODAUX=139 o CODOPE=330**, dos percepciones **IP1MOV (Percep IVA) / IP2MOV
   (Percep IIBB)**. Sin PDF de validación (solo ventas) → revisado por coherencia. Multi-alícuota
-  (10.5/21/27%). NOTA: el resumen usa alícuota efectiva=IVA/Neto (aprox en mixtas); para split
-  exacto por alícuota la fuente es `Tbl Movimientos IVA`.
+  (10.5/21/27%). Resumen por alícuota EXACTO desde `Tbl Movimientos IVA` (LEFT JOIN; ALIMOV null =
+  monotributo/exento → 0%). Reconcilia Σ IVA = header.
 
 ### Hallazgos del modelo de datos (CLAVE para los próximos módulos)
 - `Tbl Movimientos` deudores: `CODORI='D'`, `CODCUE`, `CODOPE` (410=Remito RV no mueve cta cte,

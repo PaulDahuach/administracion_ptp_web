@@ -54,7 +54,6 @@ function listar() {
 
     $comps = array();
     $T = array('neto' => 0.0, 'iva' => 0.0, 'nograv' => 0.0, 'ajuste' => 0.0, 'percep' => 0.0, 'total' => 0.0);
-    $resumen = array(); // clave "TIPO|ALIC" => totales
 
     foreach ($rows as $m) {
         $sg = ((int) $m['CODOPE'] == 460) ? -1 : 1;
@@ -73,15 +72,6 @@ function listar() {
         $pdv = str_pad((string) (int) nz($m['CIPMOV'], 0), 4, '0', STR_PAD_LEFT);
         $nro = str_pad((string) (int) nz($m['CINMOV'], 0), 8, '0', STR_PAD_LEFT);
 
-        // Alícuota efectiva (IVA / Neto). Textil PTP casi siempre 21%.
-        $alic = (abs($neto) > 0.005) ? round(abs($iva) / abs($neto) * 100, 1) : 0.0;
-        $rk = $cic . '|' . number_format($alic, 2, '.', '');
-        if (!isset($resumen[$rk])) $resumen[$rk] = array('tipo' => $cic, 'alicuota' => $alic,
-            'neto' => 0.0, 'iva' => 0.0, 'nograv' => 0.0, 'ajuste' => 0.0, 'percep' => 0.0, 'total' => 0.0, 'n' => 0);
-        $resumen[$rk]['neto'] += $neto; $resumen[$rk]['iva'] += $iva; $resumen[$rk]['nograv'] += $nograv;
-        $resumen[$rk]['ajuste'] += $ajuste; $resumen[$rk]['percep'] += $percep; $resumen[$rk]['total'] += $total;
-        $resumen[$rk]['n']++;
-
         $comps[] = array(
             'NUMMOV'  => (int) $m['NUMMOV'],
             'FECHA'   => fecha_serial($m['FEXMOV']),
@@ -99,16 +89,11 @@ function listar() {
         );
     }
 
-    // ordenar resumen por tipo, alícuota
-    $res = array_values($resumen);
-    usort($res, function ($a, $b) {
-        if ($a['tipo'] !== $b['tipo']) return strcmp($a['tipo'], $b['tipo']);
-        if ($a['alicuota'] == $b['alicuota']) return 0;
-        return ($a['alicuota'] < $b['alicuota']) ? -1 : 1;
-    });
-    foreach ($res as &$r) { foreach (array('neto','iva','nograv','ajuste','percep','total') as $k) $r[$k] = round($r[$k], 2); }
-    unset($r);
     foreach ($T as $k => $v) $T[$k] = round($v, 2);
+
+    // Resumen EXACTO por comprobante y alícuota desde [Tbl Movimientos IVA] (MoI),
+    // agrupando por NETMOV/IRIMOV reales de cada alícuota (no la tasa efectiva).
+    $res = resumen_alicuotas($w);
 
     ok(array(
         'comprobantes' => $comps,
@@ -116,4 +101,35 @@ function listar() {
         'totales'      => $T,
         'resumen'      => $res,
     ));
+}
+
+/** Split exacto por (comprobante, alícuota) desde [Tbl Movimientos IVA]. */
+function resumen_alicuotas($w) {
+    $rows = db_query("SELECT M.CICMOV, M.CODOPE AS OPE, MoI.ALIMOV AS ALI,
+        SUM(MoI.NETMOV) AS NET, SUM(MoI.IRIMOV) AS IRI, COUNT(*) AS N
+        FROM (([Tbl Movimientos] AS M INNER JOIN [Tbl Movimientos IVA] AS MoI ON M.NUMMOV = MoI.NUMMOV)
+          INNER JOIN [Tbl Operaciones Auxiliares] AS O ON O.CODAUX = M.CODAUX)
+        WHERE $w GROUP BY M.CICMOV, M.CODOPE, MoI.ALIMOV");
+
+    $buckets = array();
+    foreach ($rows as $r) {
+        $sg = ((int) $r['OPE'] == 460) ? -1 : 1;
+        $cic = trim((string) nz($r['CICMOV'], ''));
+        $cic = ($cic !== '') ? $cic : 'OTROS';
+        $ali = ($r['ALI'] === null) ? 0.0 : round((float) $r['ALI'], 2);
+        $k = $cic . '|' . number_format($ali, 2, '.', '');
+        if (!isset($buckets[$k])) $buckets[$k] = array('tipo' => $cic, 'alicuota' => $ali, 'neto' => 0.0, 'iva' => 0.0, 'n' => 0);
+        $buckets[$k]['neto'] += $sg * (float) nz($r['NET'], 0);
+        $buckets[$k]['iva']  += $sg * (float) nz($r['IRI'], 0);
+        $buckets[$k]['n']    += (int) $r['N'];
+    }
+    $res = array_values($buckets);
+    usort($res, function ($a, $b) {
+        if ($a['tipo'] !== $b['tipo']) return strcmp($a['tipo'], $b['tipo']);
+        if ($a['alicuota'] == $b['alicuota']) return 0;
+        return ($a['alicuota'] < $b['alicuota']) ? -1 : 1;
+    });
+    foreach ($res as &$r) { $r['neto'] = round($r['neto'], 2); $r['iva'] = round($r['iva'], 2); }
+    unset($r);
+    return $res;
 }

@@ -61,9 +61,7 @@ const App = {
             <td class="text-end">${this.num(x.alicuota)}%</td>
             <td class="text-end text-muted">${x.n}</td>
             <td class="text-end">${this.num(x.neto)}</td>
-            <td class="text-end">${this.num(x.iva)}</td>
-            <td class="text-end">${this.num(x.percIva)}</td>
-            <td class="text-end fw-medium">${this.num(x.total)}</td></tr>`).join('');
+            <td class="text-end fw-medium">${this.num(x.iva)}</td></tr>`).join('');
         this.el('cardResumen').style.display = d.resumen.length ? '' : 'none';
 
         this.el('phPeriodo').textContent = this.dmy(desde) + ' – ' + this.dmy(hasta) +

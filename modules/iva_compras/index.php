@@ -103,14 +103,14 @@ module_head('I.V.A. Compras', 'bi-percent',
 </div>
 
 <div class="card" id="cardResumen" style="display:none;">
-    <div class="card-header py-2"><strong>Resumen por comprobante y alícuota</strong></div>
+    <div class="card-header py-2"><strong>Resumen por comprobante y alícuota</strong>
+        <span class="text-muted small ms-2">(neto/IVA exactos por alícuota — base F2002)</span></div>
     <div class="card-body p-0">
         <table class="table table-sm mb-0" id="grdResumen">
             <thead class="table-light">
                 <tr>
-                    <th>Comprobante</th><th class="text-end" style="width:90px">Alícuota</th><th class="text-end" style="width:70px">Cant.</th>
-                    <th class="text-end" style="width:140px">Neto Gravado</th><th class="text-end" style="width:130px">I.V.A.</th>
-                    <th class="text-end" style="width:110px">P. IVA</th><th class="text-end" style="width:140px">Total</th>
+                    <th>Comprobante</th><th class="text-end" style="width:120px">Alícuota</th><th class="text-end" style="width:90px">Cant.</th>
+                    <th class="text-end" style="width:180px">Neto Gravado</th><th class="text-end" style="width:180px">I.V.A.</th>
                 </tr>
             </thead>
             <tbody id="tbodyResumen"></tbody>
