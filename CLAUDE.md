@@ -98,6 +98,13 @@ Próximo: confirmar con Paul el siguiente módulo (Emisiones requieren readwrite
   OJO: el saldo del Balance difiere del de Plan/Mayor por el INICUE de cada cuenta (ej CAJA 2.205).
   Query pesada (~10s, escanea 517k imputaciones hasta hasta) — aceptable para reporte mensual.
 
+### Varios
+- `modules/comprobantes/` — **Búsqueda de Comprobantes** sobre `Tbl Movimientos`. Filtros: texto
+  (DENMOV/CITMOV/CAEMOV LIKE; si es numérico también CINMOV/NUMMOV exacto), tipo (CICMOV, dropdown
+  server-side), importe (TOTMOV ±0,5), rango FEXMOV, libro (ESTMOV). TOP 200, orden FEXMOV DESC.
+  Operación = CODOPE→DENOPE (Tbl Operaciones). Filas clickeables → resumen_cuenta (D) / _acr (A).
+  Marca anulados (ANUMOV). Tipos CICMOV: FV/RV/NC/ND/RC/CP/OP/AD/AA/DB/BD/TB/CV/SI/RS/AS/DC/CA/VC/RG/RA.
+
 ## Reglas técnicas (ver también CLAUDE.md del kit y de produccion_ptp)
 - **PHP 5.5** target (server cliente Win 2008 R2 + WAMP 32-bit): NO `??`, `intdiv`, arrow fns,
   `match`, spread. JS ES6 OK (usan Chrome).
