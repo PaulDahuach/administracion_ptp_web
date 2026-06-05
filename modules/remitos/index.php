@@ -61,7 +61,7 @@ module_head('Remitos — Deudores', 'bi-truck', $toolbar);
       <div class="col-md-2"><label class="form-label mb-1">Bonificación %</label><input type="text" id="pdcmov" class="form-control rem-num" readonly></div>
       <div class="col-md-2"><label class="form-label mb-1">Saldo cta cte</label><input type="text" id="saldo" class="form-control rem-num" readonly></div>
       <div class="col-md-2"><label class="form-label mb-1">Cód. Postal/Dest.</label><input type="number" id="coddst" class="form-control" value="1"></div>
-      <div class="col-md-2"><label class="form-label mb-1">COT</label><input type="text" id="cotmov" class="form-control" placeholder="Cód. traslado"></div>
+      <div class="col-md-2"><label class="form-label mb-1">Cotización u$s</label><input type="number" step="0.01" id="cotmov" class="form-control rem-num" placeholder="Si hay prod. en u$s"></div>
       <div class="col-md-2"><label class="form-label mb-1">Valor declarado</label><input type="number" step="0.01" id="vdxmov" class="form-control rem-num" value="0"></div>
       <div class="col-md-2"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
     </div>
@@ -119,5 +119,5 @@ module_head('Remitos — Deudores', 'bi-truck', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/remitos.js?v=4"></script>
+<script src="assets/js/remitos.js?v=6"></script>
 '); ?>

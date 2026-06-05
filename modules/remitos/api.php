@@ -90,11 +90,37 @@ function buscar_productos() {
         WHERE (CODPRO Like '%$s%') OR (DENPRO Like '%$s%') ORDER BY DENPRO;"));
 }
 
-/** Datos de un producto para una línea: unidad por defecto, factor, decimales, si controla stock, costo. */
+/**
+ * Precio neto unitario SUGERIDO (replica RutGetPrecio del subform):
+ *   base = exclusión del cliente (Tbl Cuentas Corrientes Exclusiones.PUNPRO) si existe, si no PLVPRO.
+ *   pun  = base × factor de la unidad × cotización de la moneda (Tbl Monedas.COTMON; P=1).
+ *   si NO hay exclusión → restar la bonificación del cliente (LDPCAT de su categoría).
+ * (El dólar del legacy usa la cotización del propio remito; acá usamos Tbl Monedas. Editable igual.)
+ */
+function precio_sugerido($codpro, $codcue, $plvpro, $fct, $codmon) {
+    $cp = db_esc($codpro);
+    $excl = null;
+    if ($codcue > 0) {
+        $ex = db_row("SELECT PUNPRO FROM [Tbl Cuentas Corrientes Exclusiones] WHERE CODCUE=" . (int) $codcue . " AND CODPRO='$cp';");
+        if ($ex && $ex['PUNPRO'] !== null && $ex['PUNPRO'] !== '') $excl = (float) $ex['PUNPRO'];
+    }
+    $pun = (($excl !== null) ? $excl : (float) $plvpro) * (float) $fct;
+    $cot = db_row("SELECT COTMON FROM [Tbl Monedas] WHERE CODMON='" . db_esc($codmon) . "';");
+    $pun *= (float) nz($cot ? $cot['COTMON'] : 1, 1);
+    if ($excl === null && $codcue > 0) {
+        $cli = db_row("SELECT Cat.LDPCAT FROM [Tbl Cuentas Corrientes] AS C INNER JOIN [Tbl Categorias Cuentas Corrientes] AS Cat ON C.CODCAT=Cat.CODCAT WHERE C.CODCUE=" . (int) $codcue . ";");
+        $pdc = (float) nz($cli ? $cli['LDPCAT'] : 0, 0);
+        $pun -= $pun * $pdc / 100;
+    }
+    return round($pun, 4);
+}
+
+/** Datos de un producto para una línea: unidad/factor/decimales/stock/existencia/costo/lista + precio sugerido. */
 function get_producto() {
     $cp = isset($_GET['codpro']) ? db_esc(trim($_GET['codpro'])) : '';
     $suc = isset($_GET['codsuc']) ? (int) $_GET['codsuc'] : 1;
-    $pro = db_row("SELECT P.CODPRO, P.DENPRO, P.CODCAT, P.CODUDM, P.COSPRO, Cat.STKCAT
+    $cue = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    $pro = db_row("SELECT P.CODPRO, P.DENPRO, P.CODCAT, P.CODUDM, P.COSPRO, P.PLVPRO, P.CODMON, Cat.STKCAT
         FROM [Tbl Productos] AS P INNER JOIN [Tbl Categorias Productos] AS Cat ON P.CODCAT = Cat.CODCAT
         WHERE P.CODPRO = '$cp';");
     if (!$pro) { fail('Producto no encontrado'); return; }
@@ -102,18 +128,21 @@ function get_producto() {
     $pu = db_row("SELECT FCTPUM FROM [Tbl Productos Unidades] WHERE CODPRO='$cp' AND CODUDM=$udm;");
     $um = db_row("SELECT DENUDM, DECUDM FROM [Tbl Unidades de Medida] WHERE CODUDM=$udm;");
     $stk = ($pro['STKCAT'] === true || $pro['STKCAT'] == -1);
+    $fct = (float) nz($pu['FCTPUM'], 1);
     $exi = null;
     if ($stk) {
         $e = db_row("SELECT EXISTK FROM [Tbl Stock] WHERE CODPRO='$cp' AND CODSUC=$suc;");
-        $fct = (float) nz($pu['FCTPUM'], 1);
         $exi = $e ? round((float) nz($e['EXISTK'], 0) / ($fct ?: 1), 4) : 0;
     }
+    $mon = trim((string) nz($pro['CODMON'], 'P'));
+    $pul = round((float) nz($pro['PLVPRO'], 0), 4);
     ok(array(
         'CODPRO' => trim($pro['CODPRO']), 'DENPRO' => trim(nz($pro['DENPRO'], '')),
         'CODUDM' => $udm, 'DENUDM' => trim(nz($um['DENUDM'], '')),
-        'FCTPUM' => (float) nz($pu['FCTPUM'], 1), 'DECUDM' => (int) nz($um['DECUDM'], 2),
-        'COSPRO' => round((float) nz($pro['COSPRO'], 0), 4), 'STK' => $stk ? 1 : 0,
-        'CODMON' => 'P', 'EXISTENCIA' => $exi,
+        'FCTPUM' => $fct, 'DECUDM' => (int) nz($um['DECUDM'], 2),
+        'COSPRO' => round((float) nz($pro['COSPRO'], 0), 4), 'PLVPRO' => $pul,
+        'STK' => $stk ? 1 : 0, 'CODMON' => $mon, 'EXISTENCIA' => $exi,
+        'PUN_SUG' => precio_sugerido($cp, $cue, $pul, $fct, $mon),
     ));
 }
 
@@ -156,7 +185,7 @@ function guardar() {
     $pdcmov = round((float) nz($cli['LDPCAT'], 0), 2);   // bonificación = de la categoría del cliente
     $codtra = isset($d['codtra']) && $d['codtra'] !== '' ? (int) $d['codtra'] : (nz($cli['CODTRA'], null));
     $detmov = isset($d['detmov']) ? trim($d['detmov']) : '';
-    $cotmov = isset($d['cotmov']) ? trim($d['cotmov']) : '';
+    $cotmov = isset($d['cotmov']) ? trim((string) $d['cotmov']) : '';   // COTMOV = cotización del dólar (numérico)
     $vdxIn  = isset($d['vdxmov']) ? trim((string) $d['vdxmov']) : '';
     $vdxSql = ($vdxIn === '' || (float) $vdxIn == 0) ? 'Null' : (string) round((float) $vdxIn, 2);  // sin valor declarado → Null
 
@@ -190,7 +219,7 @@ function guardar() {
         $codcri = (int) nz($cli['CODCRI'], 0);
         $codcat = (int) nz($cli['CODCAT'], 0);
         $detSql = sql_txt($detmov);
-        $cotSql = sql_txt($cotmov);
+        $cotSql = (is_numeric($cotmov) && (float) $cotmov != 0) ? (string) round((float) $cotmov, 4) : 'Null';  // cotización u$s
         $traSql = ($codtra === null || $codtra === '') ? 'Null' : (string) (int) $codtra;
 
         // --- Header en Tbl Movimientos (CODOPE=410, CICMOV='RV') ---

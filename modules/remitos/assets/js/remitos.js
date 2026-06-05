@@ -76,7 +76,7 @@ const R = {
             '<div class="col-md-6"><b>Cliente:</b> ' + this.esc(d.DENMOV) + (d.CITMOV ? ' · ' + this.esc(d.CITMOV) : '') + '</div>' +
             '<div class="col-md-3"><b>Emisión:</b> ' + this.esc(d.FEXMOV) + '</div>' +
             '<div class="col-md-3"><b>Facturación:</b> ' + this.esc(d.FRVMOV) + '</div>' +
-            (d.COTMOV ? '<div class="col-md-6"><b>COT:</b> ' + this.esc(d.COTMOV) + '</div>' : '') +
+            (d.COTMOV ? '<div class="col-md-6"><b>Cotiz. u$s:</b> ' + this.esc(d.COTMOV) + '</div>' : '') +
             (d.DETMOV ? '<div class="col-12"><b>Detalle:</b> ' + this.esc(d.DETMOV) + '</div>' : '') + '</div>' +
             '<table class="table table-sm"><thead><tr><th>Código</th><th>Denominación</th><th>Unidad</th><th>O.Corte</th><th>O.Proc.</th><th>PTP</th><th class="text-end">Cant.</th><th class="text-end">P.U.Neto</th><th class="text-end">Total</th></tr></thead>' +
             '<tbody>' + ls + '</tbody><tfoot><tr class="fw-bold"><td colspan="8" class="text-end">Total:</td><td class="text-end">' + this.num(d.TOTMOV) + '</td></tr></tfoot></table>';
@@ -132,14 +132,16 @@ const R = {
     },
 
     async pickProducto(tr, codpro) {
-        var j = await this.api('get_producto', { codpro: codpro, codsuc: this.el('coddst').value || 1 });
+        var j = await this.api('get_producto', { codpro: codpro, codsuc: this.el('coddst').value || 1, codcue: this.el('codcue').value || 0 });
         if (!j.ok) { this.toast(j.error, 'danger'); return; }
         var d = j.data, rec = this.lines.find(function (x) { return x.i == tr.dataset.i; });
         rec.codpro = d.CODPRO; rec.denmov = d.DENPRO; rec.codudm = d.CODUDM; rec.denudm = d.DENUDM;
-        rec.fctmov = d.FCTPUM; rec.dummov = d.DECUDM; rec.codmon = d.CODMON; rec.cosmov = d.COSPRO; rec.pulmov = d.COSPRO; rec.stk = d.STK;
+        rec.fctmov = d.FCTPUM; rec.dummov = d.DECUDM; rec.codmon = d.CODMON; rec.cosmov = d.COSPRO; rec.pulmov = d.PLVPRO; rec.stk = d.STK;
         tr.querySelector('.l-cod').value = d.CODPRO;
         tr.querySelector('.l-den').textContent = d.DENPRO + (d.STK && d.EXISTENCIA !== null ? ' · stock: ' + this.num(d.EXISTENCIA) : '');
         tr.querySelector('.l-udm').textContent = d.DENUDM;
+        tr.querySelector('.l-pun').value = d.PUN_SUG;   // precio sugerido (editable; el operador puede pisarlo)
+        this.recalc(tr);
         tr.querySelector('.l-cant').focus();
     },
 
