@@ -126,6 +126,52 @@ Próximo: confirmar con Paul el siguiente módulo (Emisiones requieren readwrite
 - Escrituras en transacción (`db_begin/commit/rollback`); portar fiel del VBA (SetData A/M/B).
 - `git -C C:\wamp64\www\administracion_ptp`. `config/system.php` NO se versiona.
 
+## Por PORTAR: teclado estilo Access (UX de adopción) — viene de produccion_ptp
+Feedback real de usuarios: vienen del legacy de escritorio (teclado rapidísimo) y rechazan
+tener que usar Tab y los combos nativos del browser; si no sienten respuesta, se aferran a la
+versión vieja. `produccion_ptp` lo resolvió con dos helpers vanilla (sin dependencias) en su
+`assets/js/app.js` (commit `619e70a`). **Conviene portarlos a ESTE sistema** (y a supervisores):
+
+- **IWK.keynav** — Enter avanza al campo siguiente, Shift+Enter retrocede, select-all al
+  enfocar (escribir reemplaza el contenido), y tras el último campo el foco salta al botón de
+  submit. En memos (textarea): Enter avanza igual y **Ctrl+Enter** inserta el salto de línea.
+- **IWK.combo** — convierte los `<select>` en combos **buscables** (filtran por subcadena sin
+  acentos al tipear), manteniendo el `<select>` nativo como fuente de verdad (intercepta
+  `.value` + MutationObserver) → NO hay que tocar la lógica de cada módulo. `enhanceForm` monta
+  un observer que también potencia los `<select>` agregados en runtime (grids, hijos inline).
+
+**Cómo portarlo:**
+1. Copiar los bloques `IWK.keynav` e `IWK.combo` de
+   `C:\wamp64\www\produccion_ptp\assets\js\app.js` al `app.js` de este sistema (leerlos de ahí).
+2. Copiar los estilos `.iwk-combo*` de `C:\wamp64\www\produccion_ptp\assets\css\app.css`.
+3. En `includes/layout.php`, versionar el include `app.js?v=N` (cache-bust en el cliente).
+4. Activar por form: agregar `data-keynav data-keynav-submit="#btnGuardar"` (o el id real del
+   botón de grabar) al contenedor del form de cada pantalla de **carga**.
+5. Validar SIEMPRE en navegador (Chrome) antes de dar por hecho.
+
+**OJO con las consultas:** varios módulos de Administración son de filtro y ya manejan Enter
+(`Enter → load()` en el campo de búsqueda). NO pongas `data-keynav` en esos forms tal cual (el
+Enter avanzaría en vez de filtrar). Aplicalo a forms de **alta/edición**; en filtros, si querés
+los combos buscables, evaluá caso por caso. (En produccion_ptp se activó solo en: recepcion,
+definicion, abm —16 maestros—, odm_edit, ptp_edit, presupuesto_edit; las consultas NO se tocaron.)
+
+## Por PORTAR: tracking de uso (adopción) — viene de produccion_ptp
+Para medir adopción del sistema nuevo (qué páginas, cuánto, desde qué máquinas, quién)
+y saber dónde empujar a los usuarios a dejar el legacy. Implementado en produccion_ptp:
+- **`includes/track.php`** (`track_hit()`): log append en `logs/usage-YYYY-MM.csv` — NO toca
+  la mdb, funciona en readonly. Registra fecha/hora · usuario (sesión) · IP · host (DNS
+  inverso cacheado en `logs/hosts.json`) · módulo (deriva de la ruta, distingue `?modo=`/`?m=`) · ruta.
+- Enganche: `track_hit()` al inicio de `module_head()` (cubre todos los módulos) y en
+  `app/index.php` (dashboard). Solo cuenta cargas de página, no los fetch/AJAX.
+- Visor **`modules/uso/`**: filtra por fechas y agrega por módulo / usuario / máquina / día
+  (KPIs + gráfico de barras + 3 tablas). Lee y agrega los CSV en PHP.
+- `logs/.gitignore` para no versionar los logs.
+
+**Cómo portarlo:** copiar `includes/track.php` y `modules/uso/` desde produccion_ptp;
+agregar el require + `track_hit()` en `includes/layout.php` (module_head) y en el dashboard;
+crear `logs/` con `.gitignore`; y la entrada de menú "Estadísticas de Uso" en config (no se
+deploya, se agrega a mano). Identifica la máquina por IP+host.
+
 ## NO confundir con la carpeta `ptp` (MySQL, patrón A)
 `C:\wamp64\www\ptp\` es un intento ANTERIOR de migrar Administración a MySQL (clon de
 inforemp-template). Quedó **parado** (referencia / meta a largo plazo). La vía activa para
