@@ -126,34 +126,33 @@ Próximo: confirmar con Paul el siguiente módulo (Emisiones requieren readwrite
 - Escrituras en transacción (`db_begin/commit/rollback`); portar fiel del VBA (SetData A/M/B).
 - `git -C C:\wamp64\www\administracion_ptp`. `config/system.php` NO se versiona.
 
-## Por PORTAR: teclado estilo Access (UX de adopción) — viene de produccion_ptp
-Feedback real de usuarios: vienen del legacy de escritorio (teclado rapidísimo) y rechazan
-tener que usar Tab y los combos nativos del browser; si no sienten respuesta, se aferran a la
-versión vieja. `produccion_ptp` lo resolvió con dos helpers vanilla (sin dependencias) en su
-`assets/js/app.js` (commit `619e70a`). **Conviene portarlos a ESTE sistema** (y a supervisores):
+## HECHO: teclado estilo Access (UX de adopción) — portado de produccion_ptp
+Para los usuarios que vienen del legacy de escritorio (teclado rapidísimo) y rechazan Tab + los
+combos nativos del browser. Dos helpers vanilla (sin dependencias) en `assets/js/app.js`
+(+ estilos `.iwk-combo*` en `assets/css/app.css`); se activan en cualquier form con `[data-keynav]`:
 
 - **IWK.keynav** — Enter avanza al campo siguiente, Shift+Enter retrocede, select-all al
   enfocar (escribir reemplaza el contenido), y tras el último campo el foco salta al botón de
-  submit. En memos (textarea): Enter avanza igual y **Ctrl+Enter** inserta el salto de línea.
-- **IWK.combo** — convierte los `<select>` en combos **buscables** (filtran por subcadena sin
-  acentos al tipear), manteniendo el `<select>` nativo como fuente de verdad (intercepta
+  submit (`data-keynav-submit="#btnX"`). En memos (textarea): Enter avanza igual y **Ctrl+Enter**
+  inserta el salto de línea.
+- **IWK.combo** — convierte los `<select>` del form en combos **buscables** (filtran por subcadena
+  sin acentos al tipear), manteniendo el `<select>` nativo como fuente de verdad (intercepta
   `.value` + MutationObserver) → NO hay que tocar la lógica de cada módulo. `enhanceForm` monta
   un observer que también potencia los `<select>` agregados en runtime (grids, hijos inline).
+  Excluir un select puntual con `[data-nocombo]`.
 
-**Cómo portarlo:**
-1. Copiar los bloques `IWK.keynav` e `IWK.combo` de
-   `C:\wamp64\www\produccion_ptp\assets\js\app.js` al `app.js` de este sistema (leerlos de ahí).
-2. Copiar los estilos `.iwk-combo*` de `C:\wamp64\www\produccion_ptp\assets\css\app.css`.
-3. En `includes/layout.php`, versionar el include `app.js?v=N` (cache-bust en el cliente).
-4. Activar por form: agregar `data-keynav data-keynav-submit="#btnGuardar"` (o el id real del
-   botón de grabar) al contenedor del form de cada pantalla de **carga**.
-5. Validar SIEMPRE en navegador (Chrome) antes de dar por hecho.
+`includes/layout.php` versiona los includes (`app.css?v=2`, `app.js?v=2`) para cache-bust; subir N
+al tocar esos archivos. Validado en Chrome (combo filtra sin acentos, elige, el select real se
+actualiza, y el Enter avanza al campo siguiente saltando el select oculto).
+
+**Activado en:** `modules/abm/index.php` (`#mainForm`, el form de alta/edición de los maestros,
+con `data-keynav-submit="#btnGuardar"`; el botón solo existe en readwrite). Al sumar pantallas de
+**carga** nuevas, agregar `data-keynav` al contenedor del form.
 
 **OJO con las consultas:** varios módulos de Administración son de filtro y ya manejan Enter
 (`Enter → load()` en el campo de búsqueda). NO pongas `data-keynav` en esos forms tal cual (el
 Enter avanzaría en vez de filtrar). Aplicalo a forms de **alta/edición**; en filtros, si querés
-los combos buscables, evaluá caso por caso. (En produccion_ptp se activó solo en: recepcion,
-definicion, abm —16 maestros—, odm_edit, ptp_edit, presupuesto_edit; las consultas NO se tocaron.)
+los combos buscables, evaluá caso por caso.
 
 ## Por PORTAR: tracking de uso (adopción) — viene de produccion_ptp
 Para medir adopción del sistema nuevo (qué páginas, cuánto, desde qué máquinas, quién)

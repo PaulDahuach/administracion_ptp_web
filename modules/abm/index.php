@@ -29,7 +29,7 @@ module_head($def['titulo'], (isset($def['icono']) ? $def['icono'] : 'bi-table'),
 <link href="assets/css/abm.css" rel="stylesheet">
 <script>window.ABM_M = <?= json_encode($m) ?>; window.ABM_RO = <?= $ro ? 'true' : 'false' ?>;</script>
 
-<div class="fc-form mode-view" id="mainForm">
+<div class="fc-form mode-view" id="mainForm" data-keynav data-keynav-submit="#btnGuardar">
   <div class="card fc-card">
     <div class="card-header" data-bs-toggle="collapse" data-bs-target="#cMain">
       <span><i class="bi <?= h((isset($def['icono']) ? $def['icono'] : 'bi-table')) ?> me-1"></i><?= h($def['titulo']) ?>

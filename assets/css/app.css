@@ -89,3 +89,16 @@ a.kpi:hover { transform:translateY(-2px); box-shadow:0 8px 22px -8px var(--c); }
 .menu-noresults { color:var(--bs-secondary-color); padding:1rem; }
 
 @media (max-width:991px){ .app-content { padding:1rem; } }
+
+/* IWK.combo — combo buscable estilo Access (potencia <select> nativos) */
+.iwk-combo { position:relative; }
+.iwk-combo-src { display:none; }
+.iwk-combo-list { position:absolute; top:100%; left:0; right:0; z-index:1080;
+    max-height:240px; overflow-y:auto; margin-top:2px; display:none;
+    background:var(--bs-body-bg); border:1px solid var(--bs-border-color);
+    border-radius:.375rem; box-shadow:0 6px 18px rgba(0,0,0,.25); }
+.iwk-combo-list.show { display:block; }
+.iwk-combo-opt { padding:.25rem .6rem; cursor:pointer; font-size:.85rem;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.iwk-combo-opt.active, .iwk-combo-opt:hover { background:var(--fc-primary); color:#fff; }
+.iwk-combo-empty { padding:.3rem .6rem; color:var(--bs-secondary-color); font-size:.8rem; }
