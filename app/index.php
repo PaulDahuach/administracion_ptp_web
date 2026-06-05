@@ -97,14 +97,24 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
         </div>
         <?php endif; ?>
 
-        <?php if ($menu): ?>
+        <?php
+        // Filtrar tarjetas admin-only (flag 'admin'=>true) si el usuario no es admin;
+        // las solapas que quedan vacías no se muestran (ni tab ni grupo).
+        $isAdmin = auth_is_admin();
+        $vmenu = array();
+        foreach ($menu as $section => $cards) {
+            $vis = array();
+            foreach ($cards as $c) { if (empty($c['admin']) || $isAdmin) $vis[] = $c; }
+            if ($vis) $vmenu[$section] = $vis;
+        }
+        if ($vmenu): ?>
         <div class="menu-tabs" id="menuTabs" role="tablist">
-            <?php $ti = 0; foreach ($menu as $section => $cards): ?>
+            <?php $ti = 0; foreach ($vmenu as $section => $cards): ?>
             <button type="button" class="menu-tab<?= $ti === 0 ? ' active' : '' ?>" data-tab="<?= $ti ?>" role="tab"><?= h($section) ?><span class="menu-tab-n"><?= count($cards) ?></span></button>
             <?php $ti++; endforeach; ?>
         </div>
         <div class="menu-panel" id="menuPanel">
-            <?php $gi = 0; foreach ($menu as $section => $cards): ?>
+            <?php $gi = 0; foreach ($vmenu as $section => $cards): ?>
             <section class="mpanel-group<?= $gi === 0 ? ' active' : '' ?>" data-group="<?= $gi ?>">
                 <div class="mpanel-head"><?= h($section) ?></div>
                 <?php foreach ($cards as $c): ?>
