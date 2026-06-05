@@ -4,17 +4,41 @@
  * Reúne utilidades que en RDN estaban repetidas en cada api.php.
  */
 
+/**
+ * Garantiza UTF-8 válido en todo string (recursivo) para que json_encode no
+ * devuelva false (→ body vacío). Los datos de la mdb ya pasan por ado_val, pero
+ * los mensajes de com_exception vienen en Windows-1252 y romperían la respuesta.
+ */
+function utf8_guard($v) {
+    if (is_string($v)) {
+        return mb_check_encoding($v, 'UTF-8') ? $v : mb_convert_encoding($v, 'UTF-8', 'Windows-1252');
+    }
+    if (is_array($v)) {
+        $out = [];
+        foreach ($v as $k => $vv) $out[$k] = utf8_guard($vv);
+        return $out;
+    }
+    return $v;
+}
+
+/** json_encode robusto: si falla por UTF-8, reintenta saneando (camino normal sin costo). */
+function json_out($payload) {
+    $j = json_encode($payload);
+    if ($j === false) $j = json_encode(utf8_guard($payload));
+    return $j;
+}
+
 /** Respuesta JSON de éxito. Uso: ok($data); exit; */
 function ok($data = null) {
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['ok' => true, 'data' => $data]);
+    echo json_out(['ok' => true, 'data' => $data]);
 }
 
 /** Respuesta JSON de error. Uso: fail('mensaje'); exit; */
 function fail($msg, $code = 400) {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['ok' => false, 'error' => $msg]);
+    echo json_out(['ok' => false, 'error' => $msg]);
 }
 
 /** NZ de Access: valor por defecto si es null/''. */

@@ -39,7 +39,7 @@
  */
 
 // Lookups reutilizables (declarar una vez, usar en varios 'select').
-$PROVINCIA = ['tabla' => 'Tbl Provincias', 'pk' => 'CODPRV', 'den' => 'DENPRV'];
+$PROVINCIA = ['tabla' => 'Tbl Provincias', 'pk' => 'CODPRO', 'den' => 'DENPRO'];
 
 return [
 
@@ -50,7 +50,7 @@ return [
         'campos' => [
             ['col' => 'DENLOC', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 50, 'list' => true],
             ['col' => 'CPXLOC', 'label' => 'Código Postal', 'tipo' => 'text', 'size' => 10, 'list' => true],
-            ['col' => 'CODPRV', 'label' => 'Provincia', 'tipo' => 'select', 'lookup' => $PROVINCIA, 'req' => true, 'list' => true],
+            ['col' => 'CODPRO', 'label' => 'Provincia', 'tipo' => 'select', 'lookup' => $PROVINCIA, 'req' => true, 'list' => true],
         ],
     ],
 
