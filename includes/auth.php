@@ -51,6 +51,30 @@ function auth_user() {
     return (isset($_SESSION['uname']) ? $_SESSION['uname'] : 'Usuario');
 }
 
+/** ¿El usuario actual es administrador? Lista en config 'admin_users' (por CODUSR o por
+ *  nombre/DENUSR). Si no está configurada, NADIE es admin (default seguro). */
+function auth_is_admin() {
+    $admins = sys('admin_users', array());
+    if (!is_array($admins) || !count($admins)) return false;
+    $uid = (isset($_SESSION['uid'])   ? (string) $_SESSION['uid']   : '');
+    $un  = (isset($_SESSION['uname']) ? (string) $_SESSION['uname'] : '');
+    foreach ($admins as $a) {
+        $a = trim((string) $a);
+        if ($a !== '' && ($a === $uid || strcasecmp($a, $un) === 0)) return true;
+    }
+    return false;
+}
+
+/** Exige sesión + permiso de admin (para páginas HTML). */
+function auth_require_admin() {
+    auth_require_login();
+    if (!auth_is_admin()) {
+        http_response_code(403);
+        die('<!doctype html><meta charset="utf-8"><div style="font-family:system-ui;padding:2rem;color:#b91c1c">'
+            . 'Acceso restringido. Esta secci&oacute;n es s&oacute;lo para administradores.</div>');
+    }
+}
+
 /** Sectores que puede operar el usuario actual (config 'sector_login'). */
 function auth_sectors() {
     $sl = sys('sector_login');

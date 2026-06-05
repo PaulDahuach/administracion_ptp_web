@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/helpers.php';
+require_once __DIR__ . '/../includes/track.php';
 auth_require_login();
+track_hit();   // registro de uso (adopción)
 
 $name    = sys('short_name', sys('name'));
 $full    = sys('name');

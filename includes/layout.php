@@ -13,8 +13,10 @@
  */
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/track.php';
 
 function module_head($title, $icon = 'bi-app', $buttons_html = '') {
+    if (function_exists('track_hit')) track_hit();   // registro de uso (adopción)
     $primary = sys('primary', '#2563eb');
     $theme   = sys('theme', 'dark');
     $ro      = db_readonly();

@@ -154,22 +154,25 @@ con `data-keynav-submit="#btnGuardar"`; el botón solo existe en readwrite). Al 
 Enter avanzaría en vez de filtrar). Aplicalo a forms de **alta/edición**; en filtros, si querés
 los combos buscables, evaluá caso por caso.
 
-## Por PORTAR: tracking de uso (adopción) — viene de produccion_ptp
-Para medir adopción del sistema nuevo (qué páginas, cuánto, desde qué máquinas, quién)
-y saber dónde empujar a los usuarios a dejar el legacy. Implementado en produccion_ptp:
+## HECHO: tracking de uso (adopción) — portado de produccion_ptp
+Para medir adopción del sistema nuevo (qué páginas, cuánto, desde qué máquinas, quién) y saber
+dónde empujar a los usuarios a dejar el legacy.
 - **`includes/track.php`** (`track_hit()`): log append en `logs/usage-YYYY-MM.csv` — NO toca
   la mdb, funciona en readonly. Registra fecha/hora · usuario (sesión) · IP · host (DNS
   inverso cacheado en `logs/hosts.json`) · módulo (deriva de la ruta, distingue `?modo=`/`?m=`) · ruta.
-- Enganche: `track_hit()` al inicio de `module_head()` (cubre todos los módulos) y en
-  `app/index.php` (dashboard). Solo cuenta cargas de página, no los fetch/AJAX.
-- Visor **`modules/uso/`**: filtra por fechas y agrega por módulo / usuario / máquina / día
-  (KPIs + gráfico de barras + 3 tablas). Lee y agrega los CSV en PHP.
-- `logs/.gitignore` para no versionar los logs.
+- Enganche: `track_hit()` al inicio de `module_head()` (`includes/layout.php`, cubre todos los
+  módulos) y en `app/index.php` (dashboard). Solo cuenta cargas de página, no los fetch/AJAX.
+- Visor **`modules/uso/`**: filtra por fechas + sistema y agrega por módulo / usuario / máquina /
+  día (KPIs + gráfico de barras + tablas). Lee y agrega los CSV en PHP. **Agrega cross-sistema**:
+  `uso_sistemas()` suma los `logs/` de los 3 fronts hermanos (administracion/produccion/supervisores)
+  que existan; override por config `uso_sistemas`. Restringido a admin (`auth_require_admin`).
+- `logs/.gitignore` (`*` salvo el propio .gitignore) → los CSV no se versionan.
+- **Auth admin** (`auth_is_admin`/`auth_require_admin`, también portados a `includes/auth.php`):
+  lista en config `admin_users` (CODUSR o DENUSR); vacía = nadie es admin (default seguro).
 
-**Cómo portarlo:** copiar `includes/track.php` y `modules/uso/` desde produccion_ptp;
-agregar el require + `track_hit()` en `includes/layout.php` (module_head) y en el dashboard;
-crear `logs/` con `.gitignore`; y la entrada de menú "Estadísticas de Uso" en config (no se
-deploya, se agrega a mano). Identifica la máquina por IP+host.
+**Config (en `config/system.php`, NO versionado → agregar a mano en cada deploy):** la entrada de
+menú "Estadísticas de Uso" (grupo `Sistema`, url `/modules/uso/`) y `'admin_users' => ['PAUL']`.
+Validado en Chrome: registra hits y el visor agrega Administración + Producción.
 
 ## NO confundir con la carpeta `ptp` (MySQL, patrón A)
 `C:\wamp64\www\ptp\` es un intento ANTERIOR de migrar Administración a MySQL (clon de
