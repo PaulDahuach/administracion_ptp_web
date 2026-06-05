@@ -44,6 +44,12 @@ function listar() {
     if (!$cta) { fail('Cuenta no encontrada'); return; }
     $inicue = (float) nz($cta['INICUE'], 0);
 
+    // Doble libro: filtra por el ESTMOV del movimiento padre según el modo activo. INICUE (oficial)
+    // se atribuye al libro blanco (Operador lo incluye, Capacitación no).
+    $lib  = auth_libro_unico();
+    $estM = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'negro') ? ' AND M.ESTMOV=False' : '');
+    $incluyeIni = ($lib !== 'negro');
+
     // Campo de fecha: FEXMOV vive en M; FAXMOV vive en MI (fecha de acreditación)
     $dateExpr = ($df === 'FAXMOV_REF') ? 'MI.FAXMOV' : 'M.FEXMOV';
 
@@ -52,16 +58,16 @@ function listar() {
     foreach (db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos]") as $b)
         $ban[(int) $b['CODBAN']] = trim((string) nz($b['DENBAN'], ''));
 
-    // Saldo anterior = INICUE + Σ(DEB−CRE) antes de 'desde'
-    $saldoAnterior = $inicue;
+    // Saldo anterior = (INICUE si corresponde) + Σ(DEB−CRE) antes de 'desde'
+    $saldoAnterior = $incluyeIni ? $inicue : 0;
     if ($sd !== null) {
         $r = db_row("SELECT SUM(MI.DEBMOV) AS D, SUM(MI.CREMOV) AS C
             FROM [Tbl Movimientos Imputaciones] AS MI INNER JOIN [Tbl Movimientos] AS M ON M.NUMMOV = MI.NUMMOV
-            WHERE MI.CODCUE='$cc' AND $dateExpr < $sd");
+            WHERE MI.CODCUE='$cc' AND $dateExpr < $sd$estM");
         $saldoAnterior += (float) nz($r['D'], 0) - (float) nz($r['C'], 0);
     }
 
-    $w = "MI.CODCUE='$cc'";
+    $w = "MI.CODCUE='$cc'$estM";
     if ($sd !== null) $w .= " AND $dateExpr >= $sd";
     if ($sh !== null) $w .= " AND $dateExpr <= $sh";
     if ($estado === 'conciliados')    $w .= " AND MI.CONMOV=True";

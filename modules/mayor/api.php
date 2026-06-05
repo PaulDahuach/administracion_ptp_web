@@ -65,22 +65,29 @@ function mayor() {
     if (!$cta) { fail('Cuenta no encontrada'); return; }
     $inicue = (float) nz($cta['INICUE'], 0);
 
+    // Doble libro: filtra por el ESTMOV del movimiento padre según el modo activo (Operador/Capacitación).
+    // El INICUE (saldo inicial, oficial) se atribuye al libro blanco: se incluye en Operador, no en
+    // Capacitación → así blanco+negro reconstruye el combinado cacheado.
+    $lib  = auth_libro_unico();   // 'blanco' | 'negro' | '' (sistemas sin doble libro)
+    $estM = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'negro') ? ' AND M.ESTMOV=False' : '');
+    $incluyeIni = ($lib !== 'negro');
+
     // Centros de costo (map)
     $cdc = array();
     foreach (db_query("SELECT CODCDC, DENCDC FROM [Tbl Centros de Costo]") as $x)
         $cdc[(int) $x['CODCDC']] = trim((string) nz($x['DENCDC'], ''));
 
-    // Saldo anterior = INICUE + Σ(DEB−CRE) antes de 'desde'
-    $saldoAnterior = $inicue;
+    // Saldo anterior = (INICUE si corresponde) + Σ(DEB−CRE) antes de 'desde'
+    $saldoAnterior = $incluyeIni ? $inicue : 0;
     if ($sd !== null) {
         $r = db_row("SELECT SUM(MI.DEBMOV) AS D, SUM(MI.CREMOV) AS C
             FROM [Tbl Movimientos Imputaciones] AS MI INNER JOIN [Tbl Movimientos] AS M ON M.NUMMOV = MI.NUMMOV
-            WHERE MI.CODCUE='$cc' AND M.$df < $sd");
+            WHERE MI.CODCUE='$cc' AND M.$df < $sd$estM");
         $saldoAnterior += (float) nz($r['D'], 0) - (float) nz($r['C'], 0);
     }
 
     // Asientos del período
-    $w = "MI.CODCUE='$cc'";
+    $w = "MI.CODCUE='$cc'$estM";
     if ($sd !== null) $w .= " AND M.$df >= $sd";
     if ($sh !== null) $w .= " AND M.$df <= $sh";
 

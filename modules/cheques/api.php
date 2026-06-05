@@ -38,11 +38,16 @@ function buscar() {
 
     // Fecha de INGRESO a cartera = FEXMOV del movimiento imputado a la cuenta de cheques en
     // cartera (Rec Control.CACC_2). Subconsulta agregada (Min de la fecha de ingreso por cheque).
+    // Doble libro: el "libro" de un cheque = el ESTMOV de su movimiento de INGRESO a cartera.
+    // Filtramos el ingreso por el modo activo y luego exigimos que el cheque tenga ingreso en ese
+    // libro (Ent.CC IS NOT NULL) → un Operador no ve cheques de Capacitación.
+    $lib    = auth_libro_unico();   // 'blanco' | 'negro' | ''
+    $estIng = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'negro') ? ' AND M.ESTMOV=False' : '');
     $rc     = db_row("SELECT CACC_2 FROM [Rec Control];");
     $cacc2  = "'" . db_esc(isset($rc['CACC_2']) ? (string) $rc['CACC_2'] : '') . "'";
     $entSub = "(SELECT MoC.CODCHQ AS CC, Min(M.FEXMOV) AS FE
                 FROM [Tbl Movimientos Imputaciones] AS MoC INNER JOIN [Tbl Movimientos] AS M ON MoC.NUMMOV = M.NUMMOV
-                WHERE MoC.CODCUE = $cacc2 AND MoC.DEBMOV > 0 AND MoC.CODCHQ > 0
+                WHERE MoC.CODCUE = $cacc2 AND MoC.DEBMOV > 0 AND MoC.CODCHQ > 0$estIng
                 GROUP BY MoC.CODCHQ)";
     // Base del filtro desde/hasta: emisión (FEXCHQ), acreditación (FAXCHQ) o ingreso (Ent.FE).
     if ($base === 'acred')       $dbasis = 'Chq.FAXCHQ';
@@ -50,6 +55,7 @@ function buscar() {
     else                         $dbasis = 'Chq.FEXCHQ';
 
     $where = array();
+    if ($lib !== '') $where[] = "Ent.CC IS NOT NULL";   // sólo cheques del libro activo (por su ingreso)
     if ($estado === 'depositar')      $where[] = "Chq.VADCHQ=True";
     elseif ($estado === 'diferidos')  $where[] = "Chq.DIFCHQ=True";
     elseif ($estado === 'cartera')    $where[] = "(Chq.VADCHQ=True OR Chq.DIFCHQ=True)";

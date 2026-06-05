@@ -39,6 +39,10 @@ function listar() {
     $sh = iso_to_serial($hasta);
     if ($sd === null || $sh === null) { fail('Indicá el período (desde / hasta)'); return; }
 
+    // Doble libro: filtra por el ESTMOV del movimiento padre según el modo activo.
+    $lib  = auth_libro_unico();
+    $estM = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'negro') ? ' AND M.ESTMOV=False' : '');
+
     // Plan de cuentas: estructura (todas las cuentas)
     $plan = array();   // codcue => row
     foreach (db_query("SELECT CODCUE, CN1CUE, CN2CUE, CN3CUE, CN4CUE, CN5CUE, DENCUE, IMPCUE FROM [Tbl Cuentas Contables] ORDER BY CODCUE") as $r) {
@@ -66,7 +70,7 @@ function listar() {
         SUM(IIf(M.FEXMOV >= $sd AND M.FEXMOV <= $sh, MI.DEBMOV, 0)) AS DP,
         SUM(IIf(M.FEXMOV >= $sd AND M.FEXMOV <= $sh, MI.CREMOV, 0)) AS CP
         FROM [Tbl Movimientos Imputaciones] AS MI INNER JOIN [Tbl Movimientos] AS M ON M.NUMMOV = MI.NUMMOV
-        WHERE M.FEXMOV <= $sh
+        WHERE M.FEXMOV <= $sh$estM
         GROUP BY MI.CODCUE");
 
     // Roll-up: distribuir cada hoja a sí misma y a sus ancestros

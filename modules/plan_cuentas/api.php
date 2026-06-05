@@ -24,13 +24,34 @@ function listar() {
     $rows = db_query("SELECT CODCUE, CN1CUE, CN2CUE, CN3CUE, CN4CUE, CN5CUE, DENCUE, IMPCUE,
         INICUE, DEBCUE, CRECUE FROM [Tbl Cuentas Contables] ORDER BY CODCUE");
 
+    // Doble libro: el saldo cacheado (DEBCUE/CRECUE) es COMBINADO (blanco+negro). En modo libro único
+    // hay que recomputar Σ(DEB−CRE) por cuenta filtrando por el ESTMOV del movimiento padre (más lento,
+    // escanea las imputaciones del libro). INICUE (oficial) se atribuye al blanco.
+    $lib = auth_libro_unico();   // 'blanco' | 'negro' | ''
+    $movMap = null; $incluyeIni = true;
+    if ($lib !== '') {
+        $estW = ($lib === 'negro') ? 'M.ESTMOV=False' : 'M.ESTMOV=True';
+        $incluyeIni = ($lib !== 'negro');
+        $movMap = array();
+        foreach (db_query("SELECT MI.CODCUE AS CC, SUM(MI.DEBMOV) AS D, SUM(MI.CREMOV) AS C
+            FROM [Tbl Movimientos Imputaciones] AS MI INNER JOIN [Tbl Movimientos] AS M ON M.NUMMOV = MI.NUMMOV
+            WHERE $estW GROUP BY MI.CODCUE") as $x)
+            $movMap[trim((string) $x['CC'])] = (float) nz($x['D'], 0) - (float) nz($x['C'], 0);
+    }
+
     $out = array();
     foreach ($rows as $r) {
         $nivel = 0;
         foreach (array('CN1CUE','CN2CUE','CN3CUE','CN4CUE','CN5CUE') as $c)
             if (trim((string) nz($r[$c], '')) !== '') $nivel++;
         $imp = ($r['IMPCUE'] === true || $r['IMPCUE'] == -1);
-        $saldo = (float) nz($r['INICUE'], 0) + (float) nz($r['DEBCUE'], 0) - (float) nz($r['CRECUE'], 0);
+        if ($movMap !== null) {
+            $cc = trim((string) $r['CODCUE']);
+            $delta = isset($movMap[$cc]) ? $movMap[$cc] : 0;
+            $saldo = ($incluyeIni ? (float) nz($r['INICUE'], 0) : 0) + $delta;
+        } else {
+            $saldo = (float) nz($r['INICUE'], 0) + (float) nz($r['DEBCUE'], 0) - (float) nz($r['CRECUE'], 0);
+        }
         $out[] = array(
             'codcue' => trim((string) $r['CODCUE']),
             'den'    => trim((string) nz($r['DENCUE'], '')),
