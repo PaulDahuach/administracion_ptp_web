@@ -86,4 +86,4 @@ module_head('Remitos — Deudores', 'bi-truck', $toolbar);
 <div class="fc-toast-container"><div id="toastMsg" class="toast align-items-center border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
 
 <script>window.REM_MODO = '<?= h(auth_modo()) ?>';</script>
-<?php module_foot('<script src="assets/js/remitos.js"></script>'); ?>
+<?php module_foot('<script src="assets/js/remitos.js?v=2"></script>'); ?>

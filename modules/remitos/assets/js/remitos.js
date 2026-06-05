@@ -28,9 +28,19 @@ const R = {
         }
         this.autocomplete(this.el('cliQ'), this.el('cliList'), 'buscar_clientes', function (o) { return o.CODCUE + ' · ' + o.DENCUE + (o.CITCUE ? ' · ' + o.CITCUE : ''); }, function (o) { R.pickCliente(o.CODCUE); });
         this.el('btnAddLn').addEventListener('click', function () { R.addLine(); });
-        this.el('btnNuevo').addEventListener('click', function () { if (confirm('¿Vaciar el remito?')) location.reload(); });
+        this.el('btnNuevo').addEventListener('click', function () { R.reset(); });
         this.el('btnGuardar').addEventListener('click', function () { R.guardar(); });
         this.addLine();
+    },
+
+    reset() {
+        this.cli = null; this.lines = [];
+        ['cliQ', 'codcue', 'cotmov', 'detmov'].forEach(function (id) { R.el(id).value = ''; });
+        this.el('pdcmov').value = ''; this.el('saldo').value = ''; this.el('vdxmov').value = '0';
+        this.el('cliInfo').textContent = ''; this.el('remErr').textContent = '';
+        this.el('lnBody').innerHTML = ''; this.el('grTotal').textContent = '0,00';
+        this.addLine();
+        this.el('cliQ').focus();
     },
 
     async pickCliente(codcue) {
@@ -63,8 +73,9 @@ const R = {
         this.lines.push(rec);
         var cod = tr.querySelector('.l-cod'), list = tr.querySelector('.ac-list');
         this.autocomplete(cod, list, 'buscar_productos', function (o) { return o.CODPRO + ' · ' + o.DENPRO; }, function (o) { R.pickProducto(tr, o.CODPRO); });
-        tr.querySelector('.l-cant').addEventListener('input', function () { R.recalc(tr); });
-        tr.querySelector('.l-pun').addEventListener('input', function () { R.recalc(tr); });
+        ['.l-cant', '.l-pun', '.l-odc', '.l-odp', '.l-pdl'].forEach(function (s) {
+            tr.querySelector(s).addEventListener('input', function () { R.recalc(tr); });
+        });
         tr.querySelector('.l-del').addEventListener('click', function () { tr.remove(); R.lines = R.lines.filter(function (x) { return x.i !== i; }); R.recalcAll(); });
         cod.focus();
     },
@@ -120,8 +131,8 @@ const R = {
         if (!j.ok) { this.el('remErr').textContent = j.error; return; }
         var pdv = j.data.cipmov ? String(j.data.cipmov).padStart(4, '0') : '9999';
         var nro = String(j.data.cinmov).padStart(8, '0');
-        this.toast('Remito grabado: ' + pdv + '-' + nro + ' (mov ' + j.data.nummov + ')', 'success');
-        if (confirm('Remito ' + pdv + '-' + nro + ' grabado.\n¿Imprimir? (próximamente)\nAceptar = nuevo remito')) location.reload();
+        this.toast('Remito grabado: ' + pdv + '-' + nro + ' (mov ' + j.data.nummov + '). Listo para el próximo.', 'success');
+        this.reset();   // form limpio para el siguiente remito (impresión: próximamente)
     },
 
     // --- autocomplete genérico (servidor como fuente de verdad) ---
