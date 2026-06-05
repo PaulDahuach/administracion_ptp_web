@@ -21,6 +21,8 @@ try {
         case 'get_producto':     get_producto();     break;
         case 'pdvs':             listar_pdvs();      break;
         case 'guardar':          guardar();          break;
+        case 'listar':           listar();           break;
+        case 'detalle':          detalle();          break;
         default: fail('Acción inválida: ' . $action);
     }
 } catch (Exception $e) {
@@ -246,4 +248,101 @@ function guardar() {
         db_rollback();
         fail('No se pudo grabar el remito: ' . $e->getMessage(), 500);
     }
+}
+
+/** Filtro SQL de ESTMOV según el modo activo (doble libro). '' en integral/sistemas sin doble libro. */
+function estmov_w() {
+    $l = auth_libro_unico();
+    if ($l === 'blanco') return ' AND ESTMOV=True';
+    if ($l === 'negro')  return ' AND ESTMOV=False';
+    return '';
+}
+
+function comp_str($cip, $cin) {
+    $pdv = str_pad((string) (int) nz($cip, 0), 4, '0', STR_PAD_LEFT);
+    $nro = str_pad((string) (int) nz($cin, 0), 8, '0', STR_PAD_LEFT);
+    return 'RV ' . $pdv . '-' . $nro;
+}
+
+/** Listado de remitos (CODOPE=410) filtrado por el modo + texto/fecha. */
+function listar() {
+    $q  = isset($_GET['q']) ? trim($_GET['q']) : '';
+    $sd = iso_to_serial(isset($_GET['desde']) ? $_GET['desde'] : '');
+    $sh = iso_to_serial(isset($_GET['hasta']) ? $_GET['hasta'] : '');
+    $w  = "CODOPE=410" . estmov_w();
+    if ($q !== '') {
+        $qs = db_esc($q);
+        $cond = "(DENMOV Like '%$qs%' OR CITMOV Like '%$qs%'";
+        if (is_numeric($q)) $cond .= " OR CINMOV=" . (int) $q;
+        $cond .= ")";
+        $w .= " AND $cond";
+    }
+    if ($sd !== null) $w .= " AND FEXMOV >= $sd";
+    if ($sh !== null) $w .= " AND FEXMOV <= $sh";
+
+    $rows = db_query("SELECT TOP 200 NUMMOV, FEXMOV, CIPMOV, CINMOV, CODCUE, DENMOV, TOTMOV, FRVMOV, SRPMOV, ANUMOV, ESTMOV
+        FROM [Tbl Movimientos] WHERE $w ORDER BY FEXMOV DESC, NUMMOV DESC;");
+    $out = array();
+    foreach ($rows as $r) {
+        $out[] = array(
+            'NUMMOV' => (int) $r['NUMMOV'],
+            'FEXMOV' => fecha_serial($r['FEXMOV']),
+            'FEXMOVO'=> (int) nz($r['FEXMOV'], 0),
+            'COMP'   => comp_str($r['CIPMOV'], $r['CINMOV']),
+            'CODCUE' => (int) nz($r['CODCUE'], 0),
+            'DENMOV' => trim((string) nz($r['DENMOV'], '')),
+            'TOTMOV' => round((float) nz($r['TOTMOV'], 0), 2),
+            'PEND'   => ($r['SRPMOV'] === true || $r['SRPMOV'] == -1) ? 1 : 0,   // SRPMOV=True → pendiente de facturar
+            'ANU'    => ($r['ANUMOV'] === true || $r['ANUMOV'] == -1) ? 1 : 0,
+            'EST'    => ($r['ESTMOV'] === true || $r['ESTMOV'] == -1) ? 1 : 0,
+        );
+    }
+    ok(array('remitos' => $out, 'cantidad' => count($out), 'tope' => count($out) >= 200));
+}
+
+/** Detalle de un remito: header + líneas de productos. Respeta la visibilidad del modo. */
+function detalle() {
+    $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
+    $h = db_row("SELECT * FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=410;");
+    if (!$h) { fail('Remito no encontrado'); return; }
+    $lib = auth_libro_unico();
+    $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Remito no disponible en este libro'); return; }
+
+    $udm = array();
+    foreach (db_query("SELECT CODUDM, DENUDM FROM [Tbl Unidades de Medida]") as $u)
+        $udm[(int) $u['CODUDM']] = trim((string) nz($u['DENUDM'], ''));
+
+    $lineas = array();
+    foreach (db_query("SELECT ORDMOV, CODPRO, DENMOV, CODUDM, EGRMOV, SVCMOV, PUNMOV, ODCMOV, ODPMOV, PDLMOV
+        FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num ORDER BY ORDMOV;") as $l) {
+        $cant = (float) nz($l['EGRMOV'], 0);
+        if ($cant == 0) $cant = -(float) nz($l['SVCMOV'], 0);   // sin stock → SVCMOV negativo
+        $pun = (float) nz($l['PUNMOV'], 0);
+        $lineas[] = array(
+            'CODPRO' => trim((string) nz($l['CODPRO'], '')),
+            'DENMOV' => trim((string) nz($l['DENMOV'], '')),
+            'UNIDAD' => isset($udm[(int) $l['CODUDM']]) ? $udm[(int) $l['CODUDM']] : '',
+            'ODC'    => (int) nz($l['ODCMOV'], 0) ?: '',
+            'ODP'    => (int) nz($l['ODPMOV'], 0) ?: '',
+            'PDL'    => (int) nz($l['PDLMOV'], 0) ?: '',
+            'CANT'   => round($cant, 2),
+            'PUN'    => round($pun, 2),
+            'TOTAL'  => round($cant * $pun, 2),
+        );
+    }
+    ok(array(
+        'NUMMOV' => $num,
+        'COMP'   => comp_str($h['CIPMOV'], $h['CINMOV']),
+        'FEXMOV' => fecha_serial($h['FEXMOV']),
+        'FRVMOV' => fecha_serial($h['FRVMOV']),
+        'DENMOV' => trim((string) nz($h['DENMOV'], '')),
+        'CITMOV' => trim((string) nz($h['CITMOV'], '')),
+        'TOTMOV' => round((float) nz($h['TOTMOV'], 0), 2),
+        'DETMOV' => trim((string) nz($h['DETMOV'], '')),
+        'COTMOV' => trim((string) nz($h['COTMOV'], '')),
+        'EST'    => $estTrue ? 1 : 0,
+        'ANU'    => ($h['ANUMOV'] === true || $h['ANUMOV'] == -1) ? 1 : 0,
+        'lineas' => $lineas,
+    ));
 }

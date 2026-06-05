@@ -12,11 +12,15 @@ if (db_readonly()) {
 }
 
 $toolbar = '<button id="btnGuardar" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Grabar remito</button>'
-         . ' <button id="btnNuevo" class="btn btn-outline-light btn-sm"><i class="bi bi-file-earmark-plus me-1"></i>Nuevo</button>';
+         . ' <button id="btnNuevo" class="btn btn-outline-light btn-sm"><i class="bi bi-file-earmark-plus me-1"></i>Nuevo</button>'
+         . ' <button id="btnBuscar" class="btn btn-outline-light btn-sm"><i class="bi bi-search me-1"></i>Buscar</button>';
 module_head('Remitos — Deudores', 'bi-truck', $toolbar);
 ?>
 <link href="<?= bu('/modules/abm/assets/css/abm.css') ?>" rel="stylesheet">
+<link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 <style>
+  #grdRem tbody tr { cursor:pointer; }
+  #grdRem td, #grdRem th { font-variant-numeric:tabular-nums; }
   .rem-grid th, .rem-grid td { font-size:.85rem; vertical-align:middle; }
   .rem-grid input { font-size:.85rem; }
   .rem-num { text-align:right; font-variant-numeric:tabular-nums; }
@@ -83,7 +87,37 @@ module_head('Remitos — Deudores', 'bi-truck', $toolbar);
   <div class="text-danger small mt-2" id="remErr"></div>
 </div>
 
+<!-- MODAL BUSCAR -->
+<div class="modal fade" id="modalBuscar" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+  <div class="modal-header py-2"><h6 class="modal-title"><i class="bi bi-search me-2"></i>Buscar remito</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body">
+    <div class="row g-2 align-items-end mb-2">
+      <div class="col-md-5"><input type="text" id="remBuscarQ" class="form-control form-control-sm" placeholder="Cliente, CUIT o Nº de remito" autocomplete="off"></div>
+      <div class="col-md-2"><input type="date" id="remBuscarD" class="form-control form-control-sm" title="Desde"></div>
+      <div class="col-md-2"><input type="date" id="remBuscarH" class="form-control form-control-sm" title="Hasta"></div>
+      <div class="col-md-2"><button id="remBuscarGo" class="btn btn-primary btn-sm w-100"><i class="bi bi-search me-1"></i>Buscar</button></div>
+    </div>
+    <table class="table table-sm table-hover w-100" id="grdRem"><thead><tr>
+      <th style="width:95px">Fecha</th><th style="width:150px">Comprobante</th><th>Cliente</th>
+      <th class="text-end" style="width:130px">Total</th><th style="width:120px">Estado</th><th></th>
+    </tr></thead></table>
+  </div>
+  <div class="modal-footer py-1"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+</div></div></div>
+
+<!-- MODAL DETALLE -->
+<div class="modal fade" id="modalDet" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+  <div class="modal-header py-2"><h6 class="modal-title" id="detTit"><i class="bi bi-truck me-2"></i>Remito</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body" id="detBody"></div>
+  <div class="modal-footer py-1"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+</div></div></div>
+
 <div class="fc-toast-container"><div id="toastMsg" class="toast align-items-center border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
 
 <script>window.REM_MODO = '<?= h(auth_modo()) ?>';</script>
-<?php module_foot('<script src="assets/js/remitos.js?v=2"></script>'); ?>
+<?php module_foot('
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+<script src="assets/js/remitos.js?v=3"></script>
+'); ?>

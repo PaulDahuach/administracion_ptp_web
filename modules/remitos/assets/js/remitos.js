@@ -4,6 +4,7 @@ const R = {
     cli: null,             // datos del cliente elegido
     lines: [],             // {codpro,denmov,codudm,denudm,fctmov,dummov,codmon,cosmov,pulmov,stk,cant,punmov,odc,odp,pdl}
     seq: 0,
+    dt: null,              // DataTable del modal Buscar
 
     el(id) { return document.getElementById(id); },
     esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; },
@@ -30,7 +31,56 @@ const R = {
         this.el('btnAddLn').addEventListener('click', function () { R.addLine(); });
         this.el('btnNuevo').addEventListener('click', function () { R.reset(); });
         this.el('btnGuardar').addEventListener('click', function () { R.guardar(); });
+        // Buscar: botón → modal con DataTable (patrón recepcion/definicion).
+        this.el('btnBuscar').addEventListener('click', function () { bootstrap.Modal.getOrCreateInstance(R.el('modalBuscar')).show(); });
+        this.el('modalBuscar').addEventListener('shown.bs.modal', function () { if (!R.dt) R.loadList(); R.el('remBuscarQ').focus(); });
+        this.el('remBuscarGo').addEventListener('click', function () { R.loadList(); });
+        ['remBuscarQ', 'remBuscarD', 'remBuscarH'].forEach(function (id) { R.el(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') R.loadList(); }); });
         this.addLine();
+    },
+
+    async loadList() {
+        var p = { q: this.el('remBuscarQ').value.trim() };
+        if (this.el('remBuscarD').value) p.desde = this.el('remBuscarD').value;
+        if (this.el('remBuscarH').value) p.hasta = this.el('remBuscarH').value;
+        if (this.dt) { this.dt.destroy(); this.dt = null; $('#grdRem tbody').remove(); }
+        var j = await this.api('listar', p);
+        if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        var rows = j.data.remitos.map(function (r) {
+            var est = r.ANU ? '<span class="badge bg-danger">Anulado</span>' : (r.PEND ? '<span class="badge bg-warning text-dark">Pte. facturar</span>' : '<span class="badge bg-success">Facturado</span>');
+            return ['<span data-order="' + r.FEXMOVO + '">' + R.esc(r.FEXMOV) + '</span>', R.esc(r.COMP), R.esc(r.DENMOV),
+                '<span data-order="' + r.TOTMOV + '" class="d-block text-end fw-medium">' + R.num(r.TOTMOV) + '</span>', est, r.NUMMOV];
+        });
+        this.dt = $('#grdRem').DataTable({
+            data: rows, destroy: true, pageLength: 15,
+            columns: [{ title: 'Fecha' }, { title: 'Comprobante' }, { title: 'Cliente' }, { title: 'Total', className: 'text-end' }, { title: 'Estado' }, { visible: false }],
+            columnDefs: [{ targets: [0, 3], type: 'num' }],
+            order: [], language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-AR.json' },
+            createdRow: function (row, d) { row.addEventListener('click', function () { R.verDetalle(d[5]); }); }
+        });
+        if (j.data.tope) this.toast('Mostrando los 200 remitos más recientes; afiná el filtro para ver otros.', 'info');
+    },
+
+    async verDetalle(num) {
+        var j = await this.api('detalle', { nummov: num });
+        if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        var d = j.data;
+        this.el('detTit').innerHTML = '<i class="bi bi-truck me-2"></i>' + this.esc(d.COMP) + (d.ANU ? ' <span class="badge bg-danger">Anulado</span>' : '');
+        var ls = d.lineas.map(function (l) {
+            return '<tr><td>' + R.esc(l.CODPRO) + '</td><td>' + R.esc(l.DENMOV) + '</td><td>' + R.esc(l.UNIDAD) + '</td>' +
+                '<td>' + R.esc(l.ODC) + '</td><td>' + R.esc(l.ODP) + '</td><td>' + R.esc(l.PDL) + '</td>' +
+                '<td class="text-end">' + R.num(l.CANT) + '</td><td class="text-end">' + R.num(l.PUN) + '</td><td class="text-end">' + R.num(l.TOTAL) + '</td></tr>';
+        }).join('');
+        this.el('detBody').innerHTML =
+            '<div class="row g-2 mb-2 small">' +
+            '<div class="col-md-6"><b>Cliente:</b> ' + this.esc(d.DENMOV) + (d.CITMOV ? ' · ' + this.esc(d.CITMOV) : '') + '</div>' +
+            '<div class="col-md-3"><b>Emisión:</b> ' + this.esc(d.FEXMOV) + '</div>' +
+            '<div class="col-md-3"><b>Facturación:</b> ' + this.esc(d.FRVMOV) + '</div>' +
+            (d.COTMOV ? '<div class="col-md-6"><b>COT:</b> ' + this.esc(d.COTMOV) + '</div>' : '') +
+            (d.DETMOV ? '<div class="col-12"><b>Detalle:</b> ' + this.esc(d.DETMOV) + '</div>' : '') + '</div>' +
+            '<table class="table table-sm"><thead><tr><th>Código</th><th>Denominación</th><th>Unidad</th><th>O.Corte</th><th>O.Proc.</th><th>PTP</th><th class="text-end">Cant.</th><th class="text-end">P.U.Neto</th><th class="text-end">Total</th></tr></thead>' +
+            '<tbody>' + ls + '</tbody><tfoot><tr class="fw-bold"><td colspan="8" class="text-end">Total:</td><td class="text-end">' + this.num(d.TOTMOV) + '</td></tr></tfoot></table>';
+        bootstrap.Modal.getOrCreateInstance(this.el('modalDet')).show();
     },
 
     reset() {
