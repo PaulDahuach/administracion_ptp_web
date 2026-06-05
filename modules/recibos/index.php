@@ -34,7 +34,7 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
   #grdRec tbody tr, #grdPend tbody tr { cursor:pointer; }
 </style>
 
-<div class="fc-form" id="rcForm">
+<div class="fc-form" id="rcForm" data-keynav data-keynav-submit="#btnGuardar">
   <div class="card fc-card mb-2"><div class="card-body">
     <div class="row g-2">
       <div class="col-md-5">
