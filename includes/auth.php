@@ -142,14 +142,20 @@ function auth_puede_cambiar_modo() {
     return ($c === 'S' || $c === 'A');
 }
 
-/** Modo activo: 'operador' | 'capacitacion'. O/C fijos; S/A toman el de sesión (default operador). */
+/**
+ * Modo activo: 'operador' | 'capacitacion' | 'integral'.
+ *  - O fijo en operador, C fijo en capacitacion.
+ *  - S/A toman el de sesión (default operador); pueden elegir 'integral' (ambos libros a la vez,
+ *    para dueños/socios — como el legacy con chkEst en Null: sin filtro ESTMOV).
+ */
 function auth_modo() {
     $a = sys('auth');
     if (empty($a['col_cat'])) return 'operador';   // sistemas sin doble libro
     $c = isset($_SESSION['ucat']) ? strtoupper(trim($_SESSION['ucat'])) : '';
     if ($c === 'C') return 'capacitacion';         // capacitación fijo
     if ($c === 'S' || $c === 'A') {
-        return (isset($_SESSION['modo']) && $_SESSION['modo'] === 'capacitacion') ? 'capacitacion' : 'operador';
+        $m = isset($_SESSION['modo']) ? $_SESSION['modo'] : 'operador';
+        return in_array($m, array('capacitacion', 'integral'), true) ? $m : 'operador';
     }
     return 'operador';                             // operador y cualquier otro → operador (default seguro)
 }
@@ -157,22 +163,27 @@ function auth_modo() {
 /** Cambia el modo (solo si la categoría lo permite). Devuelve true si cambió. */
 function auth_set_modo($m) {
     if (!auth_puede_cambiar_modo()) return false;
-    $_SESSION['modo'] = ($m === 'capacitacion') ? 'capacitacion' : 'operador';
+    $_SESSION['modo'] = in_array($m, array('capacitacion', 'integral'), true) ? $m : 'operador';
     return true;
 }
 
 /**
- * Libro a mostrar SEGÚN EL MODO ACTIVO. Siempre un solo libro (nunca ambos): el sistema
- * trabaja en un modo a la vez. Sistemas sin col_cat (otros del kit) → '' = sin filtro.
+ * Libro a filtrar SEGÚN EL MODO ACTIVO:
+ *  - operador     → 'blanco' (ESTMOV=True)
+ *  - capacitacion → 'negro'  (ESTMOV=False)
+ *  - integral     → ''       (sin filtro: ambos libros, como el legacy con chkEst Null)
+ * Sistemas sin col_cat (otros del kit) → '' = sin filtro.
  */
-function auth_libro_unico() {       // 'blanco' | 'negro' | '' (sistemas sin doble libro)
+function auth_libro_unico() {       // 'blanco' | 'negro' | '' (integral o sistemas sin doble libro)
     $a = sys('auth');
     if (empty($a['col_cat'])) return '';
-    return (auth_modo() === 'capacitacion') ? 'negro' : 'blanco';
+    $modo = auth_modo();
+    if ($modo === 'integral') return '';
+    return ($modo === 'capacitacion') ? 'negro' : 'blanco';
 }
 
-/** Histórico: hoy nadie ve ambos a la vez en las vistas normales (single-mode). */
-function auth_ve_ambos() { return false; }
+/** True en modo INTEGRAL: las vistas muestran ambos libros (columnas Blanco/Negro/Total, selector). */
+function auth_ve_ambos() { return auth_modo() === 'integral'; }
 
 /** Condición SQL de ESTMOV según el modo activo ('' = sin filtro, solo sistemas sin doble libro). */
 function auth_estmov_filter() {
@@ -182,23 +193,38 @@ function auth_estmov_filter() {
     return '';
 }
 
+/** Estilo (clase, ícono, etiqueta) de cada modo. */
+function _modo_estilo($modo) {
+    if ($modo === 'capacitacion') return array('bg-warning text-dark', 'bi-mortarboard-fill', 'Capacitación');
+    if ($modo === 'integral')     return array('bg-danger', 'bi-layers-fill', 'Integral');
+    return array('bg-success', 'bi-briefcase-fill', 'Operador');
+}
+
 /**
- * Badge de modo (doble libro) para la topbar. Verde=Operador, ámbar=Capacitación.
- * Si la categoría puede alternar (S/A) es clickeable (lo maneja app.js → /api/modo.php).
+ * Badge de modo (doble libro) para la topbar. Verde=Operador, ámbar=Capacitación, rojo=Integral.
+ * Para S/A es un dropdown con los 3 modos (acceso directo a Operador para inspección). O/C: solo el badge.
  * Vacío en sistemas sin doble libro (sin col_cat).
  */
 function mode_badge_html() {
     $a = sys('auth');
     if (empty($a['col_cat'])) return '';
-    $cap   = (auth_modo() === 'capacitacion');
-    $puede = auth_puede_cambiar_modo();
-    $cls   = $cap ? 'bg-warning text-dark' : 'bg-success';
-    $ic    = $cap ? 'bi-mortarboard-fill' : 'bi-briefcase-fill';
-    $lbl   = $cap ? 'Capacitación' : 'Operador';
-    $attrs = ' id="iwkModoBadge" data-modo="' . ($cap ? 'capacitacion' : 'operador') . '"';
-    if ($puede) $attrs .= ' role="button" title="Cambiar libro (Operador/Capacitación)" style="cursor:pointer"';
-    return '<span class="badge ' . $cls . ' iwk-modo-badge"' . $attrs . '><i class="bi ' . $ic . ' me-1"></i>'
-         . $lbl . ($puede ? ' <i class="bi bi-arrow-repeat ms-1"></i>' : '') . '</span>';
+    $modo = auth_modo();
+    list($cls, $ic, $lbl) = _modo_estilo($modo);
+    $badge = '<span class="badge ' . $cls . '"><i class="bi ' . $ic . ' me-1"></i>' . $lbl . '</span>';
+
+    if (!auth_puede_cambiar_modo()) return '<span class="iwk-modo">' . $badge . '</span>';
+
+    $items = '';
+    foreach (array('operador', 'capacitacion', 'integral') as $k) {
+        list(, $ki, $kl) = _modo_estilo($k);
+        $extra = ($k === 'integral') ? ' <small class="text-muted">(ambos libros)</small>' : '';
+        $items .= '<li><a class="dropdown-item iwk-modo-item' . ($k === $modo ? ' active' : '') . '" href="#" data-modo="' . $k . '">'
+                . '<i class="bi ' . $ki . ' me-2"></i>' . $kl . $extra . '</a></li>';
+    }
+    return '<span class="dropdown iwk-modo">'
+         . '<a href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Cambiar libro" style="text-decoration:none">'
+         . $badge . ' <i class="bi bi-caret-down-fill ms-1" style="font-size:.6rem"></i></a>'
+         . '<ul class="dropdown-menu dropdown-menu-end">' . $items . '</ul></span>';
 }
 
 /** Cierra la sesión. */

@@ -85,8 +85,18 @@ sub-encabezado que queda sin opciones (p.ej. tras filtrar admin) no se renderiza
   inside. CONFIRMADO en el VBA (`Frm CD Facturas/Recibos`): `SOCMOV = DSum(DEBMOV) − DSum(CREMOV)`
   **filtrado por `[ESTMOV]=IIf(Me.ESTMOV,-1,0)`** → el saldo se lleva por libro SEPARADO. El
   `chkEst` del Menú elige en cuál se opera. SOPCUE (cacheado) = blanco + negro = total.
-  ⇒ Los reportes de cta cte respetan estmov: `saldos_actuales` muestra Blanco/Negro/Total por
-  columna; `resumen_cuenta` tiene selector Todos/Blanco/Negro (param `libro` en la API).
+  ⇒ **MODO global doble-libro** (`includes/auth.php`): el sistema opera en UN libro a la vez según el
+  modo en sesión, gateado por categoría (`ucat`/CATUSR): **Operador** (O, fijo)=blanco · **Capacitación**
+  (C, fijo)=negro · **Supervisor/Admin/Auditor** (S/A) eligen entre operador/capacitación/**integral**.
+  `auth_modo()`/`auth_libro_unico()` (''=integral, 'blanco', 'negro')/`auth_ve_ambos()` (true solo en
+  integral)/`mode_badge_html()`. Badge en topbar (verde/ámbar/rojo); para S/A es un dropdown de 3 modos
+  (default Operador = **inspección-seguro**: Capacitación oculta). Endpoint `api/auth.php` action=set_modo.
+  TODOS los módulos filtran por el modo: cta cte/IVA/comprobantes vía `auth_libro_unico` (override del
+  `?libro=`); contables (mayor/balance/plan_cuentas/bancos) y cheques por el `ESTMOV` del movimiento
+  padre (INICUE oficial→blanco; plan_cuentas recomputa porque el cache es combinado; cheques por el
+  ESTMOV del mov. de ingreso). **Integral** = sin filtro (combinado, como chkEst Null) + reactiva las
+  columnas Blanco/Negro/Total y el selector Todos/Blanco/Negro (gateados por `auth_ve_ambos`). Ver
+  memoria `dual-ledger-visibility` + `dual-ledger-audit-status`. (OJO: tocar auth requiere re-login.)
 - `SOPCUE` (en `Tbl Cuentas Corrientes`, CODORI='D') = saldo operativo cacheado. ~7% de cuentas
   (alto volumen o especiales como cc=127 "Pendientes de Facturación") tienen drift vs el ledger
   calculado; el ledger de comprobantes es la fuente de verdad.

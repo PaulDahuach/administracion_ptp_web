@@ -63,7 +63,7 @@ function module_foot($extra_html = '') {
     ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="<?= bu('/assets/js/app.js') ?>?v=3"></script>
+<script src="<?= bu('/assets/js/app.js') ?>?v=4"></script>
 <?= $extra_html ?>
 </body>
 </html>

@@ -155,7 +155,7 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
     </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="<?= bu('/assets/js/app.js') ?>?v=3"></script>
+<script src="<?= bu('/assets/js/app.js') ?>?v=4"></script>
 <script>
 (function(){
     var inp = document.getElementById('menuSearch');

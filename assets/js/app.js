@@ -23,18 +23,17 @@
             window.location.href = base + '/app/login.php';
         });
     }
-    // Toggle de modo doble-libro: clic en el badge (solo si es clickeable: S/A) → /api/auth.php
-    var mb = document.getElementById('iwkModoBadge');
-    if (mb && mb.getAttribute('role') === 'button') {
-        mb.addEventListener('click', async function () {
-            var next = (mb.dataset.modo === 'capacitacion') ? 'operador' : 'capacitacion';
+    // Modo doble-libro: ítems del dropdown del badge (solo S/A) → set_modo → reload.
+    Array.prototype.forEach.call(document.querySelectorAll('.iwk-modo-item'), function (it) {
+        it.addEventListener('click', async function (e) {
+            e.preventDefault();
             var fd = new FormData();
             fd.append('action', 'set_modo');
-            fd.append('modo', next);
+            fd.append('modo', it.dataset.modo || 'operador');
             try { await fetch(base + '/api/auth.php', { method: 'POST', body: fd }); } catch (e) {}
             window.location.reload();
         });
-    }
+    });
 })();
 
 /* ---------------------------------------------------------------------------
