@@ -148,3 +148,20 @@ function next_number($ultCol) {
     db_exec("UPDATE [Rec Control] SET [$ultCol] = $next;");
     return $next;
 }
+
+/**
+ * Próximo número POR PUNTO DE VENTA, replicando mdlGetNextNumber(strEntidad, lngPdv):
+ * incrementa el contador ULTxxx de [Tbl Puntos de Venta] para ese CODPDV y lo devuelve.
+ * Ej. remitos: next_number_pdv('ULTRMV', 1). PDV null → 9999 (capacitación), como el legacy.
+ * Llamar dentro de una transacción (db_begin/commit).
+ * @param string $ultCol contador, ej. 'ULTRMV'
+ * @param int|null $pdv   CODPDV (null = 9999)
+ */
+function next_number_pdv($ultCol, $pdv) {
+    $cod = ($pdv === null || $pdv === '') ? 9999 : (int) $pdv;
+    $row = db_row("SELECT [$ultCol] AS u FROM [Tbl Puntos de Venta] WHERE [CODPDV]=$cod;");
+    if ($row === null) throw new Exception("Punto de venta $cod inexistente");
+    $next = (int) $row['u'] + 1;
+    db_exec("UPDATE [Tbl Puntos de Venta] SET [$ultCol] = $next WHERE [CODPDV]=$cod;");
+    return $next;
+}
