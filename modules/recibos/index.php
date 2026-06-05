@@ -47,9 +47,10 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
       <div class="col-md-2"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control"></div>
     </div>
     <div class="row g-2 mt-1">
-      <div class="col-md-2"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option></select></div>
+      <div class="col-md-2"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option><option value="5">Interdepósito</option></select></div>
+      <div class="col-md-3" id="boxCbx" style="display:none"><label class="form-label mb-1">Cuenta bancaria</label><select id="codcbx" class="form-select"></select></div>
       <div class="col-md-2"><label class="form-label mb-1">Saldo operativo</label><input type="text" id="saldo" class="form-control rc-num" readonly></div>
-      <div class="col-md-8"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
+      <div class="col-md-5"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
     </div>
   </div></div>
 
@@ -77,7 +78,7 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
         <tfoot><tr class="fw-bold"><td class="text-end">Total ret.:</td><td class="rc-num" id="retTotal">0,00</td><td></td></tr></tfoot>
       </table></div>
     </div></div>
-    <div class="col-lg-7"><div class="card fc-card mb-2 h-100">
+    <div class="col-lg-7" id="cardChq"><div class="card fc-card mb-2 h-100">
       <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-cash-coin me-1"></i>Cheques recibidos</span>
         <button type="button" id="btnAddChq" class="btn btn-sm btn-outline-light"><i class="bi bi-plus-lg me-1"></i>Agregar cheque</button></div>
       <div class="card-body p-0"><table class="table table-sm rc-grid mb-0">
@@ -132,5 +133,5 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/recibos.js?v=2"></script>
+<script src="assets/js/recibos.js?v=3"></script>
 '); ?>

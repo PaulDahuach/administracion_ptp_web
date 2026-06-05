@@ -21,6 +21,7 @@ const RC = {
         if (this.modo !== 'capacitacion') { var p = await this.api('pdvs'); if (p.ok) this.el('cipmov').innerHTML = p.data.map(function (x) { return '<option value="' + x.CODPDV + '">' + (x.NOMPDV ? RC.esc(x.NOMPDV) + ' (' + x.CODPDV + ')' : x.CODPDV) + '</option>'; }).join(''); }
         else this.el('cipmov').closest('.col-md-2').style.display = 'none';
         var b = await this.api('bancos'); this.bancos = b.ok ? b.data : [];
+        var cb = await this.api('cuentas_bancarias'); if (cb.ok) this.el('codcbx').innerHTML = '<option value="">Cuenta…</option>' + cb.data.map(function (x) { return '<option value="' + x.CODCBX + '">' + RC.esc(x.DENCUE) + '</option>'; }).join('');
 
         this.autocomplete(this.el('cliQ'), this.el('cliList'), 'buscar_clientes', function (o) { return o.CODCUE + ' · ' + o.DENCUE + (o.CITCUE ? ' · ' + o.CITCUE : ''); }, function (o) { RC.pickCliente(o.CODCUE); });
         this.el('btnAddRef').addEventListener('click', function () { RC.abrirPendientes(); });
@@ -29,6 +30,7 @@ const RC = {
         this.el('btnGuardar').addEventListener('click', function () { RC.guardar(); });
         this.el('efectivo').addEventListener('input', function () { RC.recalc(); });
         this.el('codaux').addEventListener('change', function () { RC.recalc(); });
+        this.el('codfdp').addEventListener('change', function () { RC.onFdp(); });
         document.querySelectorAll('.ret-imp').forEach(function (i) { i.addEventListener('input', function () { RC.recalc(); }); });
         this.el('btnBuscar').addEventListener('click', function () { bootstrap.Modal.getOrCreateInstance(RC.el('modalBuscar')).show(); });
         this.el('modalBuscar').addEventListener('shown.bs.modal', function () { if (!RC.dt) RC.loadList(); });
@@ -95,6 +97,13 @@ const RC = {
         tr.querySelector('.c-del').addEventListener('click', function () { tr.remove(); RC.chqs = RC.chqs.filter(function (x) { return x !== rec; }); RC.recalc(); });
     },
 
+    onFdp() {
+        var inter = this.el('codfdp').value == '5';
+        this.el('boxCbx').style.display = inter ? '' : 'none';
+        var card = document.getElementById('cardChq'); if (card) card.style.display = inter ? 'none' : '';
+        var lbl = this.el('efectivo').closest('.t').querySelector('.lbl'); if (lbl) lbl.textContent = inter ? 'Depositado' : 'Efectivo';
+        this.recalc();
+    },
     retImp(rt) { var el = document.querySelector('.ret-imp[data-rt="' + rt + '"]'); return el ? this.f(el.value) : 0; },
     recalc() {
         var refTot = this.refs.reduce(function (s, r) { return s + (r.imp || 0); }, 0);
@@ -128,9 +137,10 @@ const RC = {
             var dif = Math.round((efe + chqTot + ret - refTot) * 100) / 100;
             if (Math.abs(dif) >= 0.005) { this.el('rcErr').textContent = 'El recibo (cobrado + retenciones) no coincide con lo que se cancela. Diferencia: ' + this.n(dif); return; }
         } else if ((efe + chqTot + ret) <= 0) { this.el('rcErr').textContent = 'El anticipo no tiene importe (cheques/efectivo).'; return; }
+        if (this.el('codfdp').value == '5' && !this.el('codcbx').value) { this.el('rcErr').textContent = 'Elegí la cuenta bancaria del interdepósito.'; return; }
         var data = {
             codcue: this.el('codcue').value, codaux: this.el('codaux').value, fexmov: this.el('fexmov').value, fixmov: this.el('fexmov').value,
-            codfdp: this.el('codfdp').value, efectivo: efe, detmov: this.el('detmov').value,
+            codfdp: this.el('codfdp').value, codcbx: this.el('codcbx').value, efectivo: efe, detmov: this.el('detmov').value,
             cipmov: (this.modo === 'capacitacion') ? null : this.el('cipmov').value,
             referencias: this.refs.map(function (r) { return { refmov: r.refmov, fvxmov: r.fvxiso, imp: r.imp }; }),
             cheques: this.chqs.filter(function (c) { return c.imp > 0; }).map(function (c) { return { codban: c.codban, syn: c.syn, fex: c.fexiso, fax: c.faxiso, lib: c.lib, imp: c.imp, plz: 0, cit: '', loc: '' }; }),

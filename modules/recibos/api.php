@@ -22,6 +22,7 @@ if (!defined('RECIBO_LIB')) {   // si se incluye como librería (test), no corre
             case 'get_cliente':     get_cliente();     break;
             case 'pendientes':      pendientes();      break;
             case 'bancos':          listar_bancos();   break;
+            case 'cuentas_bancarias': listar_cuentas_bancarias(); break;
             case 'operaciones':     listar_operaciones(); break;
             case 'pdvs':            listar_pdvs();      break;
             case 'guardar':         guardar();         break;
@@ -83,6 +84,7 @@ function recibo_insert($d, $estTrue, $cipmov) {
     if ($fex === null) throw new Exception('Falta la fecha de emisión');
     $codfdp = (int) nz($d['codfdp'], 4);
     $efectivo = round((float) nz($d['efectivo'], 0), 2);
+    $codcbx = (int) nz(isset($d['codcbx']) ? $d['codcbx'] : 0, 0);   // cuenta bancaria (interdepósito)
 
     $refs = (isset($d['referencias']) && is_array($d['referencias'])) ? $d['referencias'] : array();
     $chqs = (isset($d['cheques']) && is_array($d['cheques'])) ? $d['cheques'] : array();
@@ -121,11 +123,11 @@ function recibo_insert($d, $estTrue, $cipmov) {
 
     db_exec("INSERT INTO [Tbl Movimientos]
         (NUMMOV, CODORI, FEXMOV, CODOPE, CODAUX, CICMOV, CIPMOV, ESTMOV, CINMOV, CECMOV, CEPMOV, CENMOV, CEFMOV,
-         CODCUE, SOCMOV, DENMOV, DCXMOV, DNXMOV, DPXMOV, DDXMOV, CODLOC, CODCRI, CITMOV, CODCDV, CODFDP, DETMOV, FIXMOV,
+         CODCUE, SOCMOV, DENMOV, DCXMOV, DNXMOV, DPXMOV, DDXMOV, CODLOC, CODCRI, CITMOV, CODCDV, CODFDP, CODCBX, DETMOV, FIXMOV,
          RT1MOV, RIPMOV, RINMOV, RT2MOV, RGPMOV, RGNMOV, CODRRG, RT3MOV, RVPMOV, RVNMOV, RT4MOV, RSPMOV, RSNMOV,
          CREMOV, TOTMOV, SDOMOV, ANUMOV, NUIMOV, NMIMOV, NOWMOV)
         VALUES ($nummov, 'D', $fex, 480, $codaux, 'RC', $cipSql, $estSql, $cinmov, 'RT', $cipSql, 0, $fex,
-         $codcue, $soc, $denSql, $dcx, $dnx, $dpx, $ddx, $codloc, $codcri, $citSql, 2, $codfdp, $detSql, $fix,
+         $codcue, $soc, $denSql, $dcx, $dnx, $dpx, $ddx, $codloc, $codcri, $citSql, 2, $codfdp, " . ($codfdp == 5 ? $codcbx : 'Null') . ", $detSql, $fix,
          $rt1, $rip, $rin, $rt2, $rgpSql, $rgnSql, $codrrg, $rt3, $rvp, $rvn, $rt4, $rsp, $rsn,
          $total, $total, $sdomov, False, 0, 0, Now());");
 
@@ -149,20 +151,28 @@ function recibo_insert($d, $estTrue, $cipmov) {
 
     // --- Asiento (Tbl Movimientos Imputaciones) ---
     $ord = 0; $totDeb = 0; $totCre = 0;
-    // DEBE: cheques → CACC_2 (crea cada cheque en cartera)
-    foreach ($chqs as $c) {
-        $imp = round((float) nz($c['imp'], 0), 2);
-        $codchq = next_number('ULTCHQ');
-        $ban = (int) nz($c['codban'], 0);
-        $syn = rec_txt(nz($c['syn'], '')); $lib = rec_txt(nz($c['lib'], '')); $cit = rec_txt(nz($c['cit'], '')); $loc = rec_txt(nz($c['loc'], ''));
-        $fexc = rec_iso(isset($c['fex']) ? $c['fex'] : ''); $faxc = rec_iso(isset($c['fax']) ? $c['fax'] : '');
-        $fexSql = $fexc === null ? 'Null' : (string) $fexc; $faxSql = $faxc === null ? 'Null' : (string) $faxc;
-        $plz = (int) nz($c['plz'], 0);
-        db_exec("INSERT INTO [Tbl Cheques] (CODCHQ, CODBAN, SYNCHQ, FEXCHQ, FAXCHQ, IMPCHQ, PLZCHQ, LIBCHQ, CITCHQ, LOCCHQ, VADCHQ)
-            VALUES ($codchq, $ban, $syn, $fexSql, $faxSql, $imp, $plz, $lib, $cit, $loc, True);");
-        imp_row($ord, $totDeb, $totCre, $nummov, $cacc2, $imp, 0, $codchq, $faxc, $caccZ);
+    if ($codfdp == 5) {
+        // INTERDEPÓSITO: el cobrado va directo a la cuenta contable del banco (no hay cheques).
+        $bk = db_row("SELECT CODCUE FROM [Tbl Cuentas Contables] WHERE CODCBX=$codcbx AND CODCUE Like '11104%';");
+        if (!$bk) throw new Exception('Elegí una cuenta bancaria válida');
+        $deposito = round($total - ($rt1 + $rt2 + $rt3 + $rt4), 2);
+        if ($deposito > 0) imp_row($ord, $totDeb, $totCre, $nummov, $bk['CODCUE'], $deposito, 0, null, $fex, $caccZ);
+    } else {
+        // DEBE: cheques → CACC_2 (crea cada cheque en cartera) + efectivo → CACC_1.
+        foreach ($chqs as $c) {
+            $imp = round((float) nz($c['imp'], 0), 2);
+            $codchq = next_number('ULTCHQ');
+            $ban = (int) nz($c['codban'], 0);
+            $syn = rec_txt(nz($c['syn'], '')); $lib = rec_txt(nz($c['lib'], '')); $cit = rec_txt(nz($c['cit'], '')); $loc = rec_txt(nz($c['loc'], ''));
+            $fexc = rec_iso(isset($c['fex']) ? $c['fex'] : ''); $faxc = rec_iso(isset($c['fax']) ? $c['fax'] : '');
+            $fexSql = $fexc === null ? 'Null' : (string) $fexc; $faxSql = $faxc === null ? 'Null' : (string) $faxc;
+            $plz = (int) nz($c['plz'], 0);
+            db_exec("INSERT INTO [Tbl Cheques] (CODCHQ, CODBAN, SYNCHQ, FEXCHQ, FAXCHQ, IMPCHQ, PLZCHQ, LIBCHQ, CITCHQ, LOCCHQ, VADCHQ)
+                VALUES ($codchq, $ban, $syn, $fexSql, $faxSql, $imp, $plz, $lib, $cit, $loc, True);");
+            imp_row($ord, $totDeb, $totCre, $nummov, $cacc2, $imp, 0, $codchq, $faxc, $caccZ);
+        }
+        if ($efectivo > 0) imp_row($ord, $totDeb, $totCre, $nummov, $cacc1, $efectivo, 0, null, null, $caccZ);
     }
-    if ($efectivo > 0) imp_row($ord, $totDeb, $totCre, $nummov, $cacc1, $efectivo, 0, null, null, $caccZ);
     // Retenciones (DEBE)
     if ($rt1 > 0) imp_row($ord, $totDeb, $totCre, $nummov, $rc['CACC_H'], $rt1, 0, null, null, $caccZ);
     if ($rt2 > 0) imp_row($ord, $totDeb, $totCre, $nummov, $rc['CACC_I'], $rt2, 0, null, null, $caccZ);
@@ -266,6 +276,8 @@ function pendientes() {
 }
 
 function listar_bancos() { ok(db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos] ORDER BY DENBAN;")); }
+/** Cuentas bancarias propias (disponibilidades 11104xx con CODCBX) para interdepósito. */
+function listar_cuentas_bancarias() { ok(db_query("SELECT CODCBX, DENCUE FROM [Tbl Cuentas Contables] WHERE CODCBX Is Not Null AND CODCUE Like '11104%' ORDER BY DENCUE;")); }
 function listar_operaciones() { ok(db_query("SELECT CODAUX, DENAUX FROM [Tbl Operaciones Auxiliares] WHERE CODOPE=480 ORDER BY CODAUX;")); }
 function listar_pdvs() { ok(db_query("SELECT CODPDV, NOMPDV FROM [Tbl Puntos de Venta] WHERE CODPDV <> 9999 ORDER BY CODPDV;")); }
 
@@ -332,14 +344,25 @@ function detalle() {
 
 /** Núcleo de la anulación (sin transacción → testeable). Porta SetData Case "B" estándar. */
 function recibo_anular($num) {
-    $h = db_row("SELECT NUMMOV, CODCUE, CODAUX, TOTMOV, ANUMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=480;");
+    $h = db_row("SELECT NUMMOV, CODCUE, CODAUX, TOTMOV, CREMOV, ANUMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=480;");
     if (!$h) throw new Exception('Recibo no encontrado');
     if ($h['ANUMOV'] === true || $h['ANUMOV'] == -1) throw new Exception('El recibo ya está anulado');
     $codaux = (int) nz($h['CODAUX'], 0);
-    if ($codaux == 481 || $codaux == 482) throw new Exception('Anulación de recibos de contado (facturación/débito): no soportada aún');
     {
         $total = round((float) nz($h['TOTMOV'], 0), 2);
         $codcue = (int) $h['CODCUE'];
+        $contado = ($codaux == 481 || $codaux == 482);
+        $impCajRC = round((float) nz($h['CREMOV'], 0), 2);
+        $lngMovFC = 0; $impCajFC = 0;
+        if ($contado) {
+            // Contado: la FC/ND referenciada se "despaga" → pasa a cta cte propia (CODFDP=1, CRE=DEB, NRCMOV=Null).
+            // OJO: porta Case "B" 481/482 pero SIN validar contra dato real (no hay recibos de contado en el backend).
+            $fc = db_row("SELECT NUMMOV, DEBMOV FROM [Tbl Movimientos] WHERE NRCMOV=$num;");
+            if (!$fc) throw new Exception('No se encontró el comprobante de contado referenciado por el recibo');
+            $lngMovFC = (int) $fc['NUMMOV'];
+            $impCajFC = round((float) nz($fc['DEBMOV'], 0), 2);
+            db_exec("UPDATE [Tbl Movimientos] SET CODFDP=1, CREMOV=$impCajFC, NRCMOV=Null WHERE NUMMOV=$lngMovFC;");
+        }
         // Referencias: revertir vencimientos y saldo de las facturas, luego borrar.
         foreach (db_query("SELECT REFMOV, FVXMOV, IMPMOV FROM [Tbl Movimientos Referencias] WHERE NUMMOV=$num;") as $r) {
             $ref = (int) $r['REFMOV']; $imp = round((float) nz($r['IMPMOV'], 0), 2); $fvx = (int) $r['FVXMOV'];
@@ -352,8 +375,13 @@ function recibo_anular($num) {
         }
         db_exec("DELETE FROM [Tbl Movimientos Referencias] WHERE NUMMOV=$num;");
 
-        // Cuenta corriente: devolver la deuda.
-        db_exec("UPDATE [Tbl Cuentas Corrientes] SET SOPCUE = SOPCUE + $total WHERE CODCUE=$codcue;");
+        // Cuenta corriente: devolver la deuda (contado usa la lógica condicional del legacy).
+        if (!$contado) {
+            db_exec("UPDATE [Tbl Cuentas Corrientes] SET SOPCUE = SOPCUE + $total WHERE CODCUE=$codcue;");
+        } else {
+            $delta = ($total > $impCajRC) ? $total : (($impCajRC > $impCajFC) ? round($impCajRC - $impCajFC, 2) : 0);
+            if ($delta != 0) db_exec("UPDATE [Tbl Cuentas Corrientes] SET SOPCUE = SOPCUE + $delta WHERE CODCUE=$codcue;");
+        }
 
         // Imputaciones: revertir saldos contables cacheados + cheques.
         $imps = db_query("SELECT ORDMOV, CODCUE, DEBMOV, CREMOV, CODCHQ FROM [Tbl Movimientos Imputaciones] WHERE NUMMOV=$num;");
@@ -378,6 +406,19 @@ function recibo_anular($num) {
             RT1MOV=0, RT2MOV=0, RT3MOV=0, RT4MOV=0, RIPMOV=Null, RINMOV=Null, RGPMOV=Null, RGNMOV=Null,
             CODRRG=Null, RVPMOV=Null, RVNMOV=Null, RSPMOV=Null, RSNMOV=Null, FIXMOV=Null, ANUMOV=True
             WHERE NUMMOV=$num;");
+
+        // Contado: mover la imputación de la FC de DEUDORES (CACC_A) a CAJA (CACC_1).
+        if ($contado) {
+            $rcc = db_row("SELECT CACC_1, CACC_A FROM [Rec Control];");
+            $cA = db_esc((string) $rcc['CACC_A']); $c1 = db_esc((string) $rcc['CACC_1']);
+            $fcimp = db_row("SELECT ORDMOV, DEBMOV FROM [Tbl Movimientos Imputaciones] WHERE NUMMOV=$lngMovFC AND CODCUE='$cA';");
+            if ($fcimp) {
+                $deb = round((float) nz($fcimp['DEBMOV'], 0), 2);
+                db_exec("UPDATE [Tbl Movimientos Imputaciones] SET CODCUE='$c1' WHERE NUMMOV=$lngMovFC AND ORDMOV=" . (int) $fcimp['ORDMOV'] . ";");
+                db_exec("UPDATE [Tbl Cuentas Contables] SET DEBCUE = DEBCUE - $deb WHERE CODCUE='$cA';");
+                db_exec("UPDATE [Tbl Cuentas Contables] SET DEBCUE = DEBCUE + $deb WHERE CODCUE='$c1';");
+            }
+        }
     }
 }
 
