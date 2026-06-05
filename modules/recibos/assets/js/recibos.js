@@ -16,7 +16,8 @@ const RC = {
     },
 
     async init() {
-        this.el('fexmov').value = new Date().toISOString().slice(0, 10);
+        this.el('fexmov').value = new Date().toISOString().slice(0, 10);   // emisión = hoy (readonly)
+        this.el('fixmov').value = this.el('fexmov').value;                 // imput. IVA = emisión por defecto
         var ops = await this.api('operaciones'); if (ops.ok) this.el('codaux').innerHTML = ops.data.map(function (o) { return '<option value="' + o.CODAUX + '"' + (o.CODAUX == 484 ? ' selected' : '') + '>' + RC.esc(o.DENAUX) + '</option>'; }).join('');
         if (this.modo !== 'capacitacion') { var p = await this.api('pdvs'); if (p.ok) this.el('cipmov').innerHTML = p.data.map(function (x) { return '<option value="' + x.CODPDV + '">' + (x.NOMPDV ? RC.esc(x.NOMPDV) + ' (' + x.CODPDV + ')' : x.CODPDV) + '</option>'; }).join(''); }
         else this.el('cipmov').closest('.col-md-2').style.display = 'none';
@@ -44,7 +45,8 @@ const RC = {
         this.el('codcue').value = codcue; this.el('cliQ').value = j.data.DENCUE;
         this.el('saldo').value = this.n(j.data.SALDO);
         this.el('cliInfo').textContent = (j.data.CITMOV || j.data.CITCUE || '') + ' · ' + (j.data.DOMICILIO || '') + ' · ' + (j.data.LOCALIDAD || '');
-        this.el('btnAddRef').disabled = false;
+        // Operación auto por saldo (como el legacy): saldo>0 → Cancelación, ≤0 → Anticipo. Readonly.
+        this.el('codaux').value = (j.data.SALDO > 0) ? '484' : '483';
         this.refs = []; this.el('refBody').innerHTML = ''; this.recalc();
     },
 
@@ -97,35 +99,37 @@ const RC = {
         tr.querySelector('.c-del').addEventListener('click', function () { tr.remove(); RC.chqs = RC.chqs.filter(function (x) { return x !== rec; }); RC.recalc(); });
     },
 
-    onFdp() {
-        var inter = this.el('codfdp').value == '5';
-        this.el('boxCbx').style.display = inter ? '' : 'none';
-        var card = document.getElementById('cardChq'); if (card) card.style.display = inter ? 'none' : '';
-        this.recalc();
-    },
+    onFdp() { this.recalc(); },
     retImp(rt) { var el = document.querySelector('.ret-imp[data-rt="' + rt + '"]'); return el ? this.f(el.value) : 0; },
     // Totales como el legacy: el EFECTIVO es el TAPÓN por diferencia (no se tipea), salvo anticipo
     // (sin referencias → el operador tipea el importe) e interdepósito (tipea el depósito).
     recalc() {
-        var inter = this.el('codfdp').value == '5';     // interdepósito
+        var fdp = this.el('codfdp').value;
+        var inter = fdp == '5';                         // interdepósito
+        var useChq = fdp == '4';                        // cheques solo con forma de pago = Cheques
+        var canc = this.el('codaux').value == '484';    // cancelación
         var ant = this.el('codaux').value == '483';     // anticipo (no cancela comprobantes)
         var refTot = this.refs.reduce(function (s, r) { return s + (r.imp || 0); }, 0);
-        var chqTot = inter ? 0 : this.chqs.reduce(function (s, c) { return s + (c.imp || 0); }, 0);
+        var chqTot = useChq ? this.chqs.reduce(function (s, c) { return s + (c.imp || 0); }, 0) : 0;
         var ret = this.retImp(1) + this.retImp(2) + this.retImp(3) + this.retImp(4);
+        var typed = ant || inter;   // el operador tipea el importe (anticipo: sin refs; interdep: depósito)
         var efe;
-        if (ant) efe = parseFloat(this.el('efectivo').value) || 0;     // anticipo/interdep: lo tipea el operador
+        if (typed) efe = parseFloat(this.el('efectivo').value) || 0;
         else efe = Math.max(0, Math.round((refTot - ret - chqTot) * 100) / 100);   // cancelación: tapón
         var cobrar = efe + chqTot;
         var recibo = Math.round((cobrar + ret) * 100) / 100;
         this.efe = efe; this.recibo = recibo;
-        // EFECTIVO siempre VISIBLE (como la banda TOTAL del legacy): read-only cuando es el tapón
-        // (cancelación), editable (input) en anticipo/interdepósito. Cheques/A cobrar ocultos en interdep.
-        var editable = ant || inter;
-        this.el('efectivo').style.display = editable ? '' : 'none';
-        this.el('tEfectivo').style.display = editable ? 'none' : '';
+        // Habilitación por contexto (como el legacy): Referencias solo en Cancelación; Cheques solo si
+        // forma de pago = Cheques; Cuenta bancaria solo en Interdepósito.
+        this.el('btnAddRef').disabled = !canc || !this.el('codcue').value;
+        document.getElementById('cardChq').style.display = useChq ? '' : 'none';
+        this.el('codcbx').disabled = !inter;
+        // EFECTIVO: read-only (tapón, cancelación) o editable (input, anticipo/interdepósito).
+        this.el('efectivo').style.display = typed ? '' : 'none';
+        this.el('tEfectivo').style.display = typed ? 'none' : '';
         this.el('tEfectivo').textContent = this.n(efe);
         this.el('lblEfe').textContent = inter ? 'Importe' : 'Efectivo';
-        this.el('boxChq').style.display = inter ? 'none' : '';
+        this.el('boxChq').style.display = useChq ? '' : 'none';
         this.el('boxCobrar').style.display = inter ? 'none' : '';
         this.el('refTotal').textContent = this.n(refTot);
         this.el('chqTotal').textContent = this.n(chqTot);
@@ -145,8 +149,10 @@ const RC = {
         if (!esAnt && !this.refs.length) { this.el('rcErr').textContent = 'Agregá al menos un comprobante a cancelar.'; return; }
         if (this.recibo <= 0) { this.el('rcErr').textContent = 'El recibo no tiene importe.'; return; }
         if (inter && !this.el('codcbx').value) { this.el('rcErr').textContent = 'Elegí la cuenta bancaria del interdepósito.'; return; }
+        if (this.retImp(2) > 0 && !this.gv('.ret-rg')) { this.el('rcErr').textContent = 'Falta el código de régimen de la retención de Ganancias.'; return; }
         var data = {
-            codcue: this.el('codcue').value, codaux: this.el('codaux').value, fexmov: this.el('fexmov').value, fixmov: this.el('fexmov').value,
+            codcue: this.el('codcue').value, codaux: this.el('codaux').value, fexmov: this.el('fexmov').value,
+            fixmov: this.el('fixmov').value || this.el('fexmov').value,
             codfdp: this.el('codfdp').value, codcbx: this.el('codcbx').value, efectivo: this.efe, detmov: this.el('detmov').value,
             cipmov: (this.modo === 'capacitacion') ? null : this.el('cipmov').value,
             referencias: this.refs.map(function (r) { return { refmov: r.refmov, fvxmov: r.fvxiso, imp: r.imp }; }),

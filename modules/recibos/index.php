@@ -42,15 +42,16 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
         <div class="ac-box"><input type="text" id="cliQ" class="form-control" placeholder="Nombre o código…" autocomplete="off"><div class="ac-list" id="cliList"></div></div>
         <input type="hidden" id="codcue"><div class="small text-muted mt-1" id="cliInfo"></div>
       </div>
-      <div class="col-md-2"><label class="form-label mb-1">Operación</label><select id="codaux" class="form-select"></select></div>
+      <div class="col-md-2"><label class="form-label mb-1">Operación</label><select id="codaux" class="form-select" disabled data-nocombo></select></div>
       <div class="col-md-2"><label class="form-label mb-1">Punto de venta</label><select id="cipmov" class="form-select"></select></div>
-      <div class="col-md-2"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control"></div>
+      <div class="col-md-2"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control" readonly></div>
     </div>
     <div class="row g-2 mt-1">
       <div class="col-md-2"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option><option value="5">Interdepósito</option></select></div>
-      <div class="col-md-3" id="boxCbx" style="display:none"><label class="form-label mb-1">Cuenta bancaria</label><select id="codcbx" class="form-select"></select></div>
+      <div class="col-md-3" id="boxCbx"><label class="form-label mb-1">Cuenta bancaria</label><select id="codcbx" class="form-select" disabled></select></div>
+      <div class="col-md-2"><label class="form-label mb-1">Imput. I.V.A.</label><input type="date" id="fixmov" class="form-control"></div>
       <div class="col-md-2"><label class="form-label mb-1">Saldo operativo</label><input type="text" id="saldo" class="form-control rc-num" readonly></div>
-      <div class="col-md-5"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
+      <div class="col-md-3"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
     </div>
   </div></div>
 
@@ -132,5 +133,5 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/recibos.js?v=5"></script>
+<script src="assets/js/recibos.js?v=6"></script>
 '); ?>
