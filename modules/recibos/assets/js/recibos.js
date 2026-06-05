@@ -118,11 +118,15 @@ const RC = {
         var cobrar = efe + chqTot;
         var recibo = Math.round((cobrar + ret) * 100) / 100;
         this.efe = efe; this.recibo = recibo;
-        // Visibilidad: el campo editable (Efectivo/Importe) solo en anticipo; cheques ocultos en interdep.
-        this.el('boxEfe').style.display = ant ? '' : 'none';
+        // EFECTIVO siempre VISIBLE (como la banda TOTAL del legacy): read-only cuando es el tapón
+        // (cancelación), editable (input) en anticipo/interdepósito. Cheques/A cobrar ocultos en interdep.
+        var editable = ant || inter;
+        this.el('efectivo').style.display = editable ? '' : 'none';
+        this.el('tEfectivo').style.display = editable ? 'none' : '';
+        this.el('tEfectivo').textContent = this.n(efe);
         this.el('lblEfe').textContent = inter ? 'Importe' : 'Efectivo';
         this.el('boxChq').style.display = inter ? 'none' : '';
-        this.el('boxCobrar').querySelector('.lbl').textContent = inter ? 'Depositado' : 'A cobrar';
+        this.el('boxCobrar').style.display = inter ? 'none' : '';
         this.el('refTotal').textContent = this.n(refTot);
         this.el('chqTotal').textContent = this.n(chqTot);
         this.el('retTotal').textContent = this.n(ret);

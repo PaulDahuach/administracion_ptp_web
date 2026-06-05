@@ -90,7 +90,7 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
   </div>
 
   <div class="card fc-card"><div class="card-body tot-bar">
-    <div class="t" id="boxEfe" style="display:none"><div class="lbl" id="lblEfe">Importe</div><input type="number" step="0.01" id="efectivo" class="form-control form-control-sm rc-num" value="0"></div>
+    <div class="t" id="boxEfe"><div class="lbl" id="lblEfe">Efectivo</div><div class="val" id="tEfectivo">0,00</div><input type="number" step="0.01" id="efectivo" class="form-control form-control-sm rc-num" value="0" style="display:none"></div>
     <div class="t" id="boxChq"><div class="lbl">Cheques</div><div class="val" id="tCheques">0,00</div></div>
     <div class="t" id="boxCobrar"><div class="lbl">A cobrar</div><div class="val" id="tCobrar">0,00</div></div>
     <div class="t"><div class="lbl">Retenciones</div><div class="val" id="tRet">0,00</div></div>
@@ -132,5 +132,5 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/recibos.js?v=4"></script>
+<script src="assets/js/recibos.js?v=5"></script>
 '); ?>
