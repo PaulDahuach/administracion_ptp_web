@@ -25,6 +25,7 @@ if (!defined('RECIBO_LIB')) {   // si se incluye como librería (test), no corre
             case 'operaciones':     listar_operaciones(); break;
             case 'pdvs':            listar_pdvs();      break;
             case 'guardar':         guardar();         break;
+            case 'anular':          anular();          break;
             case 'listar':          listar();          break;
             case 'detalle':         detalle();         break;
             default: fail('Acción inválida: ' . $action);
@@ -187,7 +188,8 @@ function guardar() {
     $d = json_decode(isset($_POST['data']) ? $_POST['data'] : '', true);
     if (!is_array($d)) { fail('Datos inválidos'); return; }
     if (empty($d['codcue'])) { fail('Falta el cliente'); return; }
-    if (empty($d['referencias'])) { fail('No hay comprobantes a cancelar'); return; }
+    // Anticipo (CODAUX=483) no cancela comprobantes; el resto sí requiere referencias.
+    if (empty($d['referencias']) && (int) nz($d['codaux'], 484) != 483) { fail('No hay comprobantes a cancelar'); return; }
 
     $modo = auth_modo();
     $estTrue = ($modo !== 'capacitacion');
@@ -326,4 +328,75 @@ function detalle() {
         'TOTMOV' => round((float) nz($h['TOTMOV'], 0), 2), 'DETMOV' => trim((string) nz($h['DETMOV'], '')),
         'ANU' => ($h['ANUMOV'] === true || $h['ANUMOV'] == -1) ? 1 : 0,
         'referencias' => $refs, 'cheques' => $chqs, 'retenciones' => $ret));
+}
+
+/** Núcleo de la anulación (sin transacción → testeable). Porta SetData Case "B" estándar. */
+function recibo_anular($num) {
+    $h = db_row("SELECT NUMMOV, CODCUE, CODAUX, TOTMOV, ANUMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=480;");
+    if (!$h) throw new Exception('Recibo no encontrado');
+    if ($h['ANUMOV'] === true || $h['ANUMOV'] == -1) throw new Exception('El recibo ya está anulado');
+    $codaux = (int) nz($h['CODAUX'], 0);
+    if ($codaux == 481 || $codaux == 482) throw new Exception('Anulación de recibos de contado (facturación/débito): no soportada aún');
+    {
+        $total = round((float) nz($h['TOTMOV'], 0), 2);
+        $codcue = (int) $h['CODCUE'];
+        // Referencias: revertir vencimientos y saldo de las facturas, luego borrar.
+        foreach (db_query("SELECT REFMOV, FVXMOV, IMPMOV FROM [Tbl Movimientos Referencias] WHERE NUMMOV=$num;") as $r) {
+            $ref = (int) $r['REFMOV']; $imp = round((float) nz($r['IMPMOV'], 0), 2); $fvx = (int) $r['FVXMOV'];
+            $v = db_row("SELECT CREMOV FROM [Tbl Movimientos Vencimientos] WHERE NUMMOV=$ref AND FVXMOV=$fvx;");
+            $nuevo = round((float) nz($v ? $v['CREMOV'] : 0, 0) - $imp, 2);
+            if ($nuevo == 0) db_exec("UPDATE [Tbl Movimientos Vencimientos] SET CREMOV=Null WHERE NUMMOV=$ref AND FVXMOV=$fvx;");
+            else            db_exec("UPDATE [Tbl Movimientos Vencimientos] SET CREMOV=$nuevo WHERE NUMMOV=$ref AND FVXMOV=$fvx;");
+            $f = db_row("SELECT SDOMOV FROM [Tbl Movimientos] WHERE NUMMOV=$ref;");
+            db_exec("UPDATE [Tbl Movimientos] SET SDOMOV=" . round((float) nz($f ? $f['SDOMOV'] : 0, 0) + $imp, 2) . " WHERE NUMMOV=$ref;");
+        }
+        db_exec("DELETE FROM [Tbl Movimientos Referencias] WHERE NUMMOV=$num;");
+
+        // Cuenta corriente: devolver la deuda.
+        db_exec("UPDATE [Tbl Cuentas Corrientes] SET SOPCUE = SOPCUE + $total WHERE CODCUE=$codcue;");
+
+        // Imputaciones: revertir saldos contables cacheados + cheques.
+        $imps = db_query("SELECT ORDMOV, CODCUE, DEBMOV, CREMOV, CODCHQ FROM [Tbl Movimientos Imputaciones] WHERE NUMMOV=$num;");
+        $cheques = array();
+        foreach ($imps as $i) {
+            $cc = db_esc((string) $i['CODCUE']);
+            if ($i['DEBMOV'] !== null) db_exec("UPDATE [Tbl Cuentas Contables] SET DEBCUE = DEBCUE - " . round((float) $i['DEBMOV'], 2) . " WHERE CODCUE='$cc';");
+            if ($i['CREMOV'] !== null) db_exec("UPDATE [Tbl Cuentas Contables] SET CRECUE = CRECUE - " . round((float) $i['CREMOV'], 2) . " WHERE CODCUE='$cc';");
+            if ($i['CODCHQ'] !== null && $i['CODCHQ'] !== '') $cheques[] = (int) $i['CODCHQ'];
+        }
+        // Zerar el asiento (mantiene las filas como rastro) y soltar el vínculo al cheque.
+        db_exec("UPDATE [Tbl Movimientos Imputaciones] SET DEBMOV=0, CREMOV=0, FAXMOV=Null, CODCHQ=Null WHERE NUMMOV=$num;");
+        // Cheques recibidos: sacar de cartera; borrar los que no quedan referenciados por otro asiento.
+        foreach (array_unique($cheques) as $chq) {
+            db_exec("UPDATE [Tbl Cheques] SET VADCHQ=False WHERE CODCHQ=$chq;");
+            $oth = db_row("SELECT Count(*) AS N FROM [Tbl Movimientos Imputaciones] WHERE CODCHQ=$chq;");
+            if ((int) nz($oth['N'], 0) == 0) db_exec("DELETE FROM [Tbl Cheques] WHERE CODCHQ=$chq;");
+        }
+
+        // Marcar el recibo anulado (montos en 0, [ANULADO], ANUMOV=True).
+        db_exec("UPDATE [Tbl Movimientos] SET DETMOV='[ANULADO]', SDOMOV=0, CREMOV=0, TOTMOV=0,
+            RT1MOV=0, RT2MOV=0, RT3MOV=0, RT4MOV=0, RIPMOV=Null, RINMOV=Null, RGPMOV=Null, RGNMOV=Null,
+            CODRRG=Null, RVPMOV=Null, RVNMOV=Null, RSPMOV=Null, RSNMOV=Null, FIXMOV=Null, ANUMOV=True
+            WHERE NUMMOV=$num;");
+    }
+}
+
+/** Anula un recibo (auth + visibilidad por modo + transacción). */
+function anular() {
+    if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
+    $num = isset($_POST['nummov']) ? (int) $_POST['nummov'] : 0;
+    $h = db_row("SELECT ESTMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=480;");
+    if (!$h) { fail('Recibo no encontrado'); return; }
+    $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
+    $lib = auth_libro_unico();
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Recibo no disponible en este libro'); return; }
+    db_begin();
+    try {
+        recibo_anular($num);
+        db_commit();
+        ok(array('anulado' => $num));
+    } catch (Exception $e) {
+        db_rollback();
+        fail('No se pudo anular el recibo: ' . $e->getMessage(), 500);
+    }
 }

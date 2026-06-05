@@ -28,6 +28,7 @@ const RC = {
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.el('btnGuardar').addEventListener('click', function () { RC.guardar(); });
         this.el('efectivo').addEventListener('input', function () { RC.recalc(); });
+        this.el('codaux').addEventListener('change', function () { RC.recalc(); });
         document.querySelectorAll('.ret-imp').forEach(function (i) { i.addEventListener('input', function () { RC.recalc(); }); });
         this.el('btnBuscar').addEventListener('click', function () { bootstrap.Modal.getOrCreateInstance(RC.el('modalBuscar')).show(); });
         this.el('modalBuscar').addEventListener('shown.bs.modal', function () { if (!RC.dt) RC.loadList(); });
@@ -108,21 +109,25 @@ const RC = {
         this.el('tCobrar').textContent = this.n(cobrar);
         this.el('tRet').textContent = this.n(ret);
         this.el('tRecibo').textContent = this.n(recibo);
+        var esAnt = this.el('codaux').value == '483';   // anticipo: no cancela comprobantes
         var dif = Math.round((recibo - refTot) * 100) / 100;
-        this.el('boxDif').style.display = Math.abs(dif) >= 0.005 ? '' : 'none';
+        this.el('boxDif').style.display = (!esAnt && Math.abs(dif) >= 0.005) ? '' : 'none';
         this.el('tDif').textContent = this.n(dif);
     },
 
     async guardar() {
         this.el('rcErr').textContent = '';
+        var esAnt = this.el('codaux').value == '483';
         if (!this.el('codcue').value) { this.el('rcErr').textContent = 'Elegí un cliente.'; return; }
-        if (!this.refs.length) { this.el('rcErr').textContent = 'Agregá al menos un comprobante a cancelar.'; return; }
+        if (!esAnt && !this.refs.length) { this.el('rcErr').textContent = 'Agregá al menos un comprobante a cancelar.'; return; }
         var refTot = this.refs.reduce(function (s, r) { return s + (r.imp || 0); }, 0);
         var ret = this.retImp(1) + this.retImp(2) + this.retImp(3) + this.retImp(4);
         var chqTot = this.chqs.filter(function (c) { return c.imp > 0; }).reduce(function (s, c) { return s + c.imp; }, 0);
         var efe = parseFloat(this.el('efectivo').value) || 0;
-        var dif = Math.round((efe + chqTot + ret - refTot) * 100) / 100;
-        if (Math.abs(dif) >= 0.005) { this.el('rcErr').textContent = 'El recibo (cobrado + retenciones) no coincide con lo que se cancela. Diferencia: ' + this.n(dif); return; }
+        if (!esAnt) {
+            var dif = Math.round((efe + chqTot + ret - refTot) * 100) / 100;
+            if (Math.abs(dif) >= 0.005) { this.el('rcErr').textContent = 'El recibo (cobrado + retenciones) no coincide con lo que se cancela. Diferencia: ' + this.n(dif); return; }
+        } else if ((efe + chqTot + ret) <= 0) { this.el('rcErr').textContent = 'El anticipo no tiene importe (cheques/efectivo).'; return; }
         var data = {
             codcue: this.el('codcue').value, codaux: this.el('codaux').value, fexmov: this.el('fexmov').value, fixmov: this.el('fexmov').value,
             codfdp: this.el('codfdp').value, efectivo: efe, detmov: this.el('detmov').value,
@@ -176,7 +181,19 @@ const RC = {
             (rets ? '<div class="fw-bold small">Retenciones</div><table class="table table-sm"><tbody>' + rets + '</tbody></table>' : '') +
             (chqs ? '<div class="fw-bold small">Cheques</div><table class="table table-sm"><thead><tr><th>Banco</th><th>Serie-Nº</th><th>Acred.</th><th>Librador</th><th class="text-end">Importe</th></tr></thead><tbody>' + chqs + '</tbody></table>' : '');
         this.el('btnImprimir').onclick = function () { window.open('imprimir.php?nummov=' + d.NUMMOV, '_blank'); };
+        var anu = this.el('btnAnular');
+        anu.style.display = d.ANU ? 'none' : '';
+        anu.onclick = function () { RC.anular(d.NUMMOV); };
         bootstrap.Modal.getOrCreateInstance(this.el('modalDet')).show();
+    },
+    async anular(num) {
+        if (!confirm('¿Anular el recibo? Se revierten los comprobantes cancelados, el asiento contable y los cheques recibidos. No se puede deshacer.')) return;
+        var fd = new FormData(); fd.append('action', 'anular'); fd.append('nummov', num);
+        var j = await this.api('anular', {}, { method: 'POST', body: fd });
+        if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        this.toast('Recibo ' + num + ' anulado.', 'success');
+        bootstrap.Modal.getInstance(this.el('modalDet')).hide();
+        this.loadList();
     },
 
     autocomplete(input, list, action, label, onPick) {
