@@ -3,8 +3,16 @@
  */
 const App = {
     dt: null,
+    orden: null,        // 'acred' | 'emi' (viene del menú: Cheques x Fecha de…)
+    presetOrder: [],    // orden inicial del DataTable según ?orden=
 
     init() {
+        // Atajo desde el menú: ?orden=acred|entrada → preselecciona la base de fecha y deja
+        // el listado ya ordenado por esa fecha (col 4 Emisión / col 5 Acred.).
+        const p = new URLSearchParams(location.search).get('orden');
+        if (p === 'acred') { this.orden = 'acred'; this.el('cboBase').value = 'acred'; this.presetOrder = [[5, 'asc']]; }
+        else if (p === 'entrada' || p === 'emi') { this.orden = 'emi'; this.el('cboBase').value = 'emi'; this.presetOrder = [[4, 'asc']]; }
+
         this.el('btnBuscar').addEventListener('click', () => this.buscar());
         this.el('cboEstado').addEventListener('change', () => this.buscar());
         ['txtQ', 'txtImporte', 'txtDesde', 'txtHasta'].forEach(id =>
@@ -19,6 +27,7 @@ const App = {
         url.searchParams.set('q', this.el('txtQ').value.trim());
         url.searchParams.set('importe', this.el('txtImporte').value || '');
         url.searchParams.set('base', this.el('cboBase').value);
+        if (this.orden) url.searchParams.set('orden', this.orden);
         if (this.el('txtDesde').value) url.searchParams.set('desde', this.el('txtDesde').value);
         if (this.el('txtHasta').value) url.searchParams.set('hasta', this.el('txtHasta').value);
 
@@ -46,16 +55,16 @@ const App = {
                 <td>${this.esc(c.NRO)}${echeq}</td>
                 <td>${this.esc(c.LIB || '—')}</td>
                 <td class="text-muted">${this.esc(c.CIT)}</td>
-                <td>${this.esc(c.FEMI)}</td>
-                <td>${this.esc(c.FACR)}</td>
+                <td data-order="${c.FEMIO}">${this.esc(c.FEMI)}</td>
+                <td data-order="${c.FACRO}">${this.esc(c.FACR)}</td>
                 <td class="text-end fw-medium" data-order="${c.IMP}">${this.num(c.IMP)}</td>
                 <td>${badge}</td>
             </tr>`;
         }).join('');
 
         this.dt = $('#tblChq').DataTable({
-            order: [], pageLength: 25,
-            columnDefs: [{ targets: [6], type: 'num' }],
+            order: this.presetOrder, pageLength: 25,
+            columnDefs: [{ targets: [4, 5, 6], type: 'num' }],   // Emisión/Acred. ordenan por serial, Importe por número
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-AR.json' },
         });
     },

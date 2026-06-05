@@ -51,7 +51,11 @@ function buscar() {
     if ($sh !== null) $where[] = "$dbasis <= $sh";
 
     $wsql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
-    $orden = in_array($estado, array('depositar', 'diferidos', 'cartera')) ? 'FAXCHQ ASC' : 'FEXCHQ DESC';
+    // Orden: si viene del menú (?orden=acred|entrada) se respeta; si no, por estado.
+    $ordp = isset($_GET['orden']) ? $_GET['orden'] : '';
+    if ($ordp === 'acred')                          $orden = 'FAXCHQ ASC';
+    elseif ($ordp === 'emi' || $ordp === 'entrada') $orden = 'FEXCHQ ASC';
+    else $orden = in_array($estado, array('depositar', 'diferidos', 'cartera')) ? 'FAXCHQ ASC' : 'FEXCHQ DESC';
 
     // Bancos
     $ban = array();
@@ -75,7 +79,9 @@ function buscar() {
             'CIT'    => trim((string) nz($c['CITCHQ'], '')),
             'LOC'    => trim((string) nz($c['LOCCHQ'], '')),
             'FEMI'   => fecha_serial($c['FEXCHQ']),
+            'FEMIO'  => (int) nz($c['FEXCHQ'], 0),   // serial para ordenar la columna Emisión
             'FACR'   => fecha_serial($c['FAXCHQ']),
+            'FACRO'  => (int) nz($c['FAXCHQ'], 0),   // serial para ordenar la columna Acred.
             'IMP'    => round($imc, 2),
             'VAD'    => ($c['VADCHQ'] === true || $c['VADCHQ'] == -1) ? 1 : 0,
             'DIF'    => ($c['DIFCHQ'] === true || $c['DIFCHQ'] == -1) ? 1 : 0,
