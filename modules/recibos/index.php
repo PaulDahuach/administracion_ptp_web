@@ -32,26 +32,35 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
   .tot-bar .t .lbl { font-size:.66rem; text-transform:uppercase; color:var(--bs-secondary-color); }
   .tot-bar .t .val { font-weight:700; font-variant-numeric:tabular-nums; }
   #grdRec tbody tr, #grdPend tbody tr { cursor:pointer; }
+  .rc-ro { font-variant-numeric:tabular-nums; font-weight:600; letter-spacing:.3px; }
+  #nummov:not([value=""]), #cinmov:not([value=""]) { color:var(--fc-primary); }
 </style>
 
 <div class="fc-form" id="rcForm" data-keynav data-keynav-submit="#btnGuardar">
   <div class="card fc-card mb-2"><div class="card-body">
+    <!-- Comprobante: identificación (auto / readonly, como el legacy) -->
     <div class="row g-2">
-      <div class="col-md-5">
+      <div class="col-md-2"><label class="form-label mb-1">Movimiento Nº</label><input id="nummov" class="form-control rc-ro" placeholder="(automático)" readonly></div>
+      <div class="col-md-2" id="boxPdv"><label class="form-label mb-1">Punto de venta</label><select id="cipmov" class="form-select" disabled data-nocombo></select></div>
+      <div class="col-md-2"><label class="form-label mb-1">Nº Recibo</label><input id="cinmov" class="form-control rc-ro" placeholder="(automático)" readonly></div>
+      <div class="col-md-2"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control" readonly></div>
+      <div class="col-md-2"><label class="form-label mb-1">Imput. I.V.A.</label><input type="date" id="fixmov" class="form-control"></div>
+      <div class="col-md-2"><label class="form-label mb-1">Operación</label><select id="codaux" class="form-select" disabled data-nocombo></select></div>
+    </div>
+    <!-- Cliente -->
+    <div class="row g-2 mt-1">
+      <div class="col-md-7">
         <label class="form-label mb-1">Cliente (cuenta corriente)</label>
         <div class="ac-box"><input type="text" id="cliQ" class="form-control" placeholder="Nombre o código…" autocomplete="off"><div class="ac-list" id="cliList"></div></div>
         <input type="hidden" id="codcue"><div class="small text-muted mt-1" id="cliInfo"></div>
       </div>
-      <div class="col-md-2"><label class="form-label mb-1">Operación</label><select id="codaux" class="form-select" disabled data-nocombo></select></div>
-      <div class="col-md-2"><label class="form-label mb-1">Punto de venta</label><select id="cipmov" class="form-select"></select></div>
-      <div class="col-md-2"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control" readonly></div>
-    </div>
-    <div class="row g-2 mt-1">
-      <div class="col-md-2"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option><option value="5">Interdepósito</option></select></div>
-      <div class="col-md-3" id="boxCbx"><label class="form-label mb-1">Cuenta bancaria</label><select id="codcbx" class="form-select" disabled></select></div>
-      <div class="col-md-2"><label class="form-label mb-1">Imput. I.V.A.</label><input type="date" id="fixmov" class="form-control"></div>
       <div class="col-md-2"><label class="form-label mb-1">Saldo operativo</label><input type="text" id="saldo" class="form-control rc-num" readonly></div>
       <div class="col-md-3"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
+    </div>
+    <!-- Forma de pago -->
+    <div class="row g-2 mt-1">
+      <div class="col-md-2"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option><option value="5">Interdepósito</option></select></div>
+      <div class="col-md-4" id="boxCbx"><label class="form-label mb-1">Cuenta bancaria</label><select id="codcbx" class="form-select" disabled></select></div>
     </div>
   </div></div>
 
@@ -133,5 +142,5 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/recibos.js?v=6"></script>
+<script src="assets/js/recibos.js?v=7"></script>
 '); ?>

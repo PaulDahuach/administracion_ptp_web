@@ -20,7 +20,7 @@ const RC = {
         this.el('fixmov').value = this.el('fexmov').value;                 // imput. IVA = emisión por defecto
         var ops = await this.api('operaciones'); if (ops.ok) this.el('codaux').innerHTML = ops.data.map(function (o) { return '<option value="' + o.CODAUX + '"' + (o.CODAUX == 484 ? ' selected' : '') + '>' + RC.esc(o.DENAUX) + '</option>'; }).join('');
         if (this.modo !== 'capacitacion') { var p = await this.api('pdvs'); if (p.ok) this.el('cipmov').innerHTML = p.data.map(function (x) { return '<option value="' + x.CODPDV + '">' + (x.NOMPDV ? RC.esc(x.NOMPDV) + ' (' + x.CODPDV + ')' : x.CODPDV) + '</option>'; }).join(''); }
-        else this.el('cipmov').closest('.col-md-2').style.display = 'none';
+        else this.el('boxPdv').style.display = 'none';   // capacitación: PDV nulo (9999)
         var b = await this.api('bancos'); this.bancos = b.ok ? b.data : [];
         var cb = await this.api('cuentas_bancarias'); if (cb.ok) this.el('codcbx').innerHTML = '<option value="">Cuenta…</option>' + cb.data.map(function (x) { return '<option value="' + x.CODCBX + '">' + RC.esc(x.DENCUE) + '</option>'; }).join('');
 
@@ -167,12 +167,15 @@ const RC = {
         var fd = new FormData(); fd.append('action', 'guardar'); fd.append('data', JSON.stringify(data));
         this.el('btnGuardar').disabled = true;
         var j = await this.api('guardar', {}, { method: 'POST', body: fd });
-        this.el('btnGuardar').disabled = false;
-        if (!j.ok) { this.el('rcErr').textContent = j.error; return; }
+        if (!j.ok) { this.el('btnGuardar').disabled = false; this.el('rcErr').textContent = j.error; return; }
+        // Mostrar el Movimiento Nº y el Nº de recibo asignados (clave para soporte); el form queda
+        // asentado hasta que el operador toca "Nuevo".
         var pdv = j.data.cipmov ? String(j.data.cipmov).padStart(4, '0') : '9999';
-        this.toast('Recibo grabado: ' + pdv + '-' + String(j.data.cinmov).padStart(8, '0') + ' (mov ' + j.data.nummov + ')', 'success');
+        var nro = pdv + '-' + String(j.data.cinmov).padStart(8, '0');
+        this.el('nummov').value = j.data.nummov;
+        this.el('cinmov').value = nro;
+        this.toast('Recibo grabado · Movimiento Nº ' + j.data.nummov + ' · Recibo ' + nro, 'success');
         window.open('imprimir.php?nummov=' + j.data.nummov + '&print=1', '_blank');
-        setTimeout(function () { location.reload(); }, 800);
     },
     retNum(rt) { var el = document.querySelector('.ret-num[data-rt="' + rt + '"]'); return el ? (parseInt(el.value, 10) || 0) : 0; },
     gv(sel) { var el = document.querySelector(sel); return el ? (parseInt(el.value, 10) || 0) : 0; },
@@ -199,7 +202,7 @@ const RC = {
         var chqs = d.cheques.map(function (c) { return '<tr><td>' + RC.esc(c.BANCO) + '</td><td>' + RC.esc(c.SYN) + '</td><td>' + RC.esc(c.FAX) + '</td><td>' + RC.esc(c.LIB) + '</td><td class="text-end">' + RC.n(c.IMP) + '</td></tr>'; }).join('');
         var rets = d.retenciones.map(function (r) { return '<tr><td>' + RC.esc(r.TIPO) + '</td><td class="text-end">' + RC.n(r.IMP) + '</td></tr>'; }).join('');
         this.el('detBody').innerHTML =
-            '<div class="small mb-2"><b>Cliente:</b> ' + this.esc(d.DENMOV) + (d.CITMOV ? ' · ' + this.esc(d.CITMOV) : '') + ' · <b>Emisión:</b> ' + this.esc(d.FEXMOV) + ' · <b>Total:</b> ' + this.n(d.TOTMOV) + (d.DETMOV ? '<br><b>Detalle:</b> ' + this.esc(d.DETMOV) : '') + '</div>' +
+            '<div class="small mb-2"><b>Movimiento Nº:</b> ' + d.NUMMOV + ' · <b>Cliente:</b> ' + this.esc(d.DENMOV) + (d.CITMOV ? ' · ' + this.esc(d.CITMOV) : '') + ' · <b>Emisión:</b> ' + this.esc(d.FEXMOV) + ' · <b>Total:</b> ' + this.n(d.TOTMOV) + (d.DETMOV ? '<br><b>Detalle:</b> ' + this.esc(d.DETMOV) : '') + '</div>' +
             '<div class="fw-bold small mt-2">Comprobantes cancelados</div><table class="table table-sm"><thead><tr><th>Comprobante</th><th>Vto</th><th class="text-end">Importe</th></tr></thead><tbody>' + refs + '</tbody></table>' +
             (rets ? '<div class="fw-bold small">Retenciones</div><table class="table table-sm"><tbody>' + rets + '</tbody></table>' : '') +
             (chqs ? '<div class="fw-bold small">Cheques</div><table class="table table-sm"><thead><tr><th>Banco</th><th>Serie-Nº</th><th>Acred.</th><th>Librador</th><th class="text-end">Importe</th></tr></thead><tbody>' + chqs + '</tbody></table>' : '');
