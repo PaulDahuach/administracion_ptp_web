@@ -80,6 +80,7 @@ const R = {
             (d.DETMOV ? '<div class="col-12"><b>Detalle:</b> ' + this.esc(d.DETMOV) + '</div>' : '') + '</div>' +
             '<table class="table table-sm"><thead><tr><th>Código</th><th>Denominación</th><th>Unidad</th><th>O.Corte</th><th>O.Proc.</th><th>PTP</th><th class="text-end">Cant.</th><th class="text-end">P.U.Neto</th><th class="text-end">Total</th></tr></thead>' +
             '<tbody>' + ls + '</tbody><tfoot><tr class="fw-bold"><td colspan="8" class="text-end">Total:</td><td class="text-end">' + this.num(d.TOTMOV) + '</td></tr></tfoot></table>';
+        this.el('btnImprimir').onclick = function () { window.open('imprimir.php?nummov=' + d.NUMMOV, '_blank'); };
         bootstrap.Modal.getOrCreateInstance(this.el('modalDet')).show();
     },
 
@@ -182,7 +183,8 @@ const R = {
         var pdv = j.data.cipmov ? String(j.data.cipmov).padStart(4, '0') : '9999';
         var nro = String(j.data.cinmov).padStart(8, '0');
         this.toast('Remito grabado: ' + pdv + '-' + nro + ' (mov ' + j.data.nummov + '). Listo para el próximo.', 'success');
-        this.reset();   // form limpio para el siguiente remito (impresión: próximamente)
+        window.open('imprimir.php?nummov=' + j.data.nummov + '&print=1', '_blank');   // impresión sobre preimpreso
+        this.reset();
     },
 
     // --- autocomplete genérico (servidor como fuente de verdad) ---

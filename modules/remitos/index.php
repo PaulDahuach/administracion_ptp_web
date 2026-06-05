@@ -109,7 +109,7 @@ module_head('Remitos — Deudores', 'bi-truck', $toolbar);
 <div class="modal fade" id="modalDet" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
   <div class="modal-header py-2"><h6 class="modal-title" id="detTit"><i class="bi bi-truck me-2"></i>Remito</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
   <div class="modal-body" id="detBody"></div>
-  <div class="modal-footer py-1"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+  <div class="modal-footer py-1"><button type="button" id="btnImprimir" class="btn btn-sm btn-primary"><i class="bi bi-printer me-1"></i>Imprimir</button><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button></div>
 </div></div></div>
 
 <div class="fc-toast-container"><div id="toastMsg" class="toast align-items-center border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
@@ -119,5 +119,5 @@ module_head('Remitos — Deudores', 'bi-truck', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/remitos.js?v=3"></script>
+<script src="assets/js/remitos.js?v=4"></script>
 '); ?>
