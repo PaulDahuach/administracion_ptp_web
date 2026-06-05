@@ -41,6 +41,7 @@ module_head('Cheques', 'bi-cash-coin', '');
                 <label class="form-label mb-1">Fecha por</label>
                 <select id="cboBase" class="form-select">
                     <option value="emi" selected>Emisión</option>
+                    <option value="entrada">Entrada (ingreso)</option>
                     <option value="acred">Acreditación</option>
                 </select>
             </div>
@@ -71,6 +72,7 @@ module_head('Cheques', 'bi-cash-coin', '');
                     <th>Librador</th>
                     <th style="width:115px">CUIT</th>
                     <th style="width:95px">Emisión</th>
+                    <th style="width:95px">Ingreso</th>
                     <th style="width:95px">Acred.</th>
                     <th class="text-end" style="width:130px">Importe</th>
                     <th style="width:90px">Estado</th>
@@ -85,5 +87,5 @@ module_head('Cheques', 'bi-cash-coin', '');
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/cheques.js?v=2"></script>
+<script src="assets/js/cheques.js?v=3"></script>
 '); ?>

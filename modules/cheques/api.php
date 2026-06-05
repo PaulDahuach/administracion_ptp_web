@@ -32,38 +32,53 @@ function buscar() {
     $estado = isset($_GET['estado']) ? $_GET['estado'] : 'depositar';
     $q      = isset($_GET['q']) ? trim($_GET['q']) : '';
     $imp    = isset($_GET['importe']) ? (float) $_GET['importe'] : 0;
-    $dbasis = (isset($_GET['base']) && $_GET['base'] === 'acred') ? 'FAXCHQ' : 'FEXCHQ';
+    $base = isset($_GET['base']) ? $_GET['base'] : 'emi';
     $sd = iso_to_serial(isset($_GET['desde']) ? $_GET['desde'] : '');
     $sh = iso_to_serial(isset($_GET['hasta']) ? $_GET['hasta'] : '');
 
+    // Fecha de INGRESO a cartera = FEXMOV del movimiento imputado a la cuenta de cheques en
+    // cartera (Rec Control.CACC_2). Subconsulta agregada (Min de la fecha de ingreso por cheque).
+    $rc     = db_row("SELECT CACC_2 FROM [Rec Control];");
+    $cacc2  = "'" . db_esc(isset($rc['CACC_2']) ? (string) $rc['CACC_2'] : '') . "'";
+    $entSub = "(SELECT MoC.CODCHQ AS CC, Min(M.FEXMOV) AS FE
+                FROM [Tbl Movimientos Imputaciones] AS MoC INNER JOIN [Tbl Movimientos] AS M ON MoC.NUMMOV = M.NUMMOV
+                WHERE MoC.CODCUE = $cacc2 AND MoC.DEBMOV > 0 AND MoC.CODCHQ > 0
+                GROUP BY MoC.CODCHQ)";
+    // Base del filtro desde/hasta: emisión (FEXCHQ), acreditación (FAXCHQ) o ingreso (Ent.FE).
+    if ($base === 'acred')       $dbasis = 'Chq.FAXCHQ';
+    elseif ($base === 'entrada') $dbasis = 'Ent.FE';
+    else                         $dbasis = 'Chq.FEXCHQ';
+
     $where = array();
-    if ($estado === 'depositar')      $where[] = "VADCHQ=True";
-    elseif ($estado === 'diferidos')  $where[] = "DIFCHQ=True";
-    elseif ($estado === 'cartera')    $where[] = "(VADCHQ=True OR DIFCHQ=True)";
+    if ($estado === 'depositar')      $where[] = "Chq.VADCHQ=True";
+    elseif ($estado === 'diferidos')  $where[] = "Chq.DIFCHQ=True";
+    elseif ($estado === 'cartera')    $where[] = "(Chq.VADCHQ=True OR Chq.DIFCHQ=True)";
     // 'todos' → sin filtro de estado
 
     if ($q !== '') {
         $qs = db_esc($q);
-        $where[] = "(SYNCHQ Like '%$qs%' OR LIBCHQ Like '%$qs%' OR CITCHQ Like '%$qs%')";
+        $where[] = "(Chq.SYNCHQ Like '%$qs%' OR Chq.LIBCHQ Like '%$qs%' OR Chq.CITCHQ Like '%$qs%')";
     }
-    if ($imp > 0)     $where[] = "(IMPCHQ BETWEEN " . ($imp - 0.5) . " AND " . ($imp + 0.5) . ")";
+    if ($imp > 0)     $where[] = "(Chq.IMPCHQ BETWEEN " . ($imp - 0.5) . " AND " . ($imp + 0.5) . ")";
     if ($sd !== null) $where[] = "$dbasis >= $sd";
     if ($sh !== null) $where[] = "$dbasis <= $sh";
 
     $wsql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
     // Orden: si viene del menú (?orden=acred|entrada) se respeta; si no, por estado.
     $ordp = isset($_GET['orden']) ? $_GET['orden'] : '';
-    if ($ordp === 'acred')                          $orden = 'FAXCHQ ASC';
-    elseif ($ordp === 'emi' || $ordp === 'entrada') $orden = 'FEXCHQ ASC';
-    else $orden = in_array($estado, array('depositar', 'diferidos', 'cartera')) ? 'FAXCHQ ASC' : 'FEXCHQ DESC';
+    if ($ordp === 'acred')        $orden = 'Chq.FAXCHQ ASC';
+    elseif ($ordp === 'entrada')  $orden = 'Ent.FE ASC';
+    elseif ($ordp === 'emi')      $orden = 'Chq.FEXCHQ ASC';
+    else $orden = in_array($estado, array('depositar', 'diferidos', 'cartera')) ? 'Chq.FAXCHQ ASC' : 'Chq.FEXCHQ DESC';
 
     // Bancos
     $ban = array();
     foreach (db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos]") as $b)
         $ban[(int) $b['CODBAN']] = trim((string) nz($b['DENBAN'], ''));
 
-    $rows = db_query("SELECT TOP 500 CODCHQ, CODBAN, SYNCHQ, FEXCHQ, FAXCHQ, PLZCHQ, LIBCHQ, CITCHQ, LOCCHQ, IMPCHQ, VADCHQ, DIFCHQ
-        FROM [Tbl Cheques] $wsql ORDER BY $orden");
+    $rows = db_query("SELECT TOP 500 Chq.CODCHQ, Chq.CODBAN, Chq.SYNCHQ, Chq.FEXCHQ, Chq.FAXCHQ, Chq.PLZCHQ, Chq.LIBCHQ, Chq.CITCHQ, Chq.LOCCHQ, Chq.IMPCHQ, Chq.VADCHQ, Chq.DIFCHQ, Ent.FE AS FENTR
+        FROM [Tbl Cheques] AS Chq LEFT JOIN $entSub AS Ent ON Chq.CODCHQ = Ent.CC
+        $wsql ORDER BY $orden");
 
     $out = array();
     $total = 0.0;
@@ -80,6 +95,8 @@ function buscar() {
             'LOC'    => trim((string) nz($c['LOCCHQ'], '')),
             'FEMI'   => fecha_serial($c['FEXCHQ']),
             'FEMIO'  => (int) nz($c['FEXCHQ'], 0),   // serial para ordenar la columna Emisión
+            'FENT'   => fecha_serial($c['FENTR']),   // fecha de ingreso a cartera (FEXMOV)
+            'FENTO'  => (int) nz($c['FENTR'], 0),    // serial para ordenar la columna Ingreso
             'FACR'   => fecha_serial($c['FAXCHQ']),
             'FACRO'  => (int) nz($c['FAXCHQ'], 0),   // serial para ordenar la columna Acred.
             'IMP'    => round($imc, 2),

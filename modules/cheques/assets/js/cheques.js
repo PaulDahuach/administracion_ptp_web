@@ -9,9 +9,11 @@ const App = {
     init() {
         // Atajo desde el menú: ?orden=acred|entrada → preselecciona la base de fecha y deja
         // el listado ya ordenado por esa fecha (col 4 Emisión / col 5 Acred.).
+        // Columnas: Banco0 Nº1 Librador2 CUIT3 Emisión4 Ingreso5 Acred6 Importe7 Estado8
         const p = new URLSearchParams(location.search).get('orden');
-        if (p === 'acred') { this.orden = 'acred'; this.el('cboBase').value = 'acred'; this.presetOrder = [[5, 'asc']]; }
-        else if (p === 'entrada' || p === 'emi') { this.orden = 'emi'; this.el('cboBase').value = 'emi'; this.presetOrder = [[4, 'asc']]; }
+        if (p === 'acred')        { this.orden = 'acred';   this.el('cboBase').value = 'acred';   this.presetOrder = [[6, 'asc']]; }
+        else if (p === 'entrada') { this.orden = 'entrada'; this.el('cboBase').value = 'entrada'; this.presetOrder = [[5, 'asc']]; }
+        else if (p === 'emi')     { this.orden = 'emi';     this.el('cboBase').value = 'emi';     this.presetOrder = [[4, 'asc']]; }
 
         this.el('btnBuscar').addEventListener('click', () => this.buscar());
         this.el('cboEstado').addEventListener('change', () => this.buscar());
@@ -34,17 +36,17 @@ const App = {
         this.el('cardGrid').style.display = '';
         const tb = document.querySelector('#tblChq tbody');
         if (this.dt) { this.dt.destroy(); this.dt = null; }
-        tb.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">Buscando…</td></tr>';
+        tb.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Buscando…</td></tr>';
 
         const r = await (await fetch(url)).json();
-        if (!r.ok) { tb.innerHTML = `<tr><td colspan="8" class="text-danger text-center py-3">${this.esc(r.error)}</td></tr>`; return; }
+        if (!r.ok) { tb.innerHTML = `<tr><td colspan="9" class="text-danger text-center py-3">${this.esc(r.error)}</td></tr>`; return; }
         const d = r.data;
 
         this.el('stCant').textContent = d.cantidad + (d.tope ? '+' : '');
         this.el('stTotal').textContent = '$' + this.num(d.total);
         this.el('statsRow').style.display = '';
 
-        if (!d.cheques.length) { tb.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">Sin cheques</td></tr>'; return; }
+        if (!d.cheques.length) { tb.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Sin cheques</td></tr>'; return; }
         tb.innerHTML = d.cheques.map(c => {
             let badge = '';
             if (c.DIF) badge += '<span class="badge bg-warning text-dark me-1">Diferido</span>';
@@ -56,6 +58,7 @@ const App = {
                 <td>${this.esc(c.LIB || '—')}</td>
                 <td class="text-muted">${this.esc(c.CIT)}</td>
                 <td data-order="${c.FEMIO}">${this.esc(c.FEMI)}</td>
+                <td data-order="${c.FENTO}">${this.esc(c.FENT)}</td>
                 <td data-order="${c.FACRO}">${this.esc(c.FACR)}</td>
                 <td class="text-end fw-medium" data-order="${c.IMP}">${this.num(c.IMP)}</td>
                 <td>${badge}</td>
@@ -64,7 +67,7 @@ const App = {
 
         this.dt = $('#tblChq').DataTable({
             order: this.presetOrder, pageLength: 25,
-            columnDefs: [{ targets: [4, 5, 6], type: 'num' }],   // Emisión/Acred. ordenan por serial, Importe por número
+            columnDefs: [{ targets: [4, 5, 6, 7], type: 'num' }],   // Emisión/Ingreso/Acred. por serial, Importe por número
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-AR.json' },
         });
     },

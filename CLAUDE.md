@@ -130,8 +130,11 @@ Próximo: confirmar con Paul el siguiente módulo (Emisiones requieren readwrite
   (ambos, 31), Todos. Cols: CODBAN→banco (Tbl Bancos), SYNCHQ(nº), FEXCHQ(emisión)/FAXCHQ(acred),
   LIBCHQ(librador)/CITCHQ, LOCCHQ('E CHEQ'=echeq), IMPCHQ. Filtros texto/importe/fecha(emi|acred). TOP 500.
   Deep-link `?orden=acred|entrada` (desde Resumen→Cheques de Terceros del legacy): preselecciona la base
-  de fecha y deja el listado ya ordenado por esa fecha (server ORDER BY + DataTable order). Las columnas
-  Emisión/Acred. ordenan por serial via `data-order` (FEMIO/FACRO).
+  de fecha (cboBase) y deja el listado ya ordenado por esa fecha ASC (server ORDER BY + DataTable order;
+  el legacy sí es ASC, ordenaba por CODCHQ). **Fecha de Entrada/Ingreso = FEXMOV** del movimiento de
+  ingreso a cartera (imputación a `Rec Control.CACC_2`='11103', DEBMOV>0) — NO es la emisión FEXCHQ. Se
+  trae con un LEFT JOIN a una subconsulta agregada (Min FEXMOV por cheque) y se muestra en la columna
+  **Ingreso**. Columnas de fecha ordenan por serial via `data-order` (FEMIO/FENTO/FACRO).
 
 ## Reglas técnicas (ver también CLAUDE.md del kit y de produccion_ptp)
 - **PHP 5.5** target (server cliente Win 2008 R2 + WAMP 32-bit): NO `??`, `intdiv`, arrow fns,
