@@ -34,7 +34,7 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
     <title><?= h($name) ?> — Inicio</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="<?= bu('/assets/css/app.css') ?>?v=4" rel="stylesheet">
+    <link href="<?= bu('/assets/css/app.css') ?>?v=5" rel="stylesheet">
     <style>:root{ --fc-primary: <?= h($primary) ?>; }</style>
     <script>window.IWK_BASE = '<?= rtrim(sys('base_url',''),'/') ?>';</script>
 </head>
@@ -109,19 +109,33 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
         }
         if ($vmenu): ?>
         <div class="menu-tabs" id="menuTabs" role="tablist">
-            <?php $ti = 0; foreach ($vmenu as $section => $cards): ?>
-            <button type="button" class="menu-tab<?= $ti === 0 ? ' active' : '' ?>" data-tab="<?= $ti ?>" role="tab"><?= h($section) ?><span class="menu-tab-n"><?= count($cards) ?></span></button>
+            <?php $ti = 0; foreach ($vmenu as $section => $cards):
+                $nEna = 0; $nOpt = 0;
+                foreach ($cards as $c) { if (isset($c['head'])) continue; $nOpt++; if (empty($c['disabled'])) $nEna++; }
+                $cnt = ($nEna < $nOpt) ? ($nEna . '/' . $nOpt) : (string) $nOpt; ?>
+            <button type="button" class="menu-tab<?= $ti === 0 ? ' active' : '' ?>" data-tab="<?= $ti ?>" role="tab"><?= h($section) ?><span class="menu-tab-n"><?= h($cnt) ?></span></button>
             <?php $ti++; endforeach; ?>
         </div>
         <div class="menu-panel" id="menuPanel">
             <?php $gi = 0; foreach ($vmenu as $section => $cards): ?>
             <section class="mpanel-group<?= $gi === 0 ? ' active' : '' ?>" data-group="<?= $gi ?>">
                 <div class="mpanel-head"><?= h($section) ?></div>
-                <?php foreach ($cards as $c): ?>
-                <a class="mpanel-link" href="<?= h(bu($c['url'])) ?>" data-search="<?= h(mb_strtolower($c['label'] . ' ' . $section . ' ' . (isset($c['desc']) ? $c['desc'] : ''))) ?>">
-                    <i class="bi <?= h((isset($c['icon']) ? $c['icon'] : 'bi-dot')) ?>"></i><span><?= h($c['label']) ?></span>
+                <?php foreach ($cards as $c):
+                    if (isset($c['head'])): ?>
+                <div class="mpanel-subhead"><?= h($c['head']) ?></div>
+                    <?php continue; endif;
+                    $ds = h(mb_strtolower($c['label'] . ' ' . $section . ' ' . (isset($c['desc']) ? $c['desc'] : '')));
+                    $ic = h(isset($c['icon']) ? $c['icon'] : 'bi-dot');
+                    if (!empty($c['disabled'])): ?>
+                <span class="mpanel-link disabled" data-search="<?= $ds ?>" title="Aún no disponible en la versión web">
+                    <i class="bi <?= $ic ?>"></i><span><?= h($c['label']) ?></span><span class="mpanel-soon">pronto</span>
+                </span>
+                    <?php else: ?>
+                <a class="mpanel-link" href="<?= h(bu($c['url'])) ?>" data-search="<?= $ds ?>">
+                    <i class="bi <?= $ic ?>"></i><span><?= h($c['label']) ?></span>
                 </a>
-                <?php endforeach; ?>
+                    <?php endif;
+                endforeach; ?>
             </section>
             <?php $gi++; endforeach; ?>
         </div>
@@ -195,7 +209,7 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
     // Enter → abrir el primer resultado visible
     inp.addEventListener('keydown', function(e){
         if (e.key === 'Enter'){
-            var first = panel.querySelector('.mpanel-link:not([style*="display: none"])');
+            var first = panel.querySelector('a.mpanel-link:not([style*="display: none"])');
             if (first && first.offsetParent !== null) window.location.href = first.href;
         } else if (e.key === 'Escape'){ inp.value=''; filter(); inp.blur(); }
     });

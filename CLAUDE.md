@@ -31,6 +31,16 @@ Exclusiones), `Tbl Cuentas Contables`, `Tbl Cuentas Bancarias`, `Tbl Cheques`, `
 Login + dashboard OK, conectado a datos reales (readonly). Mapa del menú legacy en
 `docs/menu_legacy.md` (120 opciones, solapas CD/IC/SI/CA/VS/RE).
 
+**Menú dashboard = tabstrip estilo legacy** (`app/index.php` + `.menu-tab*`/`.mpanel-*` en
+`app.css`): una solapa por sección del config `menu`; click muestra solo ese grupo; el buscador
+(Ctrl+K) entra en "modo búsqueda" (todas las solapas filtradas) y vuelve a la activa al limpiar.
+Estrategia elegida con Paul: **listar el mapa COMPLETO del legacy**, con los construidos como link
+y los no portados como `'disabled'=>true` (gris, badge "pronto"). Sub-secciones del legacy
+(ACTUALIZACIONES/PROCESOS/LISTADOS) con `['head'=>..]`. Tarjetas admin-only con `'admin'=>true`
+(config `admin_users`; vacía = nadie). Contador de la solapa = construidos/total. El `menu` vive en
+`config/system.php` (NO versionado → replicar a mano en deploy); flags documentados en
+`system.example.php`. Solapa **IC** ya poblada completa (4/26); faltan poblar CD/CA/SI/VS/RE.
+
 **Módulos HECHOS (solo lectura):**
 - `modules/resumen_cuenta/` + `modules/resumen_cuenta_acr/` — Resumen de cta cte (deudor /
   acreedor). Autocomplete + desde/hasta + selector **Libro (Todos/Blanco/Negro)** + stats + saldo

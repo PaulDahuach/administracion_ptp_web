@@ -56,14 +56,26 @@ return [
     'primary'     => '#2563eb',                 // color de acento
     'theme'       => 'dark',                     // tema por defecto: 'dark'|'light'
 
-    // ── Menú del dashboard ───────────────────────────────────────────────
-    // Grupos → tarjetas. 'url' apunta a /modules/<slug>/ .
-    // Quitá/agregá lo que el sistema tenga. Cada módulo se porta aparte.
+    // ── Menú del dashboard (tabstrip por solapa, estilo legacy) ──────────
+    // Cada clave = una SOLAPA (tab). Su valor = lista de tarjetas (en orden).
+    // Tipos de entrada dentro de una solapa:
+    //   ['head' => 'LISTADOS']                         → sub-encabezado (no clickeable)
+    //   ['label'=>..,'desc'=>..,'icon'=>..,'url'=>..]  → opción construida (link)
+    //   ['label'=>'Cierre', 'disabled'=>true]          → opción del legacy aún NO portada
+    //                                                     (gris, badge "pronto", no clickeable)
+    //   ['label'=>..,'url'=>..,'admin'=>true]          → solo visible para admins (admin_users)
+    // El contador de la solapa muestra construidos/total cuando hay 'disabled'.
     'menu' => [
         'Consultas' => [
+            ['head'  => 'Listados'],
             ['label' => 'Ejemplo',  'desc' => 'Módulo de ejemplo', 'icon' => 'bi-table', 'url' => '/modules/_template/'],
+            ['label' => 'Pendiente de portar', 'disabled' => true],
         ],
     ],
+
+    // Administradores (CODUSR o DENUSR) que ven las tarjetas 'admin'=>true.
+    // Lista vacía = nadie es admin (default seguro).
+    'admin_users' => [],
 
     // ── AFIP (opcional) ──────────────────────────────────────────────────
     // Si el sistema emite comprobantes electrónicos. Dejar enabled=false si no.
