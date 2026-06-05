@@ -35,6 +35,12 @@ function iso_to_serial($iso) {
     return (int) $base->diff($d)->days;
 }
 
+/** Literal SQL de texto: 'escapado' o Null si vacío (varios campos de Access no admiten cadena vacía). */
+function sql_txt($s) {
+    $s = trim((string) $s);
+    return $s === '' ? 'Null' : "'" . db_esc($s) . "'";
+}
+
 /** Datos del cliente para el header (replica CODCUE_AfterUpdate). */
 function cliente_datos($codcue) {
     $cc = (int) $codcue;
@@ -149,7 +155,8 @@ function guardar() {
     $codtra = isset($d['codtra']) && $d['codtra'] !== '' ? (int) $d['codtra'] : (nz($cli['CODTRA'], null));
     $detmov = isset($d['detmov']) ? trim($d['detmov']) : '';
     $cotmov = isset($d['cotmov']) ? trim($d['cotmov']) : '';
-    $vdxmov = round((float) (isset($d['vdxmov']) ? $d['vdxmov'] : 0), 2);
+    $vdxIn  = isset($d['vdxmov']) ? trim((string) $d['vdxmov']) : '';
+    $vdxSql = ($vdxIn === '' || (float) $vdxIn == 0) ? 'Null' : (string) round((float) $vdxIn, 2);  // sin valor declarado → Null
 
     // Total = Σ (cant × precio unit neto) de las líneas.
     $total = 0.0;
@@ -171,17 +178,17 @@ function guardar() {
         }
 
         $saldo = cliente_saldo($codcue, $estTrue);
-        $denmov = db_esc(trim(nz($cli['DENCUE'], '')));
-        $cit    = db_esc(trim(nz($cli['CITCUE'], '')));
-        $dcx    = db_esc(trim(nz($cli['DCXCUE'], '')));
-        $dnx    = db_esc(trim(nz($cli['DNXCUE'], '')));
-        $dpx    = db_esc(trim(nz($cli['DPXCUE'], '')));
-        $ddx    = db_esc(trim(nz($cli['DDXCUE'], '')));
+        $denSql = sql_txt(nz($cli['DENCUE'], ''));
+        $citSql = sql_txt(nz($cli['CITCUE'], ''));
+        $dcxSql = sql_txt(nz($cli['DCXCUE'], ''));
+        $dnxSql = sql_txt(nz($cli['DNXCUE'], ''));
+        $dpxSql = sql_txt(nz($cli['DPXCUE'], ''));
+        $ddxSql = sql_txt(nz($cli['DDXCUE'], ''));
         $codloc = (int) nz($cli['CODLOC'], 0);
         $codcri = (int) nz($cli['CODCRI'], 0);
         $codcat = (int) nz($cli['CODCAT'], 0);
-        $detSql = $detmov !== '' ? "'" . db_esc($detmov) . "'" : 'Null';
-        $cotSql = $cotmov !== '' ? "'" . db_esc($cotmov) . "'" : 'Null';
+        $detSql = sql_txt($detmov);
+        $cotSql = sql_txt($cotmov);
         $traSql = ($codtra === null || $codtra === '') ? 'Null' : (string) (int) $codtra;
 
         // --- Header en Tbl Movimientos (CODOPE=410, CICMOV='RV') ---
@@ -191,8 +198,8 @@ function guardar() {
              CODCAT, CODTRA, CODDST, DETMOV, FRVMOV, SRPMOV, COTMOV, VDXMOV, TOTMOV, NUIMOV, NMIMOV,
              NOWMOV, ANUMOV, ESTMOV)
             VALUES ($nummov, 'D', 410, $fex, 'RV', $cipSql, $cinmov, 'RV', $cipSql, $cinmov, $fex,
-             $codcue, '$denmov', $saldo, $pdcmov, '$dcx', '$dnx', '$dpx', '$ddx', $codloc, $codcri, '$cit',
-             $codcat, $traSql, $coddst, $detSql, $frv, True, $cotSql, $vdxmov, $total, 0, 0,
+             $codcue, $denSql, $saldo, $pdcmov, $dcxSql, $dnxSql, $dpxSql, $ddxSql, $codloc, $codcri, $citSql,
+             $codcat, $traSql, $coddst, $detSql, $frv, True, $cotSql, $vdxSql, $total, 0, 0,
              Now(), False, $estSql);");
 
         // --- Líneas en Tbl Movimientos Stock + descarga de stock ---
@@ -200,7 +207,7 @@ function guardar() {
         foreach ($lineas as $l) {
             $ord++;
             $cp   = db_esc(trim(nz($l['codpro'], '')));
-            $den  = db_esc(trim(nz($l['denmov'], '')));
+            $denSqlL = sql_txt(nz($l['denmov'], ''));
             $udm  = (int) nz($l['codudm'], 0);
             $fct  = (float) nz($l['fctmov'], 1);
             $dum  = (int) nz($l['dummov'], 2);
@@ -224,7 +231,7 @@ function guardar() {
             db_exec("INSERT INTO [Tbl Movimientos Stock]
                 (NUMMOV, ORDMOV, CODSUC, CODPRO, DENMOV, CODUDM, FCTMOV, DUMMOV, CODMON, COSMOV,
                  {$egr}PUNMOV, PUCMOV, PULMOV, STKMOV, ODCMOV, ODPMOV, PDLMOV, CFVMOV)
-                VALUES ($nummov, $ord, $coddst, '$cp', '$den', $udm, $fct, $dum, '$mon', $cos,
+                VALUES ($nummov, $ord, $coddst, '$cp', $denSqlL, $udm, $fct, $dum, '$mon', $cos,
                  {$egrVal}$pun, $puc, $pul, " . ($stk ? 'True' : 'False') . ", $odcSql, $odpSql, $pdlSql, 0);");
 
             if ($stk) {
