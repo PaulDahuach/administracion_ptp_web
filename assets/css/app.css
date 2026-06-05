@@ -107,10 +107,11 @@ a.kpi:hover { transform:translateY(-2px); box-shadow:0 8px 22px -8px var(--c); }
 .mpanel-link i { font-size:.92rem; color:var(--side-mut); width:1.1rem; text-align:center; flex:0 0 auto; }
 .mpanel-link:hover { background:color-mix(in srgb,var(--fc-primary) 14%, transparent); color:inherit; }
 .mpanel-link:hover i { color:var(--fc-primary); }
+/* Bloque (sub-sección) que NO se parte entre columnas: subhead + sus opciones juntos */
+.mpanel-block { break-inside:avoid; margin-bottom:.7rem; }
 /* Sub-encabezado dentro de una solapa (ACTUALIZACIONES / PROCESOS / LISTADOS del legacy) */
 .mpanel-subhead { font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.09em;
-    color:var(--bs-secondary-color); margin:.6rem 0 .1rem; break-inside:avoid; }
-.mpanel-group.active > .mpanel-subhead:first-of-type { margin-top:0; }
+    color:var(--bs-secondary-color); margin:0 0 .15rem; }
 /* Opción del legacy aún no portada: gris, no clickeable, badge "pronto" */
 .mpanel-link.disabled { color:var(--bs-secondary-color); opacity:.6; cursor:default; pointer-events:none; }
 .mpanel-link.disabled i { color:var(--bs-secondary-color); }
