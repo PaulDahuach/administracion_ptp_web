@@ -39,6 +39,13 @@ try {
             ok(['redirect' => bu('/app/index.php')]);
             break;
 
+        case 'set_modo':
+            // Cambia el libro activo (doble libro). Solo S/A; O y C quedan fijos.
+            if (!auth_logged_in()) { fail('No autenticado', 401); break; }
+            $changed = auth_set_modo((isset($_POST['modo']) ? $_POST['modo'] : 'operador'));
+            ok(['modo' => auth_modo(), 'changed' => $changed]);
+            break;
+
         case 'logout':
             auth_logout();
             ok(['redirect' => bu('/app/login.php')]);

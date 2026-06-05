@@ -45,6 +45,7 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
             <i class="bi bi-grid-3x3-gap-fill" style="color:var(--fc-primary);font-size:1.2rem;"></i>
             <h1><?= h($name) ?></h1>
             <?php if ($ro): ?><span class="badge bg-warning text-dark"><i class="bi bi-eye me-1"></i>Sólo lectura</span><?php endif; ?>
+            <?php if (function_exists('mode_badge_html')) echo mode_badge_html(); ?>
             <?php if (auth_sector_login() && auth_sector()): ?>
               <span class="badge bg-primary"><i class="bi bi-diagram-3 me-1"></i><?= h(auth_sector_name()) ?></span>
               <a href="<?= bu('/app/sector.php') ?>" class="btn btn-sm btn-outline-light py-0 px-1" title="Cambiar sector"><i class="bi bi-arrow-repeat"></i></a>
@@ -154,7 +155,7 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
     </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="<?= bu('/assets/js/app.js') ?>"></script>
+<script src="<?= bu('/assets/js/app.js') ?>?v=3"></script>
 <script>
 (function(){
     var inp = document.getElementById('menuSearch');

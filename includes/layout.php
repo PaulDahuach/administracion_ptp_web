@@ -40,6 +40,7 @@ function module_head($title, $icon = 'bi-app', $buttons_html = '') {
         <?php if (sys('portal_url')): ?><a href="<?= h(sys('portal_url')) ?>" class="btn btn-outline-light btn-sm me-2" title="Portal de Sistemas"><i class="bi bi-grid-3x3-gap"></i></a><?php endif; ?>
         <h1><i class="bi <?= h($icon) ?> me-2"></i><?= h($title) ?></h1>
         <?php if ($ro): ?><span class="badge bg-warning text-dark"><i class="bi bi-eye me-1"></i>Sólo lectura</span><?php endif; ?>
+        <?php if (function_exists('mode_badge_html')) echo mode_badge_html(); ?>
         <?php if (function_exists('auth_sector_login') && auth_sector_login() && auth_sector()): ?>
         <span class="badge bg-primary"><i class="bi bi-diagram-3 me-1"></i><?= h(auth_sector_name()) ?></span>
         <a href="<?= bu('/app/sector.php') ?>" class="btn btn-sm btn-outline-light py-0 px-1" title="Cambiar sector"><i class="bi bi-arrow-repeat"></i></a>
@@ -62,7 +63,7 @@ function module_foot($extra_html = '') {
     ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="<?= bu('/assets/js/app.js') ?>?v=2"></script>
+<script src="<?= bu('/assets/js/app.js') ?>?v=3"></script>
 <?= $extra_html ?>
 </body>
 </html>
