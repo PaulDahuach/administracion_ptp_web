@@ -92,8 +92,8 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
   <div class="card fc-card"><div class="card-body tot-bar">
     <div class="t" id="boxEfe"><div class="lbl" id="lblEfe">Efectivo</div><div class="val" id="tEfectivo">0,00</div><input type="number" step="0.01" id="efectivo" class="form-control form-control-sm rc-num" value="0" style="display:none"></div>
     <div class="t" id="boxChq"><div class="lbl">Cheques</div><div class="val" id="tCheques">0,00</div></div>
-    <div class="t" id="boxCobrar"><div class="lbl">A cobrar</div><div class="val" id="tCobrar">0,00</div></div>
     <div class="t"><div class="lbl">Retenciones</div><div class="val" id="tRet">0,00</div></div>
+    <div class="t" id="boxCobrar"><div class="lbl">A cobrar</div><div class="val" id="tCobrar">0,00</div></div>
     <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Recibo</div><div class="val" id="tRecibo">0,00</div></div>
   </div></div>
   <div class="text-danger small mt-2" id="rcErr"></div>
