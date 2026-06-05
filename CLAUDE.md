@@ -39,7 +39,12 @@ y los no portados como `'disabled'=>true` (gris, badge "pronto"). Sub-secciones 
 (ACTUALIZACIONES/PROCESOS/LISTADOS) con `['head'=>..]`. Tarjetas admin-only con `'admin'=>true`
 (config `admin_users`; vacía = nadie). Contador de la solapa = construidos/total. El `menu` vive en
 `config/system.php` (NO versionado → replicar a mano en deploy); flags documentados en
-`system.example.php`. Solapa **IC** ya poblada completa (4/26); faltan poblar CD/CA/SI/VS/RE.
+`system.example.php`. **Mapa legacy completo poblado** en las 6 solapas (orden Access, omitiendo
+Producción/Sucursales vacías): Imputaciones Contables (4/28), Stock (0/18), Acreedores (2/15),
+Deudores (3/35), Resumen (3/8), Varios (3/22) = 15 módulos construidos. IVA Ventas vive en Deudores
+e IVA Compras en Varios (no hay solapa IVA aparte, como el legacy). "Búsqueda de Comprobantes" y
+"Estadísticas de Uso" (admin) van como extras web bajo sub-encabezados "(versión web)". Un
+sub-encabezado que queda sin opciones (p.ej. tras filtrar admin) no se renderiza.
 
 **Módulos HECHOS (solo lectura):**
 - `modules/resumen_cuenta/` + `modules/resumen_cuenta_acr/` — Resumen de cta cte (deudor /

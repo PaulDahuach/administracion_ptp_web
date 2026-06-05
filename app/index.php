@@ -105,7 +105,13 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
         foreach ($menu as $section => $cards) {
             $vis = array();
             foreach ($cards as $c) { if (empty($c['admin']) || $isAdmin) $vis[] = $c; }
-            if ($vis) $vmenu[$section] = $vis;
+            // Descartar sub-encabezados que quedaron sin opciones (p.ej. tras filtrar admin).
+            $clean = array(); $nv = count($vis);
+            for ($i = 0; $i < $nv; $i++) {
+                if (isset($vis[$i]['head']) && ($i + 1 >= $nv || isset($vis[$i + 1]['head']))) continue;
+                $clean[] = $vis[$i];
+            }
+            if ($clean) $vmenu[$section] = $clean;
         }
         if ($vmenu): ?>
         <div class="menu-tabs" id="menuTabs" role="tablist">
