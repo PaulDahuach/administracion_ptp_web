@@ -34,7 +34,7 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
     <title><?= h($name) ?> — Inicio</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="<?= bu('/assets/css/app.css') ?>?v=3" rel="stylesheet">
+    <link href="<?= bu('/assets/css/app.css') ?>?v=4" rel="stylesheet">
     <style>:root{ --fc-primary: <?= h($primary) ?>; }</style>
     <script>window.IWK_BASE = '<?= rtrim(sys('base_url',''),'/') ?>';</script>
 </head>
@@ -98,9 +98,14 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
         <?php endif; ?>
 
         <?php if ($menu): ?>
+        <div class="menu-tabs" id="menuTabs" role="tablist">
+            <?php $ti = 0; foreach ($menu as $section => $cards): ?>
+            <button type="button" class="menu-tab<?= $ti === 0 ? ' active' : '' ?>" data-tab="<?= $ti ?>" role="tab"><?= h($section) ?><span class="menu-tab-n"><?= count($cards) ?></span></button>
+            <?php $ti++; endforeach; ?>
+        </div>
         <div class="menu-panel" id="menuPanel">
-            <?php foreach ($menu as $section => $cards): ?>
-            <section class="mpanel-group">
+            <?php $gi = 0; foreach ($menu as $section => $cards): ?>
+            <section class="mpanel-group<?= $gi === 0 ? ' active' : '' ?>" data-group="<?= $gi ?>">
                 <div class="mpanel-head"><?= h($section) ?></div>
                 <?php foreach ($cards as $c): ?>
                 <a class="mpanel-link" href="<?= h(bu($c['url'])) ?>" data-search="<?= h(mb_strtolower($c['label'] . ' ' . $section . ' ' . (isset($c['desc']) ? $c['desc'] : ''))) ?>">
@@ -108,7 +113,7 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
                 </a>
                 <?php endforeach; ?>
             </section>
-            <?php endforeach; ?>
+            <?php $gi++; endforeach; ?>
         </div>
         <div class="menu-noresults" id="menuNoRes" style="display:none;">Sin coincidencias.</div>
         <?php else: ?>
@@ -122,19 +127,51 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
 (function(){
     var inp = document.getElementById('menuSearch');
     var panel = document.getElementById('menuPanel');
+    var tabs = document.getElementById('menuTabs');
     var nores = document.getElementById('menuNoRes');
     if (!inp || !panel) return;
+
+    var groups = [].slice.call(panel.querySelectorAll('.mpanel-group'));
+    var tabBtns = tabs ? [].slice.call(tabs.querySelectorAll('.menu-tab')) : [];
 
     function norm(s){ return (s||'').toLowerCase()
         .normalize('NFD').replace(/[̀-ͯ]/g,''); }
 
+    function activeTab(){
+        for (var i=0;i<tabBtns.length;i++) if (tabBtns[i].classList.contains('active')) return i;
+        return 0;
+    }
+    function showTab(idx){
+        groups.forEach(function(g,i){ g.classList.toggle('active', i===idx); });
+        tabBtns.forEach(function(b,i){ b.classList.toggle('active', i===idx); });
+    }
+    tabBtns.forEach(function(b){
+        b.addEventListener('click', function(){
+            if (inp.value){ inp.value=''; filter(); }   // salir de búsqueda al clickear solapa
+            showTab(parseInt(b.dataset.tab,10));
+        });
+    });
+
     function filter(){
         var q = norm(inp.value.trim());
+        if (q === ''){                              // sin búsqueda → volver a modo solapa
+            panel.classList.remove('searching');
+            if (tabs) tabs.classList.remove('searching-hide');
+            groups.forEach(function(g){
+                g.style.display = '';
+                g.querySelectorAll('.mpanel-link').forEach(function(a){ a.style.display=''; });
+            });
+            showTab(activeTab());
+            if (nores) nores.style.display = 'none';
+            return;
+        }
+        panel.classList.add('searching');           // búsqueda → todas las solapas, filtradas
+        if (tabs) tabs.classList.add('searching-hide');
         var anyTotal = false;
-        panel.querySelectorAll('.mpanel-group').forEach(function(g){
+        groups.forEach(function(g){
             var anyG = false;
             g.querySelectorAll('.mpanel-link').forEach(function(a){
-                var match = q === '' || norm(a.dataset.search).indexOf(q) >= 0;
+                var match = norm(a.dataset.search).indexOf(q) >= 0;
                 a.style.display = match ? '' : 'none';
                 if (match) anyG = true;
             });
@@ -148,8 +185,8 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
     // Enter → abrir el primer resultado visible
     inp.addEventListener('keydown', function(e){
         if (e.key === 'Enter'){
-            var first = panel.querySelector('.mpanel-group:not([style*="display: none"]) .mpanel-link:not([style*="display: none"])');
-            if (first) window.location.href = first.href;
+            var first = panel.querySelector('.mpanel-link:not([style*="display: none"])');
+            if (first && first.offsetParent !== null) window.location.href = first.href;
         } else if (e.key === 'Escape'){ inp.value=''; filter(); inp.blur(); }
     });
 

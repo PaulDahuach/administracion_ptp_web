@@ -76,13 +76,34 @@ a.kpi:hover { transform:translateY(-2px); box-shadow:0 8px 22px -8px var(--c); }
 .quick:hover { background:var(--card-hover); border-color:var(--fc-primary); color:inherit; }
 .quick i { color:var(--fc-primary); }
 
-/* PANEL multi-columna: todo a la vista */
-.menu-panel { column-width:230px; column-gap:1.5rem; }
-.mpanel-group { break-inside:avoid; display:inline-block; width:100%; margin-bottom:1.2rem; }
+/* TABSTRIP de solapas (estilo legacy CD/IC/SI/CA/VS/RE) */
+.menu-tabs { display:flex; flex-wrap:wrap; gap:.1rem; margin-bottom:1rem;
+    border-bottom:2px solid var(--bs-border-color); }
+.menu-tab { appearance:none; border:0; background:transparent; cursor:pointer; white-space:nowrap;
+    font-size:.85rem; font-weight:600; color:var(--bs-secondary-color);
+    padding:.45rem .9rem; border-radius:.4rem .4rem 0 0; margin-bottom:-2px; border-bottom:2px solid transparent; }
+.menu-tab:hover { color:var(--bs-body-color); background:color-mix(in srgb,var(--fc-primary) 8%, transparent); }
+.menu-tab.active { color:var(--fc-primary); border-bottom-color:var(--fc-primary); }
+.menu-tab-n { font-size:.7rem; font-weight:700; color:var(--bs-secondary-color);
+    background:color-mix(in srgb,var(--bs-secondary-color) 20%, transparent);
+    border-radius:1rem; padding:0 .4rem; margin-left:.35rem; }
+.menu-tab.active .menu-tab-n { color:var(--fc-primary); background:color-mix(in srgb,var(--fc-primary) 16%, transparent); }
+.menu-tabs.searching-hide { opacity:.45; }
+
+/* Modo solapa: solo la activa; sus tarjetas en multi-columna (la solapa ya rotula → ocultar head) */
+.menu-panel .mpanel-group { display:none; }
+.menu-panel .mpanel-group.active { display:block; column-width:230px; column-gap:1.5rem; }
+.menu-panel .mpanel-group.active > .mpanel-head { display:none; }
+
+/* Modo búsqueda: TODAS las solapas a la vez, con su título, en flujo de columnas */
+.menu-panel.searching { column-width:230px; column-gap:1.5rem; }
+.menu-panel.searching .mpanel-group { display:inline-block; width:100%; margin-bottom:1.2rem; break-inside:avoid; }
+.menu-panel.searching .mpanel-group > .mpanel-head { display:block; }
+
 .mpanel-head { font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--fc-primary);
     border-bottom:1px solid var(--bs-border-color); padding-bottom:.3rem; margin-bottom:.35rem; }
 .mpanel-link { display:flex; align-items:center; gap:.55rem; padding:.3rem .5rem; border-radius:.45rem;
-    color:var(--bs-body-color); text-decoration:none; font-size:.85rem; line-height:1.2; }
+    color:var(--bs-body-color); text-decoration:none; font-size:.85rem; line-height:1.2; break-inside:avoid; }
 .mpanel-link i { font-size:.92rem; color:var(--side-mut); width:1.1rem; text-align:center; flex:0 0 auto; }
 .mpanel-link:hover { background:color-mix(in srgb,var(--fc-primary) 14%, transparent); color:inherit; }
 .mpanel-link:hover i { color:var(--fc-primary); }
