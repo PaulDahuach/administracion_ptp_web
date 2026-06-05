@@ -101,16 +101,28 @@ const RC = {
         var inter = this.el('codfdp').value == '5';
         this.el('boxCbx').style.display = inter ? '' : 'none';
         var card = document.getElementById('cardChq'); if (card) card.style.display = inter ? 'none' : '';
-        var lbl = this.el('efectivo').closest('.t').querySelector('.lbl'); if (lbl) lbl.textContent = inter ? 'Depositado' : 'Efectivo';
         this.recalc();
     },
     retImp(rt) { var el = document.querySelector('.ret-imp[data-rt="' + rt + '"]'); return el ? this.f(el.value) : 0; },
+    // Totales como el legacy: el EFECTIVO es el TAPÓN por diferencia (no se tipea), salvo anticipo
+    // (sin referencias → el operador tipea el importe) e interdepósito (tipea el depósito).
     recalc() {
+        var inter = this.el('codfdp').value == '5';     // interdepósito
+        var ant = this.el('codaux').value == '483';     // anticipo (no cancela comprobantes)
         var refTot = this.refs.reduce(function (s, r) { return s + (r.imp || 0); }, 0);
-        var chqTot = this.chqs.reduce(function (s, c) { return s + (c.imp || 0); }, 0);
-        var efe = parseFloat(this.el('efectivo').value) || 0;
+        var chqTot = inter ? 0 : this.chqs.reduce(function (s, c) { return s + (c.imp || 0); }, 0);
         var ret = this.retImp(1) + this.retImp(2) + this.retImp(3) + this.retImp(4);
-        var cobrar = efe + chqTot, recibo = cobrar + ret;
+        var efe;
+        if (ant) efe = parseFloat(this.el('efectivo').value) || 0;     // anticipo/interdep: lo tipea el operador
+        else efe = Math.max(0, Math.round((refTot - ret - chqTot) * 100) / 100);   // cancelación: tapón
+        var cobrar = efe + chqTot;
+        var recibo = Math.round((cobrar + ret) * 100) / 100;
+        this.efe = efe; this.recibo = recibo;
+        // Visibilidad: el campo editable (Efectivo/Importe) solo en anticipo; cheques ocultos en interdep.
+        this.el('boxEfe').style.display = ant ? '' : 'none';
+        this.el('lblEfe').textContent = inter ? 'Importe' : 'Efectivo';
+        this.el('boxChq').style.display = inter ? 'none' : '';
+        this.el('boxCobrar').querySelector('.lbl').textContent = inter ? 'Depositado' : 'A cobrar';
         this.el('refTotal').textContent = this.n(refTot);
         this.el('chqTotal').textContent = this.n(chqTot);
         this.el('retTotal').textContent = this.n(ret);
@@ -118,32 +130,23 @@ const RC = {
         this.el('tCobrar').textContent = this.n(cobrar);
         this.el('tRet').textContent = this.n(ret);
         this.el('tRecibo').textContent = this.n(recibo);
-        var esAnt = this.el('codaux').value == '483';   // anticipo: no cancela comprobantes
-        var dif = Math.round((recibo - refTot) * 100) / 100;
-        this.el('boxDif').style.display = (!esAnt && Math.abs(dif) >= 0.005) ? '' : 'none';
-        this.el('tDif').textContent = this.n(dif);
     },
 
     async guardar() {
         this.el('rcErr').textContent = '';
+        this.recalc();   // asegura this.efe / this.recibo actualizados
         var esAnt = this.el('codaux').value == '483';
+        var inter = this.el('codfdp').value == '5';
         if (!this.el('codcue').value) { this.el('rcErr').textContent = 'Elegí un cliente.'; return; }
         if (!esAnt && !this.refs.length) { this.el('rcErr').textContent = 'Agregá al menos un comprobante a cancelar.'; return; }
-        var refTot = this.refs.reduce(function (s, r) { return s + (r.imp || 0); }, 0);
-        var ret = this.retImp(1) + this.retImp(2) + this.retImp(3) + this.retImp(4);
-        var chqTot = this.chqs.filter(function (c) { return c.imp > 0; }).reduce(function (s, c) { return s + c.imp; }, 0);
-        var efe = parseFloat(this.el('efectivo').value) || 0;
-        if (!esAnt) {
-            var dif = Math.round((efe + chqTot + ret - refTot) * 100) / 100;
-            if (Math.abs(dif) >= 0.005) { this.el('rcErr').textContent = 'El recibo (cobrado + retenciones) no coincide con lo que se cancela. Diferencia: ' + this.n(dif); return; }
-        } else if ((efe + chqTot + ret) <= 0) { this.el('rcErr').textContent = 'El anticipo no tiene importe (cheques/efectivo).'; return; }
-        if (this.el('codfdp').value == '5' && !this.el('codcbx').value) { this.el('rcErr').textContent = 'Elegí la cuenta bancaria del interdepósito.'; return; }
+        if (this.recibo <= 0) { this.el('rcErr').textContent = 'El recibo no tiene importe.'; return; }
+        if (inter && !this.el('codcbx').value) { this.el('rcErr').textContent = 'Elegí la cuenta bancaria del interdepósito.'; return; }
         var data = {
             codcue: this.el('codcue').value, codaux: this.el('codaux').value, fexmov: this.el('fexmov').value, fixmov: this.el('fexmov').value,
-            codfdp: this.el('codfdp').value, codcbx: this.el('codcbx').value, efectivo: efe, detmov: this.el('detmov').value,
+            codfdp: this.el('codfdp').value, codcbx: this.el('codcbx').value, efectivo: this.efe, detmov: this.el('detmov').value,
             cipmov: (this.modo === 'capacitacion') ? null : this.el('cipmov').value,
             referencias: this.refs.map(function (r) { return { refmov: r.refmov, fvxmov: r.fvxiso, imp: r.imp }; }),
-            cheques: this.chqs.filter(function (c) { return c.imp > 0; }).map(function (c) { return { codban: c.codban, syn: c.syn, fex: c.fexiso, fax: c.faxiso, lib: c.lib, imp: c.imp, plz: 0, cit: '', loc: '' }; }),
+            cheques: inter ? [] : this.chqs.filter(function (c) { return c.imp > 0; }).map(function (c) { return { codban: c.codban, syn: c.syn, fex: c.fexiso, fax: c.faxiso, lib: c.lib, imp: c.imp, plz: 0, cit: '', loc: '' }; }),
             retenciones: {
                 rt1: this.retImp(1), rip: 0, rin: this.retNum(1),
                 rt2: this.retImp(2), rgp: this.gv('.ret-gp'), rgn: this.gv('.ret-gn'), codrrg: this.gv('.ret-rg'),
