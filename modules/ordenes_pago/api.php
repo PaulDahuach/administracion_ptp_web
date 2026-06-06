@@ -29,7 +29,7 @@ if (!defined('OP_LIB')) {
             case 'cartera':            cheques_cartera();    break;
             case 'pdvs':               listar_pdvs();        break;
             case 'guardar':            guardar();            break;
-            case 'anular':             fail('Anulación de órdenes de pago: pendiente de portar.'); break;
+            case 'anular':             anular();            break;
             case 'listar':             listar();             break;
             case 'detalle':            detalle();            break;
             default: fail('Acción inválida: ' . $action);
@@ -228,6 +228,81 @@ function guardar() {
         db_rollback();
         fail('No se pudo grabar la orden de pago: ' . $e->getMessage(), 500);
     }
+}
+
+/**
+ * Baja de una OP (SetData Case "B" del legacy). SIN control de transacción (el caller la envuelve).
+ * Revierte: cta cte (SOPCUE -= TOTMOV, SANCUE en 341), referencias (vencimiento DEBMOV -= imp,
+ * factura SDOMOV -= imp, borrar), asiento (DEBCUE/CRECUE -= imputación, zerar), cheques (cartera
+ * CACC_2 → VADCHQ=True / posdatado CACC_V* → DIFCHQ=False; creados → borrar si quedan huérfanos),
+ * y marca el header [ANULADO] con DEBMOV/TOTMOV/RIXMOV/RIDMOV/PIDMOV/SDOMOV=0, ANUMOV=True.
+ */
+function op_anular($num) {
+    $h = db_row("SELECT NUMMOV, CODCUE, CODAUX, TOTMOV, ANUMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=340;");
+    if (!$h) throw new Exception('Orden de pago no encontrada');
+    if ($h['ANUMOV'] === true || $h['ANUMOV'] == -1) throw new Exception('La orden de pago ya está anulada');
+    $rc = db_row("SELECT CACC_2, CACC_V FROM [Rec Control];");
+    $cacc2 = trim((string) nz($rc['CACC_2'], '11103'));
+    $caccV = trim((string) nz($rc['CACC_V'], '217'));
+    $total  = round((float) nz($h['TOTMOV'], 0), 2);
+    $codcue = (int) $h['CODCUE'];
+    $codaux = (int) nz($h['CODAUX'], 0);
+
+    // 1) Cuenta corriente: revertir saldo (+ saldo anticipos si 341)
+    db_exec("UPDATE [Tbl Cuentas Corrientes] SET SOPCUE = SOPCUE - $total WHERE CODCUE=$codcue;");
+    if ($codaux == 341) {
+        $cc = db_row("SELECT SANCUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=$codcue;");
+        db_exec("UPDATE [Tbl Cuentas Corrientes] SET SANCUE=" . round((float) nz($cc ? $cc['SANCUE'] : 0, 0) - $total, 2) . " WHERE CODCUE=$codcue;");
+    }
+
+    // 2) Referencias: descomprometer vencimiento (DEBMOV -= imp) + factura SDOMOV -= imp + borrar
+    foreach (db_query("SELECT REFMOV, FVXMOV, IMPMOV FROM [Tbl Movimientos Referencias] WHERE NUMMOV=$num;") as $r) {
+        $ref = (int) $r['REFMOV']; $imp = round((float) nz($r['IMPMOV'], 0), 2); $fvx = (int) $r['FVXMOV'];
+        $v = db_row("SELECT DEBMOV FROM [Tbl Movimientos Vencimientos] WHERE NUMMOV=$ref AND FVXMOV=$fvx;");
+        $nuevo = round((float) nz($v ? $v['DEBMOV'] : 0, 0) - $imp, 2);
+        if ($nuevo == 0) db_exec("UPDATE [Tbl Movimientos Vencimientos] SET DEBMOV=Null WHERE NUMMOV=$ref AND FVXMOV=$fvx;");
+        else            db_exec("UPDATE [Tbl Movimientos Vencimientos] SET DEBMOV=$nuevo WHERE NUMMOV=$ref AND FVXMOV=$fvx;");
+        $f = db_row("SELECT SDOMOV FROM [Tbl Movimientos] WHERE NUMMOV=$ref;");
+        db_exec("UPDATE [Tbl Movimientos] SET SDOMOV=" . round((float) nz($f ? $f['SDOMOV'] : 0, 0) - $imp, 2) . " WHERE NUMMOV=$ref;");
+    }
+    db_exec("DELETE FROM [Tbl Movimientos Referencias] WHERE NUMMOV=$num;");
+
+    // 3) Imputaciones: revertir saldos contables cacheados + recolectar cheques
+    $chqOps = array();
+    foreach (db_query("SELECT CODCUE, DEBMOV, CREMOV, CODCHQ FROM [Tbl Movimientos Imputaciones] WHERE NUMMOV=$num;") as $i) {
+        $cc = db_esc((string) $i['CODCUE']);
+        if ($i['DEBMOV'] !== null) db_exec("UPDATE [Tbl Cuentas Contables] SET DEBCUE = DEBCUE - " . round((float) $i['DEBMOV'], 2) . " WHERE CODCUE='$cc';");
+        if ($i['CREMOV'] !== null) db_exec("UPDATE [Tbl Cuentas Contables] SET CRECUE = CRECUE - " . round((float) $i['CREMOV'], 2) . " WHERE CODCUE='$cc';");
+        if ($i['CODCHQ'] !== null && $i['CODCHQ'] !== '') $chqOps[(int) $i['CODCHQ']] = trim((string) $i['CODCUE']);
+    }
+    // Zerar el asiento (rastro) y soltar el vínculo al cheque
+    db_exec("UPDATE [Tbl Movimientos Imputaciones] SET DEBMOV=0, CREMOV=0, FAXMOV=Null, CODCHQ=Null WHERE NUMMOV=$num;");
+    // Cheques: cartera → vuelven (VADCHQ=True); posdatado → DIFCHQ=False; creados → borrar si quedan huérfanos
+    foreach ($chqOps as $chq => $cuenta) {
+        if ($cuenta === $cacc2) db_exec("UPDATE [Tbl Cheques] SET VADCHQ=True WHERE CODCHQ=$chq;");
+        elseif ($caccV !== '' && strpos($cuenta, $caccV) === 0) db_exec("UPDATE [Tbl Cheques] SET DIFCHQ=False WHERE CODCHQ=$chq;");
+        $oth = db_row("SELECT Count(*) AS N FROM [Tbl Movimientos Imputaciones] WHERE CODCHQ=$chq;");
+        if ((int) nz($oth['N'], 0) == 0) db_exec("DELETE FROM [Tbl Cheques] WHERE CODCHQ=$chq;");
+    }
+
+    // 4) Header anulado
+    $det = db_row("SELECT DETMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num;");
+    $newdet = db_esc(trim('[ANULADO] ' . trim((string) nz($det['DETMOV'], ''))));
+    db_exec("UPDATE [Tbl Movimientos] SET DETMOV='$newdet', DEBMOV=0, TOTMOV=0, RIXMOV=0, RIDMOV=0, PIDMOV=0, SDOMOV=0, ANUMOV=True WHERE NUMMOV=$num;");
+}
+
+/** Anula una OP (auth + visibilidad por modo + transacción). */
+function anular() {
+    if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
+    $num = isset($_POST['nummov']) ? (int) $_POST['nummov'] : 0;
+    $h = db_row("SELECT ESTMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=340;");
+    if (!$h) { fail('Orden de pago no encontrada'); return; }
+    $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
+    $lib = auth_libro_unico();
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Orden de pago no disponible en este libro'); return; }
+    db_begin();
+    try { op_anular($num); db_commit(); ok(array('nummov' => $num)); }
+    catch (Exception $e) { db_rollback(); fail('No se pudo anular la orden de pago: ' . $e->getMessage(), 500); }
 }
 
 // ───────────────────────── Lookups / búsqueda ─────────────────────────
