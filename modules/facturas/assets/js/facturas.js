@@ -21,6 +21,9 @@ const FV = {
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.el('btnEmitir').addEventListener('click', function () { FV.emitir(); });
         this.el('pdcmov').addEventListener('input', function () { FV.recalc(); });
+        this.el('btnBuscar').addEventListener('click', function () { bootstrap.Modal.getOrCreateInstance(FV.el('modalBuscar')).show(); FV.loadList(); });
+        this.el('bGo').addEventListener('click', function () { FV.loadList(); });
+        this.el('bQ').addEventListener('keydown', function (e) { if (e.key === 'Enter') FV.loadList(); });
     },
 
     async pickCliente(codcue) {
@@ -128,6 +131,47 @@ const FV = {
         this.toast('Factura ' + this.el('letra').value + ' ' + String(j.data.cinmov).padStart(8, '0') + ' autorizada · CAE ' + j.data.cae, 'success');
     },
 
+    // ---- Búsqueda / vista ----
+    async loadList() {
+        var p = { q: this.el('bQ').value.trim() };
+        if (this.el('bD').value) p.desde = this.el('bD').value;
+        if (this.el('bH').value) p.hasta = this.el('bH').value;
+        var j = await this.api('listar', p); if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        var rows = j.data.facturas;
+        this.el('bVacio').style.display = rows.length ? 'none' : '';
+        this.el('bBody').innerHTML = rows.map(function (r) {
+            var est = r.ANU ? '<span class="badge bg-danger">Anulada</span>' : '<span class="badge bg-success">OK</span>';
+            return '<tr style="cursor:pointer" data-num="' + r.NUMMOV + '"><td>' + FV.esc(r.FEXMOV) + '</td><td>' + FV.esc(r.COMP) + '</td><td>' + FV.esc(r.DENMOV) + '</td><td class="fv-num">' + FV.n(r.TOTMOV) + '</td><td class="cae-box small">' + FV.esc(r.CAE) + '</td><td>' + est + '</td></tr>';
+        }).join('');
+        Array.prototype.forEach.call(this.el('bBody').querySelectorAll('tr'), function (tr) { tr.addEventListener('click', function () { FV.verFactura(+this.getAttribute('data-num')); }); });
+        if (j.data.tope) this.toast('Mostrando las 200 más recientes; afiná el filtro.', 'info');
+    },
+    async verFactura(num) {
+        var j = await this.api('detalle', { nummov: num }); if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        var d = j.data;
+        var bm = bootstrap.Modal.getInstance(this.el('modalBuscar')); if (bm) bm.hide();
+        this.el('nummov').value = String(d.NUMMOV).padStart(8, '0');
+        this.el('cinmov').value = String(d.CINMOV).padStart(8, '0');
+        this.el('letra').value = d.LETRA; this.el('fexmov').value = d.FEXISO;
+        this.el('codcue').value = d.CODCUE; this.el('cliQ').value = d.DENMOV;
+        this.el('saldo').value = ''; this.el('cliInfo').textContent = [d.CITMOV, d.DENCRI, d.DOMICILIO, d.LOCALIDAD].filter(Boolean).join(' · ');
+        if (d.CODCDV) this.el('codcdv').value = d.CODCDV; if (d.CODFDP) this.el('codfdp').value = d.CODFDP;
+        this.el('pdcmov').value = d.PDCMOV; this.el('detmov').value = d.DETMOV;
+        this.lineas = [];
+        this.el('prodBody').innerHTML = d.productos.map(function (p) {
+            return '<tr><td class="fv-num">' + FV.n(p.cant) + '</td><td>' + FV.esc(p.rem ? String(p.rem) : '') + '</td><td>' + FV.esc(p.ptp || '') + '</td><td>' + FV.esc(p.codpro) + '</td><td>' + FV.esc(p.denmov) + '</td><td class="fv-num">' + FV.n(p.pun) + '</td><td class="fv-num">' + FV.n(p.total) + '</td><td></td></tr>';
+        }).join('');
+        this.el('subTotal').textContent = this.n(d.NETMOV);
+        this.el('tNeto').textContent = this.n(d.NETMOV); this.el('tIva').textContent = this.n(d.IRIMOV); this.el('tTotal').textContent = this.n(d.TOTMOV);
+        if (d.CAE) { this.el('caeDisp').textContent = d.CAE; this.el('caeVto').textContent = d.CAE_VTO; this.el('caeWrap').style.display = ''; }
+        this.lockForm(num);
+    },
+    lockForm(num) {
+        Array.prototype.forEach.call(document.querySelectorAll('#fvForm input, #fvForm select'), function (el) { el.disabled = true; });
+        this.el('btnEmitir').style.display = 'none'; this.el('btnAddRem').style.display = 'none';
+        this.el('btnImprimirHdr').style.display = ''; this.el('btnImprimirHdr').onclick = function () { window.open('imprimir.php?nummov=' + num, '_blank'); };
+        this.emitida = true;
+    },
     autocomplete(input, list, action, label, onPick) {
         var hi = -1, items = [], t = null;
         function render() { list.innerHTML = items.map(function (o, k) { return '<div class="ac-opt' + (k === hi ? ' active' : '') + '" data-k="' + k + '">' + FV.esc(label(o)) + '</div>'; }).join(''); list.classList.toggle('show', items.length > 0); }

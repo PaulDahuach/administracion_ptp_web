@@ -14,7 +14,8 @@ if (db_readonly()) {
 $modoAfip = AFIP_MODO;
 $toolbar = '<button id="btnEmitir" class="btn btn-success btn-sm"><i class="bi bi-cloud-arrow-up me-1"></i>Emitir factura (AFIP)</button>'
          . ' <button id="btnImprimirHdr" class="btn btn-primary btn-sm" style="display:none"><i class="bi bi-printer me-1"></i>Imprimir</button>'
-         . ' <button id="btnNuevo" class="btn btn-outline-light btn-sm"><i class="bi bi-file-earmark-plus me-1"></i>Nuevo</button>';
+         . ' <button id="btnNuevo" class="btn btn-outline-light btn-sm"><i class="bi bi-file-earmark-plus me-1"></i>Nuevo</button>'
+         . ' <button id="btnBuscar" class="btn btn-outline-light btn-sm"><i class="bi bi-search me-1"></i>Buscar</button>';
 module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
 ?>
 <style>
@@ -84,10 +85,23 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
   <div class="modal-footer py-1"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button></div>
 </div></div></div>
 
+<!-- MODAL BUSCAR -->
+<div class="modal fade" id="modalBuscar" tabindex="-1"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+  <div class="modal-header py-2"><h6 class="modal-title"><i class="bi bi-search me-2"></i>Buscar factura</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-body">
+    <div class="row g-2 mb-2"><div class="col-md-5"><input type="text" id="bQ" class="form-control form-control-sm" placeholder="Cliente, CUIT, Nº o CAE"></div>
+      <div class="col-md-2"><input type="date" id="bD" class="form-control form-control-sm"></div><div class="col-md-2"><input type="date" id="bH" class="form-control form-control-sm"></div>
+      <div class="col-md-2"><button id="bGo" class="btn btn-primary btn-sm w-100"><i class="bi bi-search me-1"></i>Buscar</button></div></div>
+    <table class="table table-sm table-hover w-100"><thead><tr><th style="width:95px">Fecha</th><th style="width:160px">Comprobante</th><th>Cliente</th><th class="fv-num" style="width:130px">Total</th><th style="width:140px">CAE</th><th style="width:90px">Estado</th></tr></thead><tbody id="bBody"></tbody></table>
+    <div id="bVacio" class="text-muted text-center py-3" style="display:none">Sin resultados.</div>
+  </div>
+  <div class="modal-footer py-1"><button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+</div></div></div>
+
 <div class="fc-toast-container"><div id="toastMsg" class="toast align-items-center border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
 
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/facturas.js?v=1"></script>
+<script src="assets/js/facturas.js?v=2"></script>
 '); ?>

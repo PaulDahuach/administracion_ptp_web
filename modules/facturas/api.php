@@ -21,6 +21,8 @@ if (!defined('FV_LIB')) {
         case 'pdvs':               listar_pdvs(); break;
         case 'condiciones':        listar_condiciones(); break;
         case 'formas_pago':        listar_formas_pago(); break;
+        case 'listar':             listar(); break;
+        case 'detalle':            detalle(); break;
         case 'guardar':            guardar(); break;
         default: fail('Acción inválida: ' . $action);
     }
@@ -87,6 +89,46 @@ function remitos_pendientes() {
         if (count($lineas)) $out[] = array('NUMMOV' => (int) $rv['NUMMOV'], 'COMP' => 'RV ' . trim((string) nz($rv['CIIMOV'], '')) . ' ' . str_pad((string) (int) nz($rv['CIPMOV'], 0), 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) (int) nz($rv['CINMOV'], 0), 8, '0', STR_PAD_LEFT), 'FEXMOV' => fecha_serial($rv['FEXMOV']), 'lineas' => $lineas);
     }
     ok($out);
+}
+
+/** Listado de Facturas de Venta emitidas (CODOPE=420). */
+function listar() {
+    $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+    $sd = isset($_GET['desde']) && $_GET['desde'] ? (int) (new DateTime('1899-12-30'))->diff(new DateTime($_GET['desde']))->days : null;
+    $sh = isset($_GET['hasta']) && $_GET['hasta'] ? (int) (new DateTime('1899-12-30'))->diff(new DateTime($_GET['hasta']))->days : null;
+    $w = 'CODOPE=420';
+    if ($q !== '') { $qs = db_esc($q); $cond = "(DENMOV Like '%$qs%' OR CITMOV Like '%$qs%' OR CAEMOV Like '%$qs%'"; if (is_numeric($q)) $cond .= ' OR CINMOV=' . (int) $q; $w .= " AND $cond)"; }
+    if ($sd !== null) $w .= " AND FEXMOV >= $sd";
+    if ($sh !== null) $w .= " AND FEXMOV <= $sh";
+    $rows = db_query("SELECT TOP 200 NUMMOV, FEXMOV, CIIMOV, CIPMOV, CINMOV, DENMOV, TOTMOV, CAEMOV, ANUMOV FROM [Tbl Movimientos] WHERE $w ORDER BY FEXMOV DESC, NUMMOV DESC;");
+    $out = array();
+    foreach ($rows as $r) $out[] = array('NUMMOV' => (int) $r['NUMMOV'], 'FEXMOV' => fecha_serial($r['FEXMOV']), 'FEXMOVO' => (int) nz($r['FEXMOV'], 0),
+        'COMP' => 'FV ' . trim((string) nz($r['CIIMOV'], '')) . ' ' . str_pad((string) (int) nz($r['CIPMOV'], 0), 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) (int) nz($r['CINMOV'], 0), 8, '0', STR_PAD_LEFT),
+        'DENMOV' => trim((string) nz($r['DENMOV'], '')), 'TOTMOV' => round((float) nz($r['TOTMOV'], 0), 2), 'CAE' => trim((string) nz($r['CAEMOV'], '')),
+        'ANU' => ($r['ANUMOV'] === true || $r['ANUMOV'] == -1) ? 1 : 0);
+    ok(array('facturas' => $out, 'tope' => count($out) >= 200));
+}
+
+/** Detalle de una FV para verla en pantalla, bloqueada. */
+function detalle() {
+    $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
+    $h = db_row("SELECT * FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=420;");
+    if (!$h) { fail('Factura no encontrada'); return; }
+    $loc = db_row("SELECT L.DENLOC, P.DENPRO FROM [Tbl Localidades] AS L LEFT JOIN [Tbl Provincias] AS P ON L.CODPRO=P.CODPRO WHERE L.CODLOC=" . (int) nz($h['CODLOC'], 0) . ";");
+    $cri = db_row("SELECT DENCRI FROM [Tbl Categorias Responsabilidad IVA] WHERE CODCRI=" . (int) nz($h['CODCRI'], 0) . ";");
+    $prods = array();
+    foreach (db_query("SELECT ORDMOV, MRVMOV, CODPRO, DENMOV, EGRMOV, PUNMOV, PDLMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num ORDER BY ORDMOV;") as $s) {
+        $rem = '';
+        if ($s['MRVMOV'] !== null && $s['MRVMOV'] !== '') { $rm = db_row("SELECT CINMOV FROM [Tbl Movimientos] WHERE NUMMOV=" . (int) $s['MRVMOV'] . ";"); if ($rm) $rem = (int) nz($rm['CINMOV'], 0); }
+        $cant = round((float) nz($s['EGRMOV'], 0), 2); $pun = round((float) nz($s['PUNMOV'], 0), 2);
+        $prods[] = array('cant' => $cant, 'rem' => $rem, 'ptp' => (int) nz($s['PDLMOV'], 0), 'codpro' => trim((string) nz($s['CODPRO'], '')), 'denmov' => trim((string) nz($s['DENMOV'], '')), 'pun' => $pun, 'total' => round($cant * $pun, 2));
+    }
+    ok(array('NUMMOV' => $num, 'CINMOV' => (int) nz($h['CINMOV'], 0), 'CIPMOV' => (int) nz($h['CIPMOV'], 0), 'LETRA' => strtoupper(trim((string) nz($h['CIIMOV'], 'A'))),
+        'FEXISO' => fac_serial_iso($h['FEXMOV']), 'CODCUE' => (int) nz($h['CODCUE'], 0), 'DENMOV' => trim((string) nz($h['DENMOV'], '')), 'CITMOV' => trim((string) nz($h['CITMOV'], '')),
+        'DOMICILIO' => trim(nz($h['DCXMOV'], '') . ' ' . nz($h['DNXMOV'], '')), 'LOCALIDAD' => $loc ? trim(nz($loc['DENLOC'], '') . (nz($loc['DENPRO'], '') ? ' - ' . nz($loc['DENPRO'], '') : '')) : '', 'DENCRI' => $cri ? trim((string) nz($cri['DENCRI'], '')) : '',
+        'CODCDV' => (int) nz($h['CODCDV'], 0), 'CODFDP' => (int) nz($h['CODFDP'], 0), 'PDCMOV' => round((float) nz($h['PDCMOV'], 0), 2), 'DETMOV' => trim((string) nz($h['DETMOV'], '')),
+        'NETMOV' => round((float) nz($h['NETMOV'], 0), 2), 'IRIMOV' => round((float) nz($h['IRIMOV'], 0), 2), 'TOTMOV' => round((float) nz($h['TOTMOV'], 0), 2),
+        'CAE' => trim((string) nz($h['CAEMOV'], '')), 'CAE_VTO' => $h['FVCMOV'] ? fecha_serial($h['FVCMOV']) : '', 'ANU' => ($h['ANUMOV'] === true || $h['ANUMOV'] == -1) ? 1 : 0, 'productos' => $prods));
 }
 
 function listar_pdvs() { ok(db_query("SELECT CODPDV, NOMPDV FROM [Tbl Puntos de Venta] WHERE CODPDV <> 9999 ORDER BY CODPDV;")); }
