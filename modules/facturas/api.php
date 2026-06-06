@@ -1,0 +1,216 @@
+<?php
+/**
+ * Facturas de Venta (deudores) — API. Porta el SetData Case "A" de `Frm CD Facturas NF`.
+ * FV electrónica (CODOPE=420, CICMOV='FV', clase A/B con CAE de AFIP). Espejo contable de las compras.
+ *
+ * fv_insert($d, $estTrue, $afip): SIN control de transacción (el caller la envuelve en db_begin/commit, o el
+ * test en db_begin/rollback). El guard FV_LIB evita el dispatch+auth cuando se incluye como librería.
+ */
+require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/helpers.php';
+if (!defined('FV_LIB')) {
+    require_once __DIR__ . '/../../includes/auth.php';
+    auth_require_login();
+    header('Content-Type: application/json; charset=utf-8');
+    $action = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : '');
+    if (function_exists('track_hit')) {}
+    switch ($action) {
+        case 'guardar': guardar(); break;
+        default: fail('Acción inválida: ' . $action);
+    }
+}
+
+function fv_iso($s) { if ($s === null || $s === '') return null; if (is_numeric($s)) return (int) $s; return (int) (new DateTime('1899-12-30'))->diff(new DateTime($s))->days; }
+function fv_txt($s) { $s = trim((string) $s); return $s === '' ? 'Null' : "'" . db_esc($s) . "'"; }
+function fv_num($v) { return $v === null || $v === '' ? 'Null' : (string) round((float) $v, 2); }
+
+/** Imputación contable + mayorización (DEBCUE/CRECUE), espejo de op_imp. */
+function fv_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre) {
+    $deb = round((float) $deb, 2); $cre = round((float) $cre, 2);
+    $ord++;
+    $cc = db_esc((string) $cuenta);
+    $bal = db_row("SELECT DEBCUE, CRECUE FROM [Tbl Cuentas Contables] WHERE CODCUE='$cc';");
+    $soc = $bal ? round((float) nz($bal['DEBCUE'], 0) - (float) nz($bal['CRECUE'], 0), 2) : 0;
+    $debSql = $deb > 0 ? (string) $deb : 'Null';
+    $creSql = $cre > 0 ? (string) $cre : 'Null';
+    db_exec("INSERT INTO [Tbl Movimientos Imputaciones] (NUMMOV, ORDMOV, CODCUE, DEBMOV, CREMOV, CODCDC, SOCMOV)
+        VALUES ($nummov, $ord, '$cc', $debSql, $creSql, 1, $soc);");
+    if ($deb > 0) db_exec("UPDATE [Tbl Cuentas Contables] SET DEBCUE = DEBCUE + $deb WHERE CODCUE='$cc';");
+    if ($cre > 0) db_exec("UPDATE [Tbl Cuentas Contables] SET CRECUE = CRECUE + $cre WHERE CODCUE='$cc';");
+    $totDeb += $deb; $totCre += $cre;
+}
+
+/**
+ * Graba una Factura de Venta. $d (del form): codcue, fexmov(iso), ciimov(A/B), cipmov, codcdv, codfdp,
+ * codtra, coddst, codven, detmov, cotmov, pdcmov, pdgmov, idgmov, soc(SOCMOV), spimov, apimov, mpimov, pixmov,
+ * netmov, irimov, abimov, ardmov, totmov, impcaj(efectivo contado),
+ * iva:[{ali, net, iri, dec(bool)}], productos:[{mrvmov,orvmov,odcmov,pdlmov,odpmov,codpro,denmov,codudm,fctmov,
+ *   dummov,codmon,decmov,eximov,pulmov,punmov,pucmov,bonmov,ibxmov,picmov,cosmov,egr,stk,cic(cta rubro),ndb(neto),opc}],
+ * vencimientos:[{fvxmov(iso),detmov,debmov}].
+ * $afip = {cinmov, cae, cae_vto(iso o serial), coddoc} (el nº y CAE los da AFIP); null = borrador.
+ */
+function fv_insert($d, $estTrue, $afip) {
+    $rc = db_row("SELECT CACC_A, CACC_C, CACC_N, CACC_1, CACC_Z FROM [Rec Control];");
+    $caccA = trim((string) $rc['CACC_A']); $caccC = trim((string) $rc['CACC_C']);
+    $caccN = trim((string) $rc['CACC_N']); $cacc1 = trim((string) $rc['CACC_1']);
+
+    $codcue = (int) $d['codcue'];
+    $cli = db_row("SELECT DENCUE, SOPCUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=$codcue AND CODORI='D';");
+    if (!$cli) throw new Exception('Cliente inexistente');
+
+    $fex = fv_iso($d['fexmov']);
+    if ($fex === null) throw new Exception('Falta la fecha de emisión');
+    $ciimov = strtoupper(trim((string) nz($d['ciimov'], 'A')));
+    $cipmov = (int) nz($d['cipmov'], 0);
+    $codcdv = (int) nz($d['codcdv'], 2);
+    $codfdp = (int) nz($d['codfdp'], 9);
+    $estSql = $estTrue ? 'True' : 'False';
+
+    $netmov = round((float) nz($d['netmov'], 0), 2);
+    $irimov = round((float) nz($d['irimov'], 0), 2);
+    $pixmov = round((float) nz($d['pixmov'], 0), 2);
+    $total  = round((float) nz($d['totmov'], 0), 2);
+    $impcaj = round((float) nz(isset($d['impcaj']) ? $d['impcaj'] : 0, 0), 2);
+    $soc    = round((float) nz($d['soc'], 0), 2);
+    $prods  = isset($d['productos']) && is_array($d['productos']) ? $d['productos'] : array();
+    $ivas   = isset($d['iva']) && is_array($d['iva']) ? $d['iva'] : array();
+    $vtos   = isset($d['vencimientos']) && is_array($d['vencimientos']) ? $d['vencimientos'] : array();
+
+    // Numeración: NUMMOV interno; CINMOV = nº de AFIP (electrónico) o contador local.
+    $nummov = next_number('ULTMOV');
+    $cinmov = ($afip && isset($afip['cinmov']) && $afip['cinmov']) ? (int) $afip['cinmov'] : next_number_pdv('ULTCM' . $ciimov, $cipmov);
+    $coddoc = (int) nz(($afip && isset($afip['coddoc'])) ? $afip['coddoc'] : (isset($d['coddoc']) ? $d['coddoc'] : 80), 80);
+    $caeSql  = ($afip && !empty($afip['cae'])) ? "'" . db_esc($afip['cae']) . "'" : 'Null';
+    $fvcSql  = ($afip && !empty($afip['cae_vto'])) ? (string) fv_iso($afip['cae_vto']) : 'Null';
+
+    // SDOMOV: 0 si contado (CODCDV=1); si hay saldo a favor (SOC<0) lo neteado; si no = total.
+    $acuSAF = 0;   // saldo a favor a aplicar
+    if ($soc >= 0) {
+        $sdomov = ($codcdv == 1) ? 0 : $total;
+    } elseif ($total > abs($soc)) {
+        $sdomov = ($codcdv == 1) ? 0 : round($total + $soc, 2);
+        $acuSAF = abs($soc);
+    } else {
+        $sdomov = 0;
+        $acuSAF = $total;
+    }
+
+    // ── Header ──
+    $denSql = fv_txt(nz($cli['DENCUE'], '')); $citSql = fv_txt(nz($d['citmov'], ''));
+    $dcx = fv_txt(nz($d['dcxmov'], '')); $dnx = fv_txt(nz($d['dnxmov'], ''));
+    $dpx = fv_txt(nz(isset($d['dpxmov']) ? $d['dpxmov'] : '', '')); $ddx = fv_txt(nz(isset($d['ddxmov']) ? $d['ddxmov'] : '', ''));
+    $codloc = (int) nz($d['codloc'], 0); $codcri = (int) nz($d['codcri'], 0);
+    $codven = isset($d['codven']) && $d['codven'] !== '' ? (int) $d['codven'] : 'Null';
+    $codtra = isset($d['codtra']) && $d['codtra'] !== '' ? (int) $d['codtra'] : 'Null';
+    $coddst = (int) nz($d['coddst'], 1);
+    $detSql = fv_txt(isset($d['detmov']) ? $d['detmov'] : '');
+    $cotmov = round((float) nz($d['cotmov'], 1), 4);
+    $pdcmov = round((float) nz($d['pdcmov'], 0), 2);
+    $pdgmov = round((float) nz(isset($d['pdgmov']) ? $d['pdgmov'] : 0, 0), 2);
+    $idgmov = round((float) nz(isset($d['idgmov']) ? $d['idgmov'] : 0, 0), 2);
+    $abimov = round((float) nz(isset($d['abimov']) ? $d['abimov'] : 0, 0), 2);
+    $ardmov = round((float) nz(isset($d['ardmov']) ? $d['ardmov'] : 0, 0), 2);
+    $spimov = (isset($d['spimov']) && $d['spimov']) ? 'True' : 'False';
+    $apimov = round((float) nz(isset($d['apimov']) ? $d['apimov'] : 0, 0), 2);
+    $mpimov = round((float) nz(isset($d['mpimov']) ? $d['mpimov'] : 0, 0), 2);
+    $fdpRow = db_row("SELECT CHQFDP FROM [Tbl Formas de Pago] WHERE CODFDP=$codfdp;");
+    $chqFdp = $fdpRow ? ($fdpRow['CHQFDP'] === true || $fdpRow['CHQFDP'] == -1) : false;
+    $cremov = ($codfdp != 2 && !$chqFdp) ? (string) $impcaj : 'Null';   // cta cte/efectivo guardan IMPCAJ (0 en cta cte)
+
+    db_exec("INSERT INTO [Tbl Movimientos]
+        (NUMMOV, CODORI, FEXMOV, CODOPE, CODAUX, CICMOV, CIIMOV, CIPMOV, CINMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV, FIXMOV,
+         CODCUE, SOCMOV, DENMOV, DCXMOV, DNXMOV, DPXMOV, DDXMOV, CODLOC, CODCRI, CITMOV, CODCDV, CODFDP, CODTRA, CODDST, CODVEN,
+         PDCMOV, PDGMOV, IDGMOV, DETMOV, COTMOV, NETMOV, IRIMOV, ABIMOV, ARDMOV, SPIMOV, APIMOV, MPIMOV, PIXMOV,
+         DEBMOV, CREMOV, TOTMOV, SDOMOV, CODDOC, CAEMOV, FVCMOV, ESTMOV, NUIMOV, NMIMOV, NOWMOV)
+        VALUES ($nummov, 'D', $fex, 420, 420, 'FV', '$ciimov', $cipmov, $cinmov, 'FV', '$ciimov', $cipmov, $cinmov, $fex, $fex,
+         $codcue, " . fv_num($soc) . ", $denSql, $dcx, $dnx, $dpx, $ddx, $codloc, $codcri, $citSql, $codcdv, $codfdp, $codtra, $coddst, $codven,
+         $pdcmov, $pdgmov, $idgmov, $detSql, $cotmov, " . fv_num($netmov) . ", " . fv_num($irimov) . ", $abimov, $ardmov, $spimov, $apimov, $mpimov, $pixmov,
+         $total, $cremov, $total, $sdomov, $coddoc, $caeSql, $fvcSql, $estSql, 0, 0, Now());");
+
+    // ── IVA (una fila por alícuota) ──
+    foreach ($ivas as $iv) {
+        $ali = round((float) nz($iv['ali'], 0), 2); $net = round((float) nz($iv['net'], 0), 2); $iri = round((float) nz($iv['iri'], 0), 2);
+        if ($net == 0 && $iri == 0) continue;
+        $dec = (isset($iv['dec']) && $iv['dec']) ? 'True' : 'False';
+        db_exec("INSERT INTO [Tbl Movimientos IVA] (NUMMOV, ALIMOV, NETMOV, IRIMOV, DECMOV) VALUES ($nummov, $ali, $net, $iri, $dec);");
+    }
+
+    // ── Productos → Stock + acumular en el remito (CFVMOV) y apagar SRPMOV si quedó todo facturado ──
+    $ord = 0;
+    foreach ($prods as $p) {
+        $ord++;
+        $egr = round((float) nz($p['egr'], 0), 2);
+        $mrv = isset($p['mrvmov']) && $p['mrvmov'] !== '' ? (int) $p['mrvmov'] : null;
+        $orv = isset($p['orvmov']) && $p['orvmov'] !== '' ? (int) $p['orvmov'] : null;
+        db_exec("INSERT INTO [Tbl Movimientos Stock]
+            (NUMMOV, ORDMOV, MRVMOV, ORVMOV, ODCMOV, PDLMOV, ODPMOV, CODPRO, DENMOV, CODUDM, FCTMOV, DUMMOV, CODSUC, CODMON, DECMOV,
+             EXIMOV, PULMOV, PUNMOV, PUCMOV, BONMOV, IBXMOV, PICMOV, COSMOV, CMDMOV, INGMOV, EGRMOV, STKMOV)
+            VALUES ($nummov, $ord, " . ($mrv === null ? 'Null' : $mrv) . ", " . ($orv === null ? 'Null' : $orv) . ",
+             " . fv_num(isset($p['odcmov']) ? $p['odcmov'] : '') . ", " . fv_num(isset($p['pdlmov']) ? $p['pdlmov'] : '') . ", " . fv_num(isset($p['odpmov']) ? $p['odpmov'] : '') . ",
+             " . fv_txt(nz($p['codpro'], '')) . ", " . fv_txt(nz($p['denmov'], '')) . ", " . (int) nz($p['codudm'], 1) . ", " . round((float) nz($p['fctmov'], 1), 4) . ", " . (int) nz($p['dummov'], 0) . ", $coddst, " . fv_txt(nz($p['codmon'], 'P')) . ", " . ((isset($p['decmov']) && $p['decmov']) ? 'True' : 'False') . ",
+             " . ((isset($p['eximov']) && $p['eximov']) ? 'True' : 'False') . ", " . round((float) nz($p['pulmov'], 0), 4) . ", " . round((float) nz($p['punmov'], 0), 4) . ", " . round((float) nz($p['pucmov'], 0), 4) . ", " . round((float) nz(isset($p['bonmov']) ? $p['bonmov'] : 0, 0), 2) . ", " . ((isset($p['ibxmov']) && $p['ibxmov']) ? 'True' : 'False') . ", " . round((float) nz(isset($p['picmov']) ? $p['picmov'] : 0, 0), 4) . ", " . round((float) nz($p['cosmov'], 0), 4) . ", 0, $egr, $egr, " . ((isset($p['stk']) && $p['stk']) ? 'True' : 'False') . ");");
+        // Acumular cantidad facturada en la línea del remito; si quedó todo facturado, SRPMOV=False.
+        if ($mrv !== null && $orv !== null) {
+            $rs = db_row("SELECT CFVMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$mrv AND ORDMOV=$orv;");
+            if ($rs) {
+                db_exec("UPDATE [Tbl Movimientos Stock] SET CFVMOV = " . round((float) nz($rs['CFVMOV'], 0) + $egr, 2) . " WHERE NUMMOV=$mrv AND ORDMOV=$orv;");
+                $pend = db_row("SELECT Count(*) AS N FROM [Tbl Movimientos Stock] WHERE NUMMOV=$mrv AND ((EGRMOV<>CFVMOV AND EGRMOV Is Not Null) OR (SVCMOV<>-CFVMOV));");
+                if ((int) nz($pend['N'], 0) == 0) db_exec("UPDATE [Tbl Movimientos] SET SRPMOV=False WHERE NUMMOV=$mrv;");
+            }
+        }
+    }
+
+    // ── Vencimientos ──
+    foreach ($vtos as $v) {
+        $fvx = fv_iso($v['fvxmov']); if ($fvx === null) continue;
+        db_exec("INSERT INTO [Tbl Movimientos Vencimientos] (NUMMOV, FVXMOV, DETMOV, DEBMOV)
+            VALUES ($nummov, $fvx, " . fv_txt(isset($v['detmov']) ? $v['detmov'] : '') . ", " . round((float) nz($v['debmov'], 0), 2) . ");");
+    }
+
+    // ── Anticipos: aplicar saldo a favor del cliente (movimientos previos con SDOMOV<0) ──
+    if ($acuSAF > 0) {
+        $rest = $acuSAF;
+        foreach (db_query("SELECT NUMMOV, SDOMOV FROM [Tbl Movimientos] WHERE CODCUE=$codcue AND SDOMOV<0 ORDER BY NUMMOV;") as $saf) {
+            if ($rest <= 0.005) break;
+            $disp = abs(round((float) nz($saf['SDOMOV'], 0), 2));
+            $imp = ($disp < $rest) ? $disp : $rest;
+            db_exec("INSERT INTO [Tbl Movimientos Anticipos] (NUMMOV, ANTMOV, IMPMOV) VALUES ($nummov, " . (int) $saf['NUMMOV'] . ", " . round($imp, 2) . ");");
+            db_exec("UPDATE [Tbl Movimientos] SET SDOMOV = SDOMOV + " . round($imp, 2) . " WHERE NUMMOV=" . (int) $saf['NUMMOV'] . ";");
+            $rest = round($rest - $imp, 2);
+        }
+    }
+
+    // ── Asiento ──
+    $ordi = 0; $totDeb = 0; $totCre = 0;
+    // DEBE: contado efectivo parte Caja + Deudores; si no, Deudores por el total.
+    if ($codcdv == 1 && $codfdp == 1) {
+        if ($impcaj > 0) fv_imp($ordi, $totDeb, $totCre, $nummov, $cacc1, $impcaj, 0);
+        if ($total > $impcaj) fv_imp($ordi, $totDeb, $totCre, $nummov, $caccA, round($total - $impcaj, 2), 0);
+    } else {
+        fv_imp($ordi, $totDeb, $totCre, $nummov, $caccA, $total, 0);
+    }
+    // HABER: ventas por rubro (neto de cada producto → su cuenta contable), acumulado.
+    $rub = array();
+    foreach ($prods as $p) {
+        if (isset($p['opc']) && $p['opc'] !== '' && $p['opc'] !== null) continue;   // líneas marcadas opc no van a ventas
+        $cic = trim((string) nz($p['cic'], ''));
+        if ($cic === '') continue;
+        $ndb = round((float) nz($p['ndb'], 0), 2);
+        if (!isset($rub[$cic])) $rub[$cic] = 0;
+        $rub[$cic] += $ndb;
+    }
+    foreach ($rub as $cic => $monto) {
+        if (round($monto, 2) != 0) fv_imp($ordi, $totDeb, $totCre, $nummov, $cic, 0, round($monto, 2));
+    }
+    // HABER: IVA débito + percepción IIBB.
+    if ($irimov > 0) fv_imp($ordi, $totDeb, $totCre, $nummov, $caccC, 0, $irimov);
+    if ($pixmov > 0) fv_imp($ordi, $totDeb, $totCre, $nummov, $caccN, 0, $pixmov);
+
+    // ── Cuenta corriente: SOPCUE += DEBMOV − efectivo de caja ──
+    db_exec("UPDATE [Tbl Cuentas Corrientes] SET FUOCUE=$fex, SOPCUE = " . round((float) nz($cli['SOPCUE'], 0) + $total - $impcaj, 2) . " WHERE CODCUE=$codcue;");
+
+    return array('nummov' => $nummov, 'cinmov' => $cinmov, 'total' => $total, 'sdomov' => $sdomov,
+        'cae' => ($afip && isset($afip['cae'])) ? $afip['cae'] : null, 'balanceo' => round($totDeb - $totCre, 2));
+}
+
+function guardar() { fail('Grabación interactiva de FV: pendiente (form + integración CAE).'); }
