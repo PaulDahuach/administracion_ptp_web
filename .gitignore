@@ -1,6 +1,10 @@
 # Config con rutas/secretos por instalación
 config/system.php
+config/afip.php
 config/certs/
+
+# Cache del Token de Acceso de AFIP (WSAA) y demás storage runtime
+storage/
 
 # Logs y temporales
 log/
