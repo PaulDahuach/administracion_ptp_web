@@ -26,6 +26,7 @@ if (!defined('OP_LIB')) {
             case 'operaciones':        listar_operaciones(); break;
             case 'regimenes':          listar_regimenes();   break;
             case 'cuentas_bancarias':  listar_cuentas_bancarias(); break;
+            case 'posdatadas':         cuentas_posdatadas(); break;
             case 'cartera':            cheques_cartera();    break;
             case 'pdvs':               listar_pdvs();        break;
             case 'guardar':            guardar();            break;
@@ -391,6 +392,18 @@ function pendientes() {
 function listar_operaciones() { ok(db_query("SELECT CODAUX, DENAUX FROM [Tbl Operaciones Auxiliares] WHERE CODOPE=340 ORDER BY CODAUX;")); }
 function listar_regimenes() { ok(db_query("SELECT CODRRI, DENRRI, ALIRRI FROM [Tbl Regimenes Retencion Ingresos Brutos] ORDER BY DENRRI;")); }
 function listar_cuentas_bancarias() { ok(db_query("SELECT CODCBX, DENCUE FROM [Tbl Cuentas Contables] WHERE CODCBX Is Not Null AND CODCUE Like '11104%' ORDER BY DENCUE;")); }
+
+/** Cuentas de cheques propios posdatados (CACC_V=217xx, una por banco) + su banco (CODBAN). */
+function cuentas_posdatadas() {
+    $out = array();
+    foreach (db_query("SELECT CC.CODCUE, CC.DENCUE, B.CODBAN, B.DENBAN
+        FROM ([Tbl Cuentas Contables] AS CC LEFT JOIN [Tbl Cuentas Bancarias] AS CB ON CB.CODCBX=CC.CODCBX)
+          LEFT JOIN [Tbl Bancos] AS B ON B.CODBAN=CB.CODBAN
+        WHERE CC.CODCUE Like '217%' AND CC.IMPCUE=True ORDER BY CC.CODCUE;") as $c)
+        $out[] = array('CODCUE' => trim((string) $c['CODCUE']), 'DENCUE' => trim((string) nz($c['DENCUE'], '')),
+            'CODBAN' => (int) nz($c['CODBAN'], 0), 'DENBAN' => trim((string) nz($c['DENBAN'], '')));
+    ok($out);
+}
 function listar_pdvs() { ok(db_query("SELECT CODPDV, NOMPDV FROM [Tbl Puntos de Venta] WHERE CODPDV <> 9999 ORDER BY CODPDV;")); }
 
 /** Cheques en cartera disponibles para endosar (VADCHQ=True), con banco. */

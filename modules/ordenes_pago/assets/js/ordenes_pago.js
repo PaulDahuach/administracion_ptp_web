@@ -26,6 +26,7 @@ const OP = {
         }
         var ops = await this.api('operaciones'); if (ops.ok) this.el('codaux').innerHTML = ops.data.map(function (o) { return '<option value="' + o.CODAUX + '">' + OP.esc(o.DENAUX) + '</option>'; }).join('');
         var cb = await this.api('cuentas_bancarias'); if (cb.ok) this.el('codcbx').innerHTML = '<option value="">Cuenta…</option>' + cb.data.map(function (x) { return '<option value="' + x.CODCBX + '">' + OP.esc(x.DENCUE) + '</option>'; }).join('');
+        var pd = await this.api('posdatadas'); this.posdatadas = (pd.ok ? pd.data : []);   // cuentas 217xx por banco (cheques propios posdatados)
         if (this.modo !== 'capacitacion') { var p = await this.api('pdvs'); if (p.ok && p.data.length) this.el('cipmov').value = p.data[0].CODPDV; }
 
         this.autocomplete(this.el('provQ'), this.el('provList'), 'buscar_proveedores', function (o) { return o.CODCUE + ' · ' + o.DENCUE + (o.CITCUE ? ' · ' + o.CITCUE : ''); }, function (o) { OP.pickProveedor(o.CODCUE); });
@@ -137,13 +138,16 @@ const OP = {
         tr.querySelector('.c-del').addEventListener('click', function () { tr.remove(); OP.chqs = OP.chqs.filter(function (x) { return x !== rec; }); OP.recalc(); });
         this.recalc();
     },
-    // ---- Cheque propio ----
+    // ---- Cheque propio (posdatado) → cuenta 217xx del banco, DIFCHQ=True ----
     addCheque() {
-        var rec = { codchq: null, codcue: '11103', codbanTxt: '', syn: '', fexiso: '', plz: 0, faxiso: '', lib: '', cit: '', loc: '', imp: 0 };
+        var pos = this.posdatadas || [];
+        var first = pos[0] || { CODCUE: '217', CODBAN: 0, DENBAN: '' };
+        var rec = { codchq: null, codcue: first.CODCUE, codban: first.CODBAN, syn: '', fexiso: '', plz: 0, faxiso: '', lib: '', cit: '', loc: '', imp: 0 };
         this.chqs.push(rec);
+        var ctaOpts = pos.map(function (p) { return '<option value="' + p.CODCUE + '" data-ban="' + p.CODBAN + '" data-banco="' + OP.esc(p.DENBAN) + '">' + OP.esc(p.DENCUE) + '</option>'; }).join('');
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td><input class="form-control form-control-sm" value="VALORES A DEPOSITAR" readonly></td>' +
-            '<td><input class="form-control form-control-sm c-ban" placeholder="Banco"></td>' +
+        tr.innerHTML = '<td><select class="form-select form-select-sm c-cta" data-nocombo>' + ctaOpts + '</select></td>' +
+            '<td><span class="c-banco">' + this.esc(first.DENBAN) + '</span> <span class="badge bg-primary">propio</span></td>' +
             '<td><input class="form-control form-control-sm c-syn"></td>' +
             '<td><input type="date" class="form-control form-control-sm c-fex"></td>' +
             '<td><input type="number" class="form-control form-control-sm op-num c-plz" value="0"></td>' +
@@ -154,7 +158,7 @@ const OP = {
             '<td><input type="number" step="0.01" class="form-control form-control-sm op-num c-imp"></td>' +
             '<td><button type="button" class="btn btn-sm btn-outline-danger c-del"><i class="bi bi-x"></i></button></td>';
         this.el('chqBody').appendChild(tr);
-        tr.querySelector('.c-ban').addEventListener('input', function () { rec.codbanTxt = this.value; });
+        tr.querySelector('.c-cta').addEventListener('change', function () { var o = this.options[this.selectedIndex]; rec.codcue = this.value; rec.codban = parseInt(o.getAttribute('data-ban'), 10) || 0; tr.querySelector('.c-banco').textContent = o.getAttribute('data-banco'); });
         tr.querySelector('.c-syn').addEventListener('input', function () { rec.syn = this.value; });
         tr.querySelector('.c-fex').addEventListener('input', function () { rec.fexiso = this.value; });
         tr.querySelector('.c-plz').addEventListener('input', function () { rec.plz = parseInt(this.value, 10) || 0; });
@@ -241,7 +245,7 @@ const OP = {
             referencias: this.refs.map(function (r) { return { refmov: r.refmov, fvxmov: r.fvxiso, imp: r.imp }; }),
             cheques: this.chqs.filter(function (c) { return c.imp > 0; }).map(function (c) {
                 return c.codchq ? { codcue: '11103', codchq: c.codchq, imp: c.imp }
-                    : { codcue: '11103', codban: 0, syn: c.syn, fex: c.fexiso, fax: c.faxiso, plz: c.plz || 0, lib: c.lib, cit: c.cit || '', loc: c.loc || '', imp: c.imp };
+                    : { codcue: c.codcue || '217', codban: c.codban || 0, syn: c.syn, fex: c.fexiso, fax: c.faxiso, plz: c.plz || 0, lib: c.lib, cit: c.cit || '', loc: c.loc || '', imp: c.imp };
             }),
             ret: { rix: this.rix, pid: parseFloat(this.el('rip').value) || 0, arb: parseFloat(this.el('arb').value) || 0, codrri: this.el('codrri').value || 0, rid: 0, vei: 0, sri: 1, sia: this.el('siamov').checked ? 1 : 0, aia: parseFloat(this.el('aiamov').value) || 0 }
         };
