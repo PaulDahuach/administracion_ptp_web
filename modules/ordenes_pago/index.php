@@ -61,17 +61,6 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
     </div>
   </div></div>
 
-  <!-- Retención IIBB -->
-  <div class="card fc-card mb-2"><div class="card-header py-1"><i class="bi bi-percent me-1"></i>Retención Ingresos Brutos</div><div class="card-body">
-    <div class="d-flex gap-3 flex-wrap align-items-end">
-      <div style="width:200px"><div class="rc-ret-lbl">Régimen</div><select id="codrri" class="form-select form-select-sm"></select></div>
-      <div style="width:150px"><div class="rc-ret-lbl">Base (neto)</div><input type="number" step="0.01" id="rip" class="form-control form-control-sm op-num" value="0"></div>
-      <div style="width:90px"><div class="rc-ret-lbl">Alícuota %</div><input type="number" step="0.01" id="arb" class="form-control form-control-sm op-num" value="0"></div>
-      <div style="width:150px"><div class="rc-ret-lbl">Retención IIBB</div><div class="fw-bold op-num" id="rix">0.00</div></div>
-      <div style="width:120px"><div class="rc-ret-lbl">Nº Constancia</div><input id="rinDisp" class="form-control form-control-sm rc-ro" placeholder="(auto)" readonly></div>
-    </div>
-  </div></div>
-
   <!-- Referencias -->
   <div class="card fc-card mb-2">
     <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-list-check me-1"></i>Comprobantes a pagar</span>
@@ -95,12 +84,22 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
     </table></div>
   </div>
 
-  <div class="card fc-card"><div class="card-body tot-bar">
-    <div class="t" id="boxEfe"><div class="lbl">Efectivo</div><div class="val" id="tEfectivo">0.00</div><input type="number" step="0.01" id="efectivo" class="form-control form-control-sm op-num" value="0" style="display:none"></div>
-    <div class="t"><div class="lbl">Cheques</div><div class="val" id="tCheques">0.00</div></div>
-    <div class="t"><div class="lbl">Retención</div><div class="val" id="tRet">0.00</div></div>
-    <div class="t"><div class="lbl">Neto a pagar</div><div class="val" id="tNeto">0.00</div></div>
-    <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Orden de Pago</div><div class="val" id="tTotal">0.00</div></div>
+  <div class="card fc-card"><div class="card-body d-flex justify-content-between flex-wrap gap-3 align-items-end">
+    <!-- Retención IIBB (al pie, izquierda) — alícuota del régimen del proveedor / padrón ARBA -->
+    <div class="d-flex gap-3 align-items-end">
+      <div style="width:150px"><div class="rc-ret-lbl">Base (neto)</div><input type="number" step="0.01" id="rip" class="form-control form-control-sm op-num" value="0"></div>
+      <div style="width:80px"><div class="rc-ret-lbl">Alícuota %</div><input type="number" step="0.01" id="arb" class="form-control form-control-sm op-num" value="0"></div>
+      <div style="width:150px"><div class="rc-ret-lbl">Ret. Ing. Brutos <span id="retReg" class="text-info"></span></div><div class="fw-bold op-num" id="rix" style="font-size:1.05rem">0.00</div></div>
+      <div style="width:110px"><div class="rc-ret-lbl">Nº Constancia</div><input id="rinDisp" class="form-control form-control-sm rc-ro" placeholder="(auto)" readonly></div>
+      <input type="hidden" id="codrri">
+    </div>
+    <!-- Subtotales (al pie, derecha) -->
+    <div class="tot-bar">
+      <div class="t" id="boxEfe"><div class="lbl">Efectivo</div><div class="val" id="tEfectivo">0.00</div><input type="number" step="0.01" id="efectivo" class="form-control form-control-sm op-num" value="0" style="display:none"></div>
+      <div class="t"><div class="lbl">Cheques</div><div class="val" id="tCheques">0.00</div></div>
+      <div class="t"><div class="lbl">Neto a pagar</div><div class="val" id="tNeto">0.00</div></div>
+      <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Orden de Pago</div><div class="val" id="tTotal">0.00</div></div>
+    </div>
   </div></div>
   <div class="text-danger small mt-2" id="opErr"></div>
 </div>
@@ -138,5 +137,5 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/ordenes_pago.js?v=1"></script>
+<script src="assets/js/ordenes_pago.js?v=2"></script>
 '); ?>

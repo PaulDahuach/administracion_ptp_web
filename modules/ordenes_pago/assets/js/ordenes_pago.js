@@ -19,7 +19,6 @@ const OP = {
         this.el('fixmov').value = this.el('fexmov').value;
         this.el('saldo').value = '0.00';
         var ops = await this.api('operaciones'); if (ops.ok) this.el('codaux').innerHTML = ops.data.map(function (o) { return '<option value="' + o.CODAUX + '">' + OP.esc(o.DENAUX) + '</option>'; }).join('');
-        var rg = await this.api('regimenes'); if (rg.ok) { this.regs = rg.data; this.el('codrri').innerHTML = '<option value="">Régimen…</option>' + rg.data.map(function (r) { return '<option value="' + r.CODRRI + '" data-ali="' + r.ALIRRI + '">' + OP.esc(r.DENRRI) + '</option>'; }).join(''); }
         if (this.modo !== 'capacitacion') { var p = await this.api('pdvs'); if (p.ok && p.data.length) this.el('cipmov').value = p.data[0].CODPDV; }
 
         this.autocomplete(this.el('provQ'), this.el('provList'), 'buscar_proveedores', function (o) { return o.CODCUE + ' · ' + o.DENCUE + (o.CITCUE ? ' · ' + o.CITCUE : ''); }, function (o) { OP.pickProveedor(o.CODCUE); });
@@ -28,7 +27,6 @@ const OP = {
         this.el('btnAddChq').addEventListener('click', function () { OP.addCheque(); });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.el('btnGuardar').addEventListener('click', function () { OP.guardar(); });
-        this.el('codrri').addEventListener('change', function () { var o = this.options[this.selectedIndex]; OP.el('arb').value = o ? (o.getAttribute('data-ali') || 0) : 0; OP.compRet(); });
         this.el('rip').addEventListener('input', function () { OP.compRet(); });
         this.el('arb').addEventListener('input', function () { OP.compRet(); });
         this.el('efectivo').addEventListener('input', function () { OP.recalc(); });
@@ -50,7 +48,11 @@ const OP = {
         // operación auto: saldo<0 (le debemos) → cancelación 342; ≥0 → anticipo 341
         this.el('codaux').value = (this.saldoNum < 0) ? '342' : '341';
         this.el('btnAddRef').disabled = (this.el('codaux').value != '342');
-        this.refs = []; this.el('refBody').innerHTML = ''; this.recalc();
+        // retención IIBB: régimen + alícuota del proveedor (el padrón ARBA la pisaría; pendiente)
+        this.el('codrri').value = d.CODRRI || '';
+        this.el('arb').value = d.SUJETO ? (d.ALIRRI || 0) : 0;
+        this.el('retReg').textContent = d.SUJETO ? (d.DENRRI ? '(' + d.DENRRI + ')' : '') : '(no sujeto)';
+        this.refs = []; this.el('refBody').innerHTML = ''; this.compRet();
     },
 
     // ---- Referencias ----
@@ -133,7 +135,6 @@ const OP = {
         this.efe = efe; this.total = Math.round(refTot * 100) / 100;
         this.el('tEfectivo').textContent = this.n(efe);
         this.el('tCheques').textContent = this.n(chqTot);
-        this.el('tRet').textContent = this.n(rix);
         this.el('tNeto').textContent = this.n(neto);
         this.el('tTotal').textContent = this.n(refTot);
         this.el('refTotal').textContent = this.n(refTot);
@@ -205,7 +206,7 @@ const OP = {
         this.el('chqTotal').textContent = this.n(chqTot);
         var ret = d.RIXMOV, neto = Math.round((d.TOTMOV - ret) * 100) / 100, efe = Math.round((neto - chqTot) * 100) / 100;
         this.el('tEfectivo').textContent = this.n(efe); this.el('tCheques').textContent = this.n(chqTot);
-        this.el('tRet').textContent = this.n(ret); this.el('tNeto').textContent = this.n(neto); this.el('tTotal').textContent = this.n(d.TOTMOV);
+        this.el('tNeto').textContent = this.n(neto); this.el('tTotal').textContent = this.n(d.TOTMOV);
         this.lockForm(true, d.ANU);
     },
     lockForm(locked, anulado) {

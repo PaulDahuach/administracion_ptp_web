@@ -249,13 +249,21 @@ function buscar_proveedores() {
 
 function get_proveedor() {
     $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
-    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI
+    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI, C.CODRRI, C.SRICUE
         FROM ([Tbl Provincias] AS P RIGHT JOIN ([Tbl Localidades] AS L INNER JOIN [Tbl Cuentas Corrientes] AS C ON L.CODLOC=C.CODLOC) ON P.CODPRO=L.CODPRO)
         WHERE C.CODORI='A' AND C.CODCUE=$cc;");
     if (!$c) { fail('Proveedor no encontrado'); return; }
     $c['SALDO'] = round((float) nz($c['SOPCUE'], 0), 2);
     $c['DOMICILIO'] = trim(nz($c['DCXCUE'], '') . ' ' . nz($c['DNXCUE'], ''));
     $c['LOCALIDAD'] = trim(nz($c['DENLOC'], '') . ' - ' . nz($c['DENPRO'], ''));
+    // Retención IIBB: sujeto + régimen del proveedor → alícuota por defecto (el padrón ARBA la pisaría).
+    $c['SUJETO'] = ($c['SRICUE'] === true || $c['SRICUE'] == -1) ? 1 : 0;
+    $c['CODRRI'] = (int) nz($c['CODRRI'], 0);
+    $c['ALIRRI'] = 0; $c['DENRRI'] = '';
+    if ($c['SUJETO'] && $c['CODRRI'] > 0) {
+        $rg = db_row("SELECT DENRRI, ALIRRI FROM [Tbl Regimenes Retencion Ingresos Brutos] WHERE CODRRI=" . $c['CODRRI'] . ";");
+        if ($rg) { $c['ALIRRI'] = round((float) nz($rg['ALIRRI'], 0), 4); $c['DENRRI'] = trim((string) nz($rg['DENRRI'], '')); }
+    }
     ok($c);
 }
 
