@@ -20,7 +20,18 @@ if (!defined('OP_LIB')) {
     $action = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : '');
     try {
         switch ($action) {
-            case 'guardar': guardar(); break;
+            case 'buscar_proveedores': buscar_proveedores(); break;
+            case 'get_proveedor':      get_proveedor();      break;
+            case 'pendientes':         pendientes();         break;
+            case 'operaciones':        listar_operaciones(); break;
+            case 'regimenes':          listar_regimenes();   break;
+            case 'cuentas_bancarias':  listar_cuentas_bancarias(); break;
+            case 'cartera':            cheques_cartera();    break;
+            case 'pdvs':               listar_pdvs();        break;
+            case 'guardar':            guardar();            break;
+            case 'anular':             fail('Anulación de órdenes de pago: pendiente de portar.'); break;
+            case 'listar':             listar();             break;
+            case 'detalle':            detalle();            break;
             default: fail('Acción inválida: ' . $action);
         }
     } catch (Exception $e) { fail($e->getMessage(), 500); }
@@ -217,4 +228,112 @@ function guardar() {
         db_rollback();
         fail('No se pudo grabar la orden de pago: ' . $e->getMessage(), 500);
     }
+}
+
+// ───────────────────────── Lookups / búsqueda ─────────────────────────
+function op_serial_iso($s) { if ($s === null || $s === '') return ''; return (new DateTime('1899-12-30'))->modify('+' . (int) $s . ' days')->format('Y-m-d'); }
+function estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND ESTMOV=True'; if ($l === 'negro') return ' AND ESTMOV=False'; return ''; }
+function comp_str($cic, $cii, $cip, $cin) {
+    $pdv = str_pad((string) (int) nz($cip, 0), 4, '0', STR_PAD_LEFT);
+    $nro = str_pad((string) (int) nz($cin, 0), 8, '0', STR_PAD_LEFT);
+    return trim((string) nz($cic, '') . ' ' . nz($cii, '')) . ' ' . $pdv . '-' . $nro;
+}
+
+function buscar_proveedores() {
+    $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+    if (strlen($q) < 1) { ok(array()); return; }
+    $s = db_esc($q); $num = is_numeric($q) ? " OR CODCUE = " . (int) $q : '';
+    ok(db_query("SELECT TOP 20 CODCUE, DENCUE, CITCUE FROM [Tbl Cuentas Corrientes]
+        WHERE CODORI='A' AND ((DENCUE Like '%$s%')$num) ORDER BY DENCUE;"));
+}
+
+function get_proveedor() {
+    $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI
+        FROM ([Tbl Provincias] AS P RIGHT JOIN ([Tbl Localidades] AS L INNER JOIN [Tbl Cuentas Corrientes] AS C ON L.CODLOC=C.CODLOC) ON P.CODPRO=L.CODPRO)
+        WHERE C.CODORI='A' AND C.CODCUE=$cc;");
+    if (!$c) { fail('Proveedor no encontrado'); return; }
+    $c['SALDO'] = round((float) nz($c['SOPCUE'], 0), 2);
+    $c['DOMICILIO'] = trim(nz($c['DCXCUE'], '') . ' ' . nz($c['DNXCUE'], ''));
+    $c['LOCALIDAD'] = trim(nz($c['DENLOC'], '') . ' - ' . nz($c['DENPRO'], ''));
+    ok($c);
+}
+
+/** Comprobantes pendientes del proveedor (CP/ND con saldo) — muestra el comprobante EXTERNO (su FC). */
+function pendientes() {
+    $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    $rows = db_query("SELECT M.NUMMOV, M.CECMOV, M.CEIMOV, M.CEPMOV, M.CENMOV, M.FEXMOV, V.FVXMOV, V.DEBMOV, V.CREMOV, V.DETMOV
+        FROM [Tbl Movimientos] AS M INNER JOIN [Tbl Movimientos Vencimientos] AS V ON V.NUMMOV=M.NUMMOV
+        WHERE M.CODORI='A' AND (M.CODOPE=310 OR M.CODOPE=330) AND M.CODCUE=$cc AND M.SDOMOV<>0
+        ORDER BY V.FVXMOV;");
+    $out = array();
+    foreach ($rows as $r) {
+        $pend = round((float) nz($r['CREMOV'], 0) - (float) nz($r['DEBMOV'], 0), 2);
+        if ($pend <= 0.005) continue;
+        $out[] = array('REFMOV' => (int) $r['NUMMOV'], 'COMP' => comp_str($r['CECMOV'], $r['CEIMOV'], $r['CEPMOV'], $r['CENMOV']),
+            'FEXMOV' => fecha_serial($r['FEXMOV']), 'FVXMOV' => fecha_serial($r['FVXMOV']), 'FVXISO' => op_serial_iso($r['FVXMOV']),
+            'DETMOV' => trim((string) nz($r['DETMOV'], '')), 'SALDO' => $pend);
+    }
+    ok($out);
+}
+
+function listar_operaciones() { ok(db_query("SELECT CODAUX, DENAUX FROM [Tbl Operaciones Auxiliares] WHERE CODOPE=340 ORDER BY CODAUX;")); }
+function listar_regimenes() { ok(db_query("SELECT CODRRI, DENRRI, ALIRRI FROM [Tbl Regimenes Retencion Ingresos Brutos] ORDER BY DENRRI;")); }
+function listar_cuentas_bancarias() { ok(db_query("SELECT CODCBX, DENCUE FROM [Tbl Cuentas Contables] WHERE CODCBX Is Not Null AND CODCUE Like '11104%' ORDER BY DENCUE;")); }
+function listar_pdvs() { ok(db_query("SELECT CODPDV, NOMPDV FROM [Tbl Puntos de Venta] WHERE CODPDV <> 9999 ORDER BY CODPDV;")); }
+
+/** Cheques en cartera disponibles para endosar (VADCHQ=True), con banco. */
+function cheques_cartera() {
+    $ban = array(); foreach (db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos]") as $b) $ban[(int) $b['CODBAN']] = trim((string) nz($b['DENBAN'], ''));
+    $out = array();
+    foreach (db_query("SELECT CODCHQ, CODBAN, SYNCHQ, FEXCHQ, FAXCHQ, IMPCHQ, LIBCHQ, LOCCHQ FROM [Tbl Cheques] WHERE VADCHQ=True ORDER BY FAXCHQ;") as $c)
+        $out[] = array('CODCHQ' => (int) $c['CODCHQ'], 'BANCO' => isset($ban[(int) $c['CODBAN']]) ? $ban[(int) $c['CODBAN']] : '',
+            'SYN' => trim((string) nz($c['SYNCHQ'], '')), 'FEX' => fecha_serial($c['FEXCHQ']), 'FAX' => fecha_serial($c['FAXCHQ']),
+            'LIB' => trim((string) nz($c['LIBCHQ'], '')), 'LOC' => trim((string) nz($c['LOCCHQ'], '')), 'IMP' => round((float) nz($c['IMPCHQ'], 0), 2));
+    ok($out);
+}
+
+/** Listado de OPs (CODOPE=340). */
+function listar() {
+    $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+    $sd = isset($_GET['desde']) && $_GET['desde'] ? (int) (new DateTime('1899-12-30'))->diff(new DateTime($_GET['desde']))->days : null;
+    $sh = isset($_GET['hasta']) && $_GET['hasta'] ? (int) (new DateTime('1899-12-30'))->diff(new DateTime($_GET['hasta']))->days : null;
+    $w = "CODOPE=340" . estmov_w();
+    if ($q !== '') { $qs = db_esc($q); $cond = "(DENMOV Like '%$qs%' OR CITMOV Like '%$qs%'"; if (is_numeric($q)) $cond .= " OR CINMOV=" . (int) $q; $w .= " AND $cond)"; }
+    if ($sd !== null) $w .= " AND FEXMOV >= $sd";
+    if ($sh !== null) $w .= " AND FEXMOV <= $sh";
+    $rows = db_query("SELECT TOP 200 NUMMOV, FEXMOV, CINMOV, DENMOV, TOTMOV, ANUMOV FROM [Tbl Movimientos] WHERE $w ORDER BY FEXMOV DESC, NUMMOV DESC;");
+    $out = array();
+    foreach ($rows as $r) $out[] = array('NUMMOV' => (int) $r['NUMMOV'], 'FEXMOV' => fecha_serial($r['FEXMOV']), 'FEXMOVO' => (int) nz($r['FEXMOV'], 0),
+        'COMP' => 'OP 0000-' . str_pad((string) (int) nz($r['CINMOV'], 0), 8, '0', STR_PAD_LEFT), 'DENMOV' => trim((string) nz($r['DENMOV'], '')),
+        'TOTMOV' => round((float) nz($r['TOTMOV'], 0), 2), 'ANU' => ($r['ANUMOV'] === true || $r['ANUMOV'] == -1) ? 1 : 0);
+    ok(array('ordenes' => $out, 'tope' => count($out) >= 200));
+}
+
+/** Detalle completo de una OP para verla en pantalla, bloqueada. */
+function detalle() {
+    $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
+    $h = db_row("SELECT * FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=340;");
+    if (!$h) { fail('Orden de pago no encontrada'); return; }
+    $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1); $lib = auth_libro_unico();
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('OP no disponible en este libro'); return; }
+
+    $refs = array();
+    foreach (db_query("SELECT R.REFMOV, R.FVXMOV, R.IMPMOV, M.CECMOV, M.CEIMOV, M.CEPMOV, M.CENMOV
+        FROM [Tbl Movimientos Referencias] AS R LEFT JOIN [Tbl Movimientos] AS M ON M.NUMMOV=R.REFMOV WHERE R.NUMMOV=$num;") as $r)
+        $refs[] = array('COMP' => comp_str($r['CECMOV'], $r['CEIMOV'], $r['CEPMOV'], $r['CENMOV']), 'FVXMOV' => fecha_serial($r['FVXMOV']), 'IMP' => round((float) nz($r['IMPMOV'], 0), 2));
+
+    $ban = array(); foreach (db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos]") as $b) $ban[(int) $b['CODBAN']] = trim((string) nz($b['DENBAN'], ''));
+    $chqs = array();
+    foreach (db_query("SELECT C.CODBAN, C.SYNCHQ, C.FEXCHQ, C.FAXCHQ, C.IMPCHQ, C.LIBCHQ, C.LOCCHQ
+        FROM [Tbl Cheques] AS C INNER JOIN [Tbl Movimientos Imputaciones] AS MI ON MI.CODCHQ=C.CODCHQ WHERE MI.NUMMOV=$num ORDER BY MI.ORDMOV;") as $c)
+        $chqs[] = array('BANCO' => isset($ban[(int) $c['CODBAN']]) ? $ban[(int) $c['CODBAN']] : '', 'SYN' => trim((string) nz($c['SYNCHQ'], '')),
+            'FAX' => fecha_serial($c['FAXCHQ']), 'LIB' => trim((string) nz($c['LIBCHQ'], '')), 'IMP' => round((float) nz($c['IMPCHQ'], 0), 2));
+
+    ok(array('NUMMOV' => $num, 'CINMOV' => (int) nz($h['CINMOV'], 0), 'FEXISO' => op_serial_iso($h['FEXMOV']),
+        'CODAUX' => (int) nz($h['CODAUX'], 0), 'CODCUE' => (int) nz($h['CODCUE'], 0), 'DENMOV' => trim((string) nz($h['DENMOV'], '')),
+        'CITMOV' => trim((string) nz($h['CITMOV'], '')), 'SOCMOV' => round((float) nz($h['SOCMOV'], 0), 2), 'DETMOV' => trim((string) nz($h['DETMOV'], '')),
+        'CODFDP' => (int) nz($h['CODFDP'], 4), 'TOTMOV' => round((float) nz($h['TOTMOV'], 0), 2),
+        'RIXMOV' => round((float) nz($h['RIXMOV'], 0), 2), 'RINMOV' => (int) nz($h['RINMOV'], 0), 'ARBMOV' => round((float) nz($h['ARBMOV'], 0), 4), 'CODRRI' => (int) nz($h['CODRRI'], 0),
+        'ANU' => ($h['ANUMOV'] === true || $h['ANUMOV'] == -1) ? 1 : 0, 'referencias' => $refs, 'cheques' => $chqs));
 }
