@@ -27,6 +27,7 @@ if (!defined('OP_LIB')) {
             case 'regimenes':          listar_regimenes();   break;
             case 'cuentas_bancarias':  listar_cuentas_bancarias(); break;
             case 'posdatadas':         cuentas_posdatadas(); break;
+            case 'retencion':          calcular_retencion(); break;
             case 'cartera':            cheques_cartera();    break;
             case 'pdvs':               listar_pdvs();        break;
             case 'guardar':            guardar();            break;
@@ -333,6 +334,85 @@ function buscar_proveedores() {
         WHERE CODORI='A' AND ((DENCUE Like '%$s%')$num) ORDER BY DENCUE;"));
 }
 
+/** mdlImpNet: neto = importe / (1 + alícuota/100) — quita IVA + percepciones del pago. */
+function imp_net($importe, $ali) { $ali = (float) $ali; if ($ali <= -100) return 0; return round(((float) $importe) / (1 + $ali / 100), 2); }
+
+/**
+ * Neto de UN pago (OP) para la base de retención IIBB (porta el neteo de rutRetenciones):
+ *  - 341 anticipo: total / (1 + AIAMOV/100).
+ *  - 342/343 cancelación: por cada referencia, neto = imp / (1 + (IVA de la FC + %percep IIBB + %percep IVA)/100);
+ *    se saltea si la FC es toda No Gravada (NOGMOV=TOTMOV). Las percep salen de la FC (IP1/IP2 sobre NETMOV).
+ *  - 343 excedente: (total − Σref) / (1 + (AIAMOV o 21)/100).
+ * $refs = [{refmov, imp}].
+ */
+function op_net_pago($codaux, $total, $aia, $refs) {
+    $net = 0; $totRef = 0;
+    if ($codaux == 341) {
+        $net += imp_net($total, $aia);
+    } else {
+        foreach ($refs as $r) {
+            $imp = round((float) nz($r['imp'], 0), 2); $totRef += $imp;
+            $fc = db_row("SELECT NETMOV, IP1MOV, IP2MOV, NOGMOV, TOTMOV FROM [Tbl Movimientos] WHERE NUMMOV=" . (int) nz($r['refmov'], 0) . ";");
+            if (!$fc) { $net += imp_net($imp, $aia); continue; }
+            $tot = round((float) nz($fc['TOTMOV'], 0), 2); $nog = round((float) nz($fc['NOGMOV'], 0), 2);
+            if ($tot != 0 && $nog == $tot) continue;   // todo no gravado → no retener
+            $netfc = round((float) nz($fc['NETMOV'], 0), 2);
+            $piva = $netfc > 0 ? round((float) nz($fc['IP1MOV'], 0) * 100 / $netfc, 2) : 0;
+            $pibr = $netfc > 0 ? round((float) nz($fc['IP2MOV'], 0) * 100 / $netfc, 2) : 0;
+            $iva = db_row("SELECT TOP 1 ALIMOV FROM [Tbl Movimientos IVA] WHERE NUMMOV=" . (int) nz($r['refmov'], 0) . ";");
+            $ali0 = $iva ? round((float) nz($iva['ALIMOV'], 0), 2) : 0;
+            $net += imp_net($imp, $ali0 + $piva + $pibr);
+        }
+        if ($codaux == 343) {
+            $exc = round((float) $total - $totRef, 2);
+            if ($exc > 0) $net += imp_net($exc, ($aia > 0) ? $aia : 21);
+        }
+    }
+    return round($net, 2);
+}
+
+/**
+ * Retención IIBB con ACUMULADO DIARIO (rutRetenciones): la base es el neto acumulado de TODOS los pagos del
+ * día al proveedor (esta OP + las ya grabadas), y la retención = base × ALIRRI − lo ya retenido en el día,
+ * sólo si la base supera el mínimo no imponible (MNRRRI). Bloquea evadir el mínimo fraccionando pagos.
+ * Params: codcue, fecha (iso), codaux, aia, alirri, mnrrri, totmov, refs(json), est(blanco/negro).
+ */
+function calcular_retencion() {
+    $codcue = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    $codaux = isset($_GET['codaux']) ? (int) $_GET['codaux'] : 342;
+    $aia    = round((float) nz(isset($_GET['aia']) ? $_GET['aia'] : 0, 0), 2);
+    $alirri = round((float) nz(isset($_GET['alirri']) ? $_GET['alirri'] : 0, 0), 4);
+    $mnrrri = round((float) nz(isset($_GET['mnrrri']) ? $_GET['mnrrri'] : 0, 0), 2);
+    $total  = round((float) nz(isset($_GET['totmov']) ? $_GET['totmov'] : 0, 0), 2);
+    $refs   = isset($_GET['refs']) ? json_decode($_GET['refs'], true) : array();
+    if (!is_array($refs)) $refs = array();
+    $fexSerial = op_iso(isset($_GET['fecha']) ? $_GET['fecha'] : '');
+    $estTrue = !(isset($_GET['est']) && $_GET['est'] === 'negro');
+    $estSql = $estTrue ? 'True' : 'False';
+
+    // Neto de ESTA OP (la que se está armando)
+    $thisNet = op_net_pago($codaux, $total, $aia, $refs);
+
+    // Pagos del día ya grabados al proveedor (mismo FEXMOV, OP, libro, no anulados): re-netear + ret. acumulada
+    $dayNet = 0; $dayRet = 0;
+    if ($fexSerial !== null) {
+        foreach (db_query("SELECT NUMMOV, CODAUX, TOTMOV, AIAMOV, RIXMOV FROM [Tbl Movimientos]
+            WHERE CODORI='A' AND CODOPE=340 AND CODCUE=$codcue AND FEXMOV=$fexSerial AND TOTMOV>0 AND ANUMOV=False AND ESTMOV=$estSql;") as $op) {
+            $rr = array();
+            foreach (db_query("SELECT REFMOV, IMPMOV FROM [Tbl Movimientos Referencias] WHERE NUMMOV=" . (int) $op['NUMMOV'] . ";") as $x)
+                $rr[] = array('refmov' => (int) $x['REFMOV'], 'imp' => $x['IMPMOV']);
+            $dayNet += op_net_pago((int) $op['CODAUX'], round((float) nz($op['TOTMOV'], 0), 2), (float) nz($op['AIAMOV'], 0), $rr);
+            $dayRet += round((float) nz($op['RIXMOV'], 0), 2);
+        }
+    }
+
+    $pid = round($thisNet + $dayNet, 2);
+    $rid = round($dayRet, 2);
+    $rix = ($pid > $mnrrri) ? round($pid * $alirri / 100 - $rid, 2) : 0;
+    if ($rix < 0) $rix = 0;
+    ok(array('PIDMOV' => $pid, 'RIDMOV' => $rid, 'RIXMOV' => $rix, 'THISNET' => $thisNet, 'DAYNET' => round($dayNet, 2)));
+}
+
 /**
  * Padrón ARBA (Ingresos Brutos): abre la DB externa (Rec Control.DBPIBR → C:\_Inforemp\PadronRentas.mdb),
  * tabla PADRONRS, y devuelve la alícuota (ARBPIB) registrada para el CUIT, o null si no está / no accesible.
@@ -390,10 +470,10 @@ function get_proveedor() {
     // Retiene sólo si: IsNull(VEIMOV) (sin exención) Y SRIMOV (sujeto) [Y tiene régimen, chequeado abajo].
     $c['SUJETO'] = ($srimov && !$exento) ? 1 : 0;
     $c['CODRRI'] = (int) nz($c['CODRRI'], 0);
-    $c['ALIRRI'] = 0; $c['DENRRI'] = ''; $c['PADRON'] = 0;
+    $c['ALIRRI'] = 0; $c['DENRRI'] = ''; $c['MNRRRI'] = 0; $c['PADRON'] = 0;
     if ($c['SUJETO'] && $c['CODRRI'] > 0) {
-        $rg = db_row("SELECT DENRRI, ALIRRI FROM [Tbl Regimenes Retencion Ingresos Brutos] WHERE CODRRI=" . $c['CODRRI'] . ";");
-        if ($rg) { $c['ALIRRI'] = round((float) nz($rg['ALIRRI'], 0), 4); $c['DENRRI'] = trim((string) nz($rg['DENRRI'], '')); }
+        $rg = db_row("SELECT DENRRI, ALIRRI, MNRRRI FROM [Tbl Regimenes Retencion Ingresos Brutos] WHERE CODRRI=" . $c['CODRRI'] . ";");
+        if ($rg) { $c['ALIRRI'] = round((float) nz($rg['ALIRRI'], 0), 4); $c['DENRRI'] = trim((string) nz($rg['DENRRI'], '')); $c['MNRRRI'] = round((float) nz($rg['MNRRRI'], 0), 2); }
         // Padrón ARBA: si el CUIT está registrado, su alícuota (ARBPIB) pisa la del régimen (rutRetenciones).
         $pa = padron_alicuota($c['CITCUE']);
         if ($pa !== null) { $c['ALIRRI'] = round($pa, 4); $c['PADRON'] = 1; }

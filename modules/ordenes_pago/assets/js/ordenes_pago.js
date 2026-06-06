@@ -89,7 +89,7 @@ const OP = {
             this.el('arb').value = d.SUJETO ? (d.ALIRRI || 0) : 0;
         }
         // alícuota IVA para netear (SIAMOV/AIAMOV) — de la categoría del proveedor
-        this.aiaDefault = d.AIAMOV || 0; this.aiaEdit = !!d.AIAEDIT;
+        this.aiaDefault = d.AIAMOV || 0; this.aiaEdit = !!d.AIAEDIT; this.mnrrri = d.MNRRRI || 0;
         this.el('siamov').checked = false; this.onSia();
         this.refs = []; this.el('refBody').innerHTML = ''; this.recalc();
     },
@@ -218,12 +218,39 @@ const OP = {
         this.el('tTotal').textContent = this.n(total);
         this.el('refTotal').textContent = this.n(refTot);
         this.el('chqTotal').textContent = this.n(chqTot);
+        // Retención IIBB con acumulado diario (server): solo si la empresa retiene y el proveedor es sujeto.
+        if (!this.rixOff && !this.exento && this.provSri && arb > 0 && total > 0) {
+            clearTimeout(this._retT); this._retT = setTimeout(function () { OP.calcRetencion(); }, 250);
+        }
     },
     compRet() { this.recalc(); },
+
+    // Pide al server la retención IIBB con acumulado diario (rutRetenciones) y repinta base + retención.
+    async calcRetencion() {
+        if (this.rixOff || this.exento || !this.provSri) return;
+        var refs = this.refs.map(function (r) { return { refmov: r.refmov, imp: r.imp }; });
+        var p = {
+            codcue: this.el('codcue').value, codaux: this.el('codaux').value, aia: parseFloat(this.el('aiamov').value) || 0,
+            alirri: parseFloat(this.el('arb').value) || 0, mnrrri: this.mnrrri || 0, totmov: this.total,
+            fecha: this.el('fexmov').value, est: (this.modo === 'capacitacion') ? 'negro' : 'blanco', refs: JSON.stringify(refs)
+        };
+        var j = await this.api('retencion', p);
+        if (!j.ok) return;
+        this.rix = j.data.RIXMOV;
+        this.el('rip').value = j.data.PIDMOV.toFixed(2); this.el('rip').readOnly = true;
+        this.el('rix').textContent = this.n(this.rix);
+        this.el('retReg').textContent = '(acum. diario · base ' + this.n(j.data.PIDMOV) + (j.data.RIDMOV > 0 ? ' · ret.día ' + this.n(j.data.RIDMOV) : '') + ')';
+        var chqTot = this.chqs.reduce(function (s, c) { return s + (c.imp || 0); }, 0);
+        var neto = Math.round((this.total - this.rix) * 100) / 100;
+        var efe = Math.max(0, Math.round((neto - chqTot) * 100) / 100);
+        this.efe = efe;
+        this.el('tEfectivo').textContent = this.n(efe); this.el('tNeto').textContent = this.n(neto);
+    },
 
     async guardar() {
         this.el('opErr').textContent = '';
         this.recalc();
+        if (!this.rixOff && !this.exento && this.provSri && (parseFloat(this.el('arb').value) || 0) > 0) await this.calcRetencion();   // retención con acumulado diario exacta
         if (!this.el('codcue').value) { this.el('opErr').textContent = 'Elegí un proveedor.'; return; }
         if (this.el('codaux').value == '342' && !this.refs.length) { this.el('opErr').textContent = 'Agregá al menos un comprobante a pagar.'; return; }
         if (this.total <= 0) { this.el('opErr').textContent = 'La orden no tiene importe.'; return; }
