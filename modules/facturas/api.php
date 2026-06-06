@@ -21,6 +21,7 @@ if (!defined('FV_LIB')) {
         case 'pdvs':               listar_pdvs(); break;
         case 'condiciones':        listar_condiciones(); break;
         case 'formas_pago':        listar_formas_pago(); break;
+        case 'bancos':             listar_bancos(); break;
         case 'listar':             listar(); break;
         case 'detalle':            detalle(); break;
         case 'guardar':            guardar(); break;
@@ -133,7 +134,8 @@ function detalle() {
 
 function listar_pdvs() { ok(db_query("SELECT CODPDV, NOMPDV FROM [Tbl Puntos de Venta] WHERE CODPDV <> 9999 ORDER BY CODPDV;")); }
 function listar_condiciones() { ok(db_query("SELECT CODCDV, DENCDV FROM [Tbl Condiciones de Venta] ORDER BY DENCDV;")); }
-function listar_formas_pago() { ok(db_query("SELECT CODFDP, DENFDP FROM [Tbl Formas de Pago] ORDER BY CODFDP;")); }
+function listar_formas_pago() { ok(db_query("SELECT CODFDP, DENFDP, CHQFDP FROM [Tbl Formas de Pago] ORDER BY CODFDP;")); }
+function listar_bancos() { ok(db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos] ORDER BY DENBAN;")); }
 
 function fv_iso($s) { if ($s === null || $s === '') return null; if (is_numeric($s)) return (int) $s; return (int) (new DateTime('1899-12-30'))->diff(new DateTime($s))->days; }
 /** Serial de Access desde un cae_vto de AFIP (formato Ymd '20260616') o un serial/iso ya dado. */

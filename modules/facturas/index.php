@@ -70,6 +70,17 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
     </table></div>
   </div>
 
+  <!-- Cheques (contado con cheque) -->
+  <div class="card fc-card mb-2" id="cardChq" style="display:none">
+    <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-cash-coin me-1"></i>Cheques recibidos (contado)</span>
+      <button type="button" id="btnAddChq" class="btn btn-sm btn-outline-light"><i class="bi bi-plus-lg me-1"></i>Agregar cheque</button></div>
+    <div class="card-body p-0 table-responsive"><table class="table table-sm fv-grid mb-0" style="min-width:900px">
+      <thead><tr><th style="width:150px">Banco</th><th style="width:110px">Serie-Nº</th><th style="width:120px">Emisión</th><th style="width:120px">Acreditación</th><th>Librador</th><th style="width:120px">C.U.I.T.</th><th class="fv-num" style="width:120px">Importe</th><th style="width:30px"></th></tr></thead>
+      <tbody id="chqBody"></tbody>
+      <tfoot><tr class="fw-bold"><td colspan="6" class="text-end">Total cheques:</td><td class="fv-num" id="chqTotal">0.00</td><td></td></tr></tfoot>
+    </table></div>
+  </div>
+
   <div class="card fc-card"><div class="card-body tot-bar">
     <div class="t"><div class="lbl">Neto gravado</div><div class="val" id="tNeto">0.00</div></div>
     <div class="t"><div class="lbl">I.V.A. <span id="lblAli">21%</span></div><div class="val" id="tIva">0.00</div></div>
@@ -103,5 +114,5 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/facturas.js?v=2"></script>
+<script src="assets/js/facturas.js?v=3"></script>
 '); ?>

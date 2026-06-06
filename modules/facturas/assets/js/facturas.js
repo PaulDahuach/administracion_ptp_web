@@ -15,7 +15,12 @@ const FV = {
     async init() {
         this.el('fexmov').value = new Date().toISOString().slice(0, 10);
         var cd = await this.api('condiciones'); if (cd.ok) this.el('codcdv').innerHTML = cd.data.map(function (o) { return '<option value="' + o.CODCDV + '">' + FV.esc(o.DENCDV) + '</option>'; }).join('');
-        var fp = await this.api('formas_pago'); if (fp.ok) this.el('codfdp').innerHTML = fp.data.map(function (o) { return '<option value="' + o.CODFDP + '">' + FV.esc(o.DENFDP) + '</option>'; }).join('');
+        var fp = await this.api('formas_pago'); this.chqFdp = {}; if (fp.ok) { this.el('codfdp').innerHTML = fp.data.map(function (o) { FV.chqFdp[o.CODFDP] = (o.CHQFDP === true || o.CHQFDP === -1 || o.CHQFDP === 1); return '<option value="' + o.CODFDP + '">' + FV.esc(o.DENFDP) + '</option>'; }).join(''); }
+        var bk = await this.api('bancos'); this.bancos = bk.ok ? bk.data : [];
+        this.cheques = [];
+        this.el('codcdv').addEventListener('change', function () { FV.toggleCheques(); });
+        this.el('codfdp').addEventListener('change', function () { FV.toggleCheques(); });
+        this.el('btnAddChq').addEventListener('click', function () { FV.addCheque(); });
         this.autocomplete(this.el('cliQ'), this.el('cliList'), 'buscar_clientes', function (o) { return o.CODCUE + ' · ' + o.DENCUE + (o.CITCUE ? ' · ' + o.CITCUE : ''); }, function (o) { FV.pickCliente(o.CODCUE); });
         this.el('btnAddRem').addEventListener('click', function () { FV.abrirRemitos(); });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
@@ -97,12 +102,49 @@ const FV = {
         this.el('tTotal').textContent = this.n(total);
     },
 
+    // ---- Cheques (contado) ----
+    toggleCheques() {
+        var show = (this.el('codcdv').value == '1') && !!this.chqFdp[this.el('codfdp').value];
+        this.el('cardChq').style.display = show ? '' : 'none';
+        if (!show) { this.cheques = []; this.el('chqBody').innerHTML = ''; this.chqRecalc(); }
+    },
+    addCheque() {
+        var rec = { codban: this.bancos.length ? this.bancos[0].CODBAN : 0, syn: '', fexiso: '', faxiso: '', lib: '', cit: '', imp: 0 };
+        this.cheques.push(rec);
+        var opts = this.bancos.map(function (b) { return '<option value="' + b.CODBAN + '">' + FV.esc(b.DENBAN) + '</option>'; }).join('');
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td><select class="form-select form-select-sm c-ban">' + opts + '</select></td>' +
+            '<td><input class="form-control form-control-sm c-syn"></td>' +
+            '<td><input type="date" class="form-control form-control-sm c-fex"></td>' +
+            '<td><input type="date" class="form-control form-control-sm c-fax"></td>' +
+            '<td><input class="form-control form-control-sm c-lib"></td>' +
+            '<td><input class="form-control form-control-sm c-cit"></td>' +
+            '<td><input type="number" step="0.01" class="form-control form-control-sm fv-num c-imp"></td>' +
+            '<td><button type="button" class="btn btn-sm btn-outline-danger c-del"><i class="bi bi-x"></i></button></td>';
+        this.el('chqBody').appendChild(tr);
+        tr.querySelector('.c-ban').addEventListener('change', function () { rec.codban = parseInt(this.value, 10) || 0; });
+        tr.querySelector('.c-syn').addEventListener('input', function () { rec.syn = this.value; });
+        tr.querySelector('.c-fex').addEventListener('input', function () { rec.fexiso = this.value; });
+        tr.querySelector('.c-fax').addEventListener('input', function () { rec.faxiso = this.value; });
+        tr.querySelector('.c-lib').addEventListener('input', function () { rec.lib = this.value; });
+        tr.querySelector('.c-cit').addEventListener('input', function () { rec.cit = this.value; });
+        tr.querySelector('.c-imp').addEventListener('input', function () { rec.imp = parseFloat(this.value) || 0; FV.chqRecalc(); });
+        tr.querySelector('.c-del').addEventListener('click', function () { tr.remove(); FV.cheques = FV.cheques.filter(function (x) { return x !== rec; }); FV.chqRecalc(); });
+    },
+    chqRecalc() { var t = (this.cheques || []).reduce(function (s, c) { return s + (c.imp || 0); }, 0); this.el('chqTotal').textContent = this.n(Math.round(t * 100) / 100); },
+
     async emitir() {
         this.el('fvErr').textContent = '';
         if (this.emitida) { this.toast('La factura ya fue emitida.', 'info'); return; }
         if (!this.el('codcue').value) { this.el('fvErr').textContent = 'Elegí un cliente.'; return; }
         if (!this.lineas.length) { this.el('fvErr').textContent = 'Agregá al menos un producto (de un remito).'; return; }
         if (this.totales.total <= 0) { this.el('fvErr').textContent = 'La factura no tiene importe.'; return; }
+        var contadoChq = (this.el('codcdv').value == '1') && !!this.chqFdp[this.el('codfdp').value];
+        var chqTot = 0;
+        if (contadoChq) {
+            chqTot = Math.round(this.cheques.reduce(function (s, c) { return s + (c.imp || 0); }, 0) * 100) / 100;
+            if (Math.abs(chqTot - this.totales.total) > 0.05) { this.el('fvErr').textContent = 'En contado con cheque, los cheques deben cubrir el total (' + this.n(this.totales.total) + ').'; return; }
+        }
         var c = this.cli, t = this.totales;
         var ivaArr = []; for (var a in t.buckets) { var net = Math.round(t.buckets[a] * 100) / 100; ivaArr.push({ ali: parseFloat(a), net: net, iri: Math.round(net * a) / 100, dec: parseFloat(a) == 21 ? 1 : 0 }); }
         var data = {
@@ -114,7 +156,9 @@ const FV = {
             netmov: t.neto, irimov: t.iva, totmov: t.total, impcaj: 0,
             iva: ivaArr,
             productos: this.lineas.map(function (l) { return { mrvmov: l.mrvmov, orvmov: l.orvmov, odcmov: l.odcmov, pdlmov: l.pdlmov, odpmov: l.odpmov, codpro: l.codpro, denmov: l.denmov, codudm: l.codudm, fctmov: l.fctmov, dummov: l.dummov, codmon: l.codmon, decmov: l.decmov, pulmov: l.pul, punmov: l.pun, pucmov: l.puc, cosmov: l.cos, egr: l.cant, stk: l.stk, cic: l.cic, ndb: Math.round(l.cant * l.pun * 100) / 100 }; }),
-            vencimientos: []
+            vencimientos: [],
+            impcaj: contadoChq ? chqTot : 0,
+            cheques: contadoChq ? this.cheques.map(function (q) { return { codban: q.codban, syn: q.syn, fex: q.fexiso, fax: q.faxiso || q.fexiso, plz: 0, lib: q.lib, cit: q.cit, loc: '', imp: q.imp }; }) : []
         };
         this.el('btnEmitir').disabled = true; this.el('btnEmitir').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Autorizando en AFIP…';
         var fd = new FormData(); fd.append('action', 'guardar'); fd.append('data', JSON.stringify(data));
