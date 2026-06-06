@@ -42,6 +42,7 @@ const OP = {
         this.el('cen').addEventListener('blur', function () { this.value = String(parseInt(this.value, 10) || 0).padStart(8, '0'); });
         this.el('efectivo').addEventListener('input', function () { OP.recalc(); });
         this.el('totIn').addEventListener('input', function () { OP.recalc(); });   // total del anticipo
+        this.el('codaux').addEventListener('change', function () { OP.onCodaux(); });
         this.el('codfdp').addEventListener('change', function () {   // interdepósito (CODFDP=5): habilita cuenta bancaria + acreditación
             var inter = this.value == '5';
             OP.el('lblEfeOp').textContent = inter ? 'Importe' : 'Efectivo';
@@ -67,12 +68,8 @@ const OP = {
         this.el('provInfo').textContent = [d.CITMOV || d.CITCUE, d.DOMICILIO, d.LOCALIDAD].filter(Boolean).join(' · ');
         // operación auto: saldo<0 (le debemos) → cancelación 342; ≥0 → anticipo 341
         this.el('codaux').value = (this.saldoNum < 0) ? '342' : '341';
-        this.anticipo = (this.el('codaux').value == '341');
-        this.el('btnAddRef').disabled = this.anticipo;
-        // anticipo: sin referencias, el operador ingresa el total directo (TOTMOV editable en el legacy)
-        this.el('totIn').style.display = this.anticipo ? '' : 'none';
-        this.el('tTotal').style.display = this.anticipo ? 'none' : '';
-        this.el('totIn').value = 0;
+        this.txtMaxRef = (this.saldoNum < 0) ? Math.round(Math.abs(this.saldoNum) * 100) / 100 : 0;   // deuda total (txtMaxRef)
+        this.onCodaux();
         // Retención IIBB: el switch global (RIXCDC) manda; si está activo, la exención del proveedor
         // (VEICUE). Retiene sólo si !rixOff && !exento && sujeto. (CODCUE_AfterUpdate del legacy.)
         this.exento = !!d.EXENTO; this.veiIso = d.VEIISO || '';
@@ -176,10 +173,23 @@ const OP = {
         else { this.el('aiamov').value = ''; this.el('aiamov').disabled = true; }   // null cuando no está tildado
         this.recalc();
     },
+    // Operación: 341 anticipo (total a mano, sin refs) · 342 cancelación (total = Σref) · 343
+    // canc+anticipo (refs cubren la deuda + total a mano con excedente).
+    onCodaux() {
+        var ca = this.el('codaux').value;
+        this.totEdit = (ca === '341' || ca === '343');   // TOTMOV editable
+        var refsOn = (ca === '342' || ca === '343');
+        this.el('btnAddRef').disabled = !refsOn;
+        this.el('totIn').style.display = this.totEdit ? '' : 'none';
+        this.el('tTotal').style.display = this.totEdit ? 'none' : '';
+        if (ca === '343') this.el('totIn').value = (this.txtMaxRef || 0).toFixed(2);   // arranca en la deuda; el operador suma el excedente
+        else if (this.totEdit) this.el('totIn').value = 0;
+        this.recalc();
+    },
     recalc() {
         var refTot = this.refs.reduce(function (s, r) { return s + (r.imp || 0); }, 0);
-        // cancelación: total = Σreferencias; anticipo: el operador lo ingresa (sin referencias)
-        var total = this.anticipo ? (Math.round((parseFloat(this.el('totIn').value) || 0) * 100) / 100) : (Math.round(refTot * 100) / 100);
+        // cancelación: total = Σreferencias; anticipo/canc+antic: el operador ingresa el total
+        var total = this.totEdit ? (Math.round((parseFloat(this.el('totIn').value) || 0) * 100) / 100) : (Math.round(refTot * 100) / 100);
         this.total = total;
         // Base de la retención IIBB: con el tilde, se netea desde el total con la alícuota IVA
         // (total / (1+alícuota/100)); sin tilde, base manual.
@@ -212,6 +222,11 @@ const OP = {
         if (!this.el('codcue').value) { this.el('opErr').textContent = 'Elegí un proveedor.'; return; }
         if (this.el('codaux').value == '342' && !this.refs.length) { this.el('opErr').textContent = 'Agregá al menos un comprobante a pagar.'; return; }
         if (this.total <= 0) { this.el('opErr').textContent = 'La orden no tiene importe.'; return; }
+        if (this.el('codaux').value == '343') {   // canc + anticipo: refs cubren la deuda total y el total la supera (excedente)
+            var sref = Math.round(this.refs.reduce(function (s, r) { return s + (r.imp || 0); }, 0) * 100) / 100;
+            if (!this.refs.length || sref < (this.txtMaxRef || 0) - 0.005) { this.el('opErr').textContent = 'Para Cancelación + Anticipo, las referencias deben cubrir la deuda total (' + this.n(this.txtMaxRef) + ').'; return; }
+            if (this.total <= (this.txtMaxRef || 0) + 0.005) { this.el('opErr').textContent = 'El total debe superar la deuda (' + this.n(this.txtMaxRef) + '); la diferencia es el anticipo.'; return; }
+        }
         if (this.el('rip').value > 0 && !this.el('codrri').value) { this.el('opErr').textContent = 'Elegí el régimen de la retención.'; return; }
         // Validaciones de retención IIBB (CODCUE_BeforeUpdate del legacy), sólo si la empresa retiene.
         if (!this.rixOff) {

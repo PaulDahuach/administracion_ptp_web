@@ -53,7 +53,7 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
         <input type="hidden" id="codcue"><div class="small text-muted mt-1" id="provInfo"></div>
       </div>
       <div style="width:135px"><label class="form-label mb-1">Saldo operativo</label><input type="text" id="saldo" class="form-control op-num" readonly></div>
-      <div style="width:150px"><label class="form-label mb-1">Operación</label><select id="codaux" class="form-select" disabled data-nocombo></select></div>
+      <div style="width:160px"><label class="form-label mb-1">Operación</label><select id="codaux" class="form-select" data-nocombo></select></div>
     </div>
     <div class="row g-2 mt-1 align-items-end">
       <div class="col-auto" style="width:150px">
@@ -153,5 +153,5 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/ordenes_pago.js?v=13"></script>
+<script src="assets/js/ordenes_pago.js?v=14"></script>
 '); ?>
