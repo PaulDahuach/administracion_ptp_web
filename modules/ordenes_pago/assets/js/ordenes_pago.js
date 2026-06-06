@@ -41,6 +41,7 @@ const OP = {
         this.el('cep').addEventListener('blur', function () { this.value = String(parseInt(this.value, 10) || 0).padStart(4, '0'); });
         this.el('cen').addEventListener('blur', function () { this.value = String(parseInt(this.value, 10) || 0).padStart(8, '0'); });
         this.el('efectivo').addEventListener('input', function () { OP.recalc(); });
+        this.el('totIn').addEventListener('input', function () { OP.recalc(); });   // total del anticipo
         this.el('codfdp').addEventListener('change', function () {   // interdepósito (CODFDP=5): habilita cuenta bancaria + acreditación
             var inter = this.value == '5';
             OP.el('lblEfeOp').textContent = inter ? 'Importe' : 'Efectivo';
@@ -66,7 +67,12 @@ const OP = {
         this.el('provInfo').textContent = [d.CITMOV || d.CITCUE, d.DOMICILIO, d.LOCALIDAD].filter(Boolean).join(' · ');
         // operación auto: saldo<0 (le debemos) → cancelación 342; ≥0 → anticipo 341
         this.el('codaux').value = (this.saldoNum < 0) ? '342' : '341';
-        this.el('btnAddRef').disabled = (this.el('codaux').value != '342');
+        this.anticipo = (this.el('codaux').value == '341');
+        this.el('btnAddRef').disabled = this.anticipo;
+        // anticipo: sin referencias, el operador ingresa el total directo (TOTMOV editable en el legacy)
+        this.el('totIn').style.display = this.anticipo ? '' : 'none';
+        this.el('tTotal').style.display = this.anticipo ? 'none' : '';
+        this.el('totIn').value = 0;
         // Retención IIBB: el switch global (RIXCDC) manda; si está activo, la exención del proveedor
         // (VEICUE). Retiene sólo si !rixOff && !exento && sujeto. (CODCUE_AfterUpdate del legacy.)
         this.exento = !!d.EXENTO; this.veiIso = d.VEIISO || '';
@@ -172,7 +178,8 @@ const OP = {
     },
     recalc() {
         var refTot = this.refs.reduce(function (s, r) { return s + (r.imp || 0); }, 0);
-        var total = Math.round(refTot * 100) / 100;   // cancelación: total = Σreferencias
+        // cancelación: total = Σreferencias; anticipo: el operador lo ingresa (sin referencias)
+        var total = this.anticipo ? (Math.round((parseFloat(this.el('totIn').value) || 0) * 100) / 100) : (Math.round(refTot * 100) / 100);
         this.total = total;
         // Base de la retención IIBB: con el tilde, se netea desde el total con la alícuota IVA
         // (total / (1+alícuota/100)); sin tilde, base manual.

@@ -113,7 +113,7 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
       <div class="t" id="boxEfe"><div class="lbl" id="lblEfeOp">Efectivo</div><div class="val" id="tEfectivo">0.00</div><input type="number" step="0.01" id="efectivo" class="form-control form-control-sm op-num" value="0" style="display:none"></div>
       <div class="t"><div class="lbl">Cheques</div><div class="val" id="tCheques">0.00</div></div>
       <div class="t"><div class="lbl">Neto a pagar</div><div class="val" id="tNeto">0.00</div></div>
-      <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Orden de Pago</div><div class="val" id="tTotal">0.00</div></div>
+      <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Orden de Pago</div><div class="val" id="tTotal">0.00</div><input type="number" step="0.01" id="totIn" class="form-control form-control-sm op-num mt-1" value="0" style="display:none;background:#fff;color:#000" title="Importe del anticipo"></div>
     </div>
   </div></div>
   <div class="text-danger small mt-2" id="opErr"></div>
@@ -153,5 +153,5 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/ordenes_pago.js?v=12"></script>
+<script src="assets/js/ordenes_pago.js?v=13"></script>
 '); ?>
