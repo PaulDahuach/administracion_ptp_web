@@ -19,8 +19,11 @@ if (!defined('NC_LIB')) {
     $action = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : '');
     try {
         switch ($action) {
-            case 'conceptos':   listar_conceptos(); break;
-            case 'guardar':     guardar(); break;
+            case 'conceptos':       listar_conceptos(); break;
+            case 'buscar_clientes': buscar_clientes(); break;
+            case 'get_cliente':     get_cliente(); break;
+            case 'pendientes':      pendientes(); break;
+            case 'guardar':         guardar(); break;
             default: fail('Acción inválida: ' . $action);
         }
     } catch (Exception $e) { fail($e->getMessage(), 500); }
@@ -34,12 +37,61 @@ function nc_num($v) { return (string) round((float) $v, 2); }
 
 /** Conceptos de NC (CODOPE=460): cada uno con su cuenta (CODCUE) y si lleva IVA (IVAAUX). */
 function listar_conceptos() {
-    $rows = db_query("SELECT CODAUX, DENAUX, IVAAUX, CODCUE FROM [Tbl Operaciones Auxiliares] WHERE CODOPE=460 ORDER BY DENAUX;");
+    $rows = db_query("SELECT CODAUX, DENAUX, IVAAUX, CODCUE FROM [Tbl Operaciones Auxiliares] WHERE CODOPE=460 AND CODCUE Is Not Null AND CODCUE <> '' ORDER BY DENAUX;");
     $out = array();
     foreach ($rows as $r) $out[] = array('CODAUX' => (int) $r['CODAUX'], 'DENAUX' => trim((string) nz($r['DENAUX'], '')),
         'IVA' => ($r['IVAAUX'] === true || $r['IVAAUX'] == -1), 'CUENTA' => trim((string) nz($r['CODCUE'], '')));
     ok($out);
 }
+
+function buscar_clientes() {
+    $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+    if (strlen($q) < 1) { ok(array()); return; }
+    $s = db_esc($q); $num = is_numeric($q) ? ' OR CODCUE = ' . (int) $q : '';
+    ok(db_query("SELECT TOP 20 CODCUE, DENCUE, CITCUE FROM [Tbl Cuentas Corrientes] WHERE CODORI='D' AND ((DENCUE Like '%$s%')$num) ORDER BY DENCUE;"));
+}
+
+function get_cliente() {
+    $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI, C.CODCDV, C.SPICUE
+        FROM ([Tbl Provincias] AS P RIGHT JOIN ([Tbl Localidades] AS L INNER JOIN [Tbl Cuentas Corrientes] AS C ON L.CODLOC=C.CODLOC) ON P.CODPRO=L.CODPRO)
+        WHERE C.CODORI='D' AND C.CODCUE=$cc;");
+    if (!$c) { fail('Cliente no encontrado'); return; }
+    $cri = db_row("SELECT DENCRI, ICXCRI FROM [Tbl Categorias Responsabilidad IVA] WHERE CODCRI=" . (int) nz($c['CODCRI'], 0) . ";");
+    $c['LETRA'] = $cri ? strtoupper(trim((string) nz($cri['ICXCRI'], 'A'))) : 'A';
+    $c['DENCRI'] = $cri ? trim((string) nz($cri['DENCRI'], '')) : '';
+    $c['COND_IVA'] = ((int) nz($c['CODCRI'], 0) == 1) ? 1 : 5;
+    $c['SALDO'] = round((float) nz($c['SOPCUE'], 0), 2);
+    $c['DOMICILIO'] = trim(nz($c['DCXCUE'], '') . ' ' . nz($c['DNXCUE'], ''));
+    $c['LOCALIDAD'] = trim(nz($c['DENLOC'], '') . (nz($c['DENPRO'], '') ? ' - ' . nz($c['DENPRO'], '') : ''));
+    ok($c);
+}
+
+/** Vencimientos de FV/ND pendientes del cliente (saldo > 0) para la grilla Referencias — patrón de RC/OP. */
+function pendientes() {
+    $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    $rows = db_query("SELECT M.NUMMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.CINMOV, M.FEXMOV, V.FVXMOV, V.DEBMOV, V.CREMOV, V.DETMOV
+        FROM [Tbl Movimientos] AS M INNER JOIN [Tbl Movimientos Vencimientos] AS V ON V.NUMMOV = M.NUMMOV
+        WHERE M.CODORI='D' AND (M.CODOPE=420 OR M.CODOPE=440) AND M.CODCUE=$cc AND M.SDOMOV>0" . nc_estmov_w() . " ORDER BY V.FVXMOV;");
+    $out = array();
+    foreach ($rows as $r) {
+        $saldo = round((float) nz($r['DEBMOV'], 0) - (float) nz($r['CREMOV'], 0), 2);
+        if ($saldo <= 0.005) continue;
+        $out[] = array(
+            'REFMOV' => (int) $r['NUMMOV'],
+            'COMP'   => trim((string) nz($r['CICMOV'], '')) . ' ' . trim((string) nz($r['CIIMOV'], '')) . ' ' . str_pad((string) (int) nz($r['CIPMOV'], 0), 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) (int) nz($r['CINMOV'], 0), 8, '0', STR_PAD_LEFT),
+            'FEXMOV' => fecha_serial($r['FEXMOV']),
+            'FVXMOV' => fecha_serial($r['FVXMOV']),
+            'FVXISO' => (new DateTime('1899-12-30'))->modify('+' . (int) $r['FVXMOV'] . ' days')->format('Y-m-d'),
+            'DETMOV' => trim((string) nz($r['DETMOV'], '')),
+            'SALDO'  => $saldo,
+        );
+    }
+    ok($out);
+}
+
+/** Filtro de visibilidad por libro (doble libro). */
+function nc_estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND M.ESTMOV=True'; if ($l === 'negro') return ' AND M.ESTMOV=False'; return ''; }
 
 /** Imputación contable + mayorización (DEBCUE/CRECUE). $keepZero: guarda el 0 explícito (fila percep). */
 function nc_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $keepZero = false) {
@@ -134,14 +186,25 @@ function nc_insert($d, $estTrue, $afip) {
     $dif = round($totDeb - $totCre, 2);
     if (abs($dif) >= 0.005) { if ($dif > 0) nc_imp($ord, $totDeb, $totCre, $nummov, $caccZ, 0, $dif); else nc_imp($ord, $totDeb, $totCre, $nummov, $caccZ, -$dif, 0); }
 
-    // ── Referencias: aplica el crédito a la(s) FV(s), reduciendo su SDOMOV ──
+    // ── Referencias: aplica el crédito a la(s) FV(s) — mismo patrón que RC/OP (3 pasos) ──
     foreach ($refs as $r) {
-        $refMov = (int) $r['nummov']; $imp = round((float) nz($r['imp'], 0), 2);
+        $refMov = (int) nz(isset($r['nummov']) ? $r['nummov'] : (isset($r['refmov']) ? $r['refmov'] : 0), 0);
+        $imp = round((float) nz($r['imp'], 0), 2);
         if ($refMov <= 0 || $imp == 0) continue;
-        $fvx = isset($r['fvxmov']) && $r['fvxmov'] !== '' ? nc_iso($r['fvxmov']) : 'Null';
+        $fvx = (isset($r['fvxmov']) && $r['fvxmov'] !== '') ? nc_iso($r['fvxmov']) : null;
         $fvxSql = ($fvx === null) ? 'Null' : (string) $fvx;
+        // 1) Referencia (FK a Tbl Movimientos Vencimientos: FVXMOV debe ser un vencimiento real de la FV)
         db_exec("INSERT INTO [Tbl Movimientos Referencias] (NUMMOV, REFMOV, FVXMOV, IMPMOV) VALUES ($nummov, $refMov, $fvxSql, " . nc_num($imp) . ");");
-        db_exec("UPDATE [Tbl Movimientos] SET SDOMOV = SDOMOV - " . nc_num($imp) . " WHERE NUMMOV=$refMov;");
+        // 2) Vencimiento de la FV: CREMOV += imp (lo acreditado contra ese vencimiento)
+        if ($fvx !== null) {
+            $v = db_row("SELECT CREMOV FROM [Tbl Movimientos Vencimientos] WHERE NUMMOV=$refMov AND FVXMOV=$fvx;");
+            $nuevo = round((float) nz($v ? $v['CREMOV'] : 0, 0) + $imp, 2);
+            db_exec("UPDATE [Tbl Movimientos Vencimientos] SET CREMOV=" . nc_num($nuevo) . " WHERE NUMMOV=$refMov AND FVXMOV=$fvx;");
+        }
+        // 3) Factura: SDOMOV -= imp (saldo pendiente)
+        $f = db_row("SELECT SDOMOV FROM [Tbl Movimientos] WHERE NUMMOV=$refMov;");
+        $nsdo = round((float) nz($f ? $f['SDOMOV'] : 0, 0) - $imp, 2);
+        db_exec("UPDATE [Tbl Movimientos] SET SDOMOV=" . nc_num($nsdo) . " WHERE NUMMOV=$refMov;");
     }
 
     // ── Cuenta corriente: la NC reduce la deuda → SOPCUE -= total ──
