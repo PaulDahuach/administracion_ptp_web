@@ -71,6 +71,16 @@ module_head('Notas de Crédito — Deudores', 'bi-file-earmark-minus', $toolbar)
     <div class="card-footer small text-muted">Las referencias deben sumar el total de la NC. El saldo no aplicado queda como crédito a favor del cliente.</div>
   </div>
 
+  <!-- Productos devueltos (DEVOLUCION) -->
+  <div class="card fc-card mb-2" id="cardProd" style="display:none">
+    <div class="card-header"><i class="bi bi-box-seam me-1"></i>Productos devueltos <span class="small text-muted">(de la FV referenciada — poné la cantidad a devolver)</span></div>
+    <div class="card-body p-0 table-responsive"><table class="table table-sm nc-grid mb-0">
+      <thead><tr><th>Código</th><th>Denominación</th><th style="width:70px">FV</th><th class="nc-num" style="width:110px">Cant. FV</th><th class="nc-num" style="width:120px">A devolver</th><th class="nc-num" style="width:120px">Pr. Unit.</th><th class="nc-num" style="width:130px">Total</th><th style="width:36px"></th></tr></thead>
+      <tbody id="prodBody"></tbody>
+      <tfoot><tr class="fw-bold"><td colspan="6" class="text-end">Neto:</td><td class="nc-num" id="prodTotal">0.00</td><td></td></tr></tfoot>
+    </table></div>
+  </div>
+
   <div class="card fc-card"><div class="card-body tot-bar">
     <div class="t"><div class="lbl">Neto</div><div class="val" id="tNeto">0.00</div></div>
     <div class="t" id="boxIva"><div class="lbl">I.V.A. <span id="lblAli">21%</span></div><div class="val" id="tIva">0.00</div></div>
@@ -92,5 +102,5 @@ module_head('Notas de Crédito — Deudores', 'bi-file-earmark-minus', $toolbar)
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/nc.js?v=1"></script>
+<script src="assets/js/nc.js?v=2"></script>
 '); ?>

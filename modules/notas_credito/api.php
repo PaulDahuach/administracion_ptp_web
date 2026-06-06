@@ -23,6 +23,7 @@ if (!defined('NC_LIB')) {
             case 'buscar_clientes': buscar_clientes(); break;
             case 'get_cliente':     get_cliente(); break;
             case 'pendientes':      pendientes(); break;
+            case 'productos_fv':    productos_fv(); break;
             case 'guardar':         guardar(); break;
             default: fail('Acción inválida: ' . $action);
         }
@@ -92,6 +93,33 @@ function pendientes() {
 
 /** Filtro de visibilidad por libro (doble libro). */
 function nc_estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND M.ESTMOV=True'; if ($l === 'negro') return ' AND M.ESTMOV=False'; return ''; }
+
+/** Productos de una FV (Tbl Movimientos Stock) para devolver en una NC DEVOLUCION, con la cuenta de ventas. */
+function productos_fv() {
+    $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
+    $out = array();
+    foreach (db_query("SELECT ORDMOV, CODPRO, DENMOV, INGMOV, EGRMOV, SVCMOV, CMDMOV, PUNMOV, PUCMOV, COSMOV, FCTMOV, DUMMOV, DECMOV, CODUDM, CODMON, CODSUC, STKMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num ORDER BY ORDMOV;") as $s) {
+        $entreg = ($s['EGRMOV'] !== null && $s['EGRMOV'] !== '') ? abs(round((float) $s['EGRMOV'], 2)) : abs(round((float) nz($s['SVCMOV'], 0), 2));
+        $devuelto = abs(round((float) nz($s['CMDMOV'], 0), 2));
+        $pend = round($entreg - $devuelto, 2);
+        if ($pend <= 0.0001) continue;
+        // cuenta de ventas del producto = Tbl Subrubros.VTASUB por CODRUB+CODSUB
+        $prod = db_row("SELECT CODRUB, CODSUB FROM [Tbl Productos] WHERE CODPRO='" . db_esc(trim((string) $s['CODPRO'])) . "';");
+        $cic = '';
+        if ($prod) { $sr = db_row("SELECT VTASUB FROM [Tbl Subrubros] WHERE CODRUB=" . (int) nz($prod['CODRUB'], 0) . " AND CODSUB=" . (int) nz($prod['CODSUB'], 0) . ";"); if ($sr) $cic = trim((string) nz($sr['VTASUB'], '')); }
+        // PTP es procesadora (servicios) → la NC anula la prestación vía SVCMOV (como la DEVOLUCION real 241041),
+        // sin importar el INGMOV de la FV. reingresa=1 sería reingreso de stock físico (otra config); default servicio.
+        $reingresa = 0;
+        $out[] = array(
+            'omdmov' => (int) $s['ORDMOV'], 'codpro' => trim((string) nz($s['CODPRO'], '')), 'denmov' => trim((string) nz($s['DENMOV'], '')),
+            'qty' => $pend, 'pun' => round((float) nz($s['PUNMOV'], 0), 4), 'puc' => round((float) nz($s['PUCMOV'], 0), 4), 'cos' => round((float) nz($s['COSMOV'], 0), 4),
+            'fctmov' => round((float) nz($s['FCTMOV'], 1), 4), 'dummov' => (int) nz($s['DUMMOV'], 0), 'codudm' => (int) nz($s['CODUDM'], 1), 'codmon' => trim((string) nz($s['CODMON'], 'P')),
+            'codsuc' => (int) nz($s['CODSUC'], 1), 'decmov' => ($s['DECMOV'] === true || $s['DECMOV'] == -1) ? 1 : 0, 'stkmov' => ($s['STKMOV'] === true || $s['STKMOV'] == -1) ? 1 : 0,
+            'reingresa' => $reingresa ? 1 : 0, 'cic' => $cic,
+        );
+    }
+    ok($out);
+}
 
 /** Imputación contable + mayorización (DEBCUE/CRECUE). $keepZero: guarda el 0 explícito (fila percep). */
 function nc_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $keepZero = false) {
