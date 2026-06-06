@@ -53,6 +53,7 @@ const OP = {
         this.el('opBuscarGo').addEventListener('click', function () { OP.loadList(); });
         this.el('btnAnularHdr').addEventListener('click', function () { if (OP.viewNum) OP.anular(OP.viewNum); });
         this.el('btnImprimirHdr').addEventListener('click', function () { if (OP.viewNum) window.open('imprimir.php?nummov=' + OP.viewNum, '_blank'); });
+        this.el('btnConstanciaHdr').addEventListener('click', function () { if (OP.viewNum) window.open('constancia.php?nummov=' + OP.viewNum, '_blank'); });
     },
 
     async pickProveedor(codcue) {
@@ -272,6 +273,7 @@ const OP = {
         this.el('tEfectivo').textContent = this.n(efe); this.el('tCheques').textContent = this.n(chqTot);
         this.el('tNeto').textContent = this.n(neto); this.el('tTotal').textContent = this.n(d.TOTMOV);
         this.lockForm(true, d.ANU);
+        if (d.RIXMOV > 0 && d.RINMOV > 0) this.el('btnConstanciaHdr').style.display = '';   // hay retención IIBB
     },
     lockForm(locked, anulado) {
         this.viewMode = locked;
@@ -280,6 +282,7 @@ const OP = {
         this.el('btnAddCart').style.display = locked ? 'none' : ''; this.el('btnAddChq').style.display = locked ? 'none' : '';
         this.el('btnGuardar').style.display = locked ? 'none' : '';
         this.el('btnImprimirHdr').style.display = locked ? '' : 'none';
+        this.el('btnConstanciaHdr').style.display = 'none';   // lo muestra verOrden si hay retención
         this.el('btnAnularHdr').style.display = (locked && !anulado) ? '' : 'none';
     },
     async anular(num) {
