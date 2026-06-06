@@ -249,7 +249,7 @@ function buscar_proveedores() {
 
 function get_proveedor() {
     $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
-    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI, C.CODRRI, C.SRICUE, C.CODCAT, C.APICUE, C.APBCUE
+    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI, C.CODRRI, C.SRICUE, C.VEICUE, C.CODCAT, C.APICUE, C.APBCUE
         FROM ([Tbl Provincias] AS P RIGHT JOIN ([Tbl Localidades] AS L INNER JOIN [Tbl Cuentas Corrientes] AS C ON L.CODLOC=C.CODLOC) ON P.CODPRO=L.CODPRO)
         WHERE C.CODORI='A' AND C.CODCUE=$cc;");
     if (!$c) { fail('Proveedor no encontrado'); return; }
@@ -265,8 +265,21 @@ function get_proveedor() {
     $c['SALDO'] = round((float) nz($c['SOPCUE'], 0), 2);
     $c['DOMICILIO'] = trim(nz($c['DCXCUE'], '') . ' ' . nz($c['DNXCUE'], ''));
     $c['LOCALIDAD'] = trim(nz($c['DENLOC'], '') . ' - ' . nz($c['DENPRO'], ''));
-    // Retención IIBB: sujeto + régimen del proveedor → alícuota por defecto (el padrón ARBA la pisaría).
-    $c['SUJETO'] = ($c['SRICUE'] === true || $c['SRICUE'] == -1) ? 1 : 0;
+    // Retención IIBB: switch GLOBAL en Rec Control (RIXCDC=True → la empresa NO actúa como agente de
+    // retención IIBB, p.ej. período con beneficio) + sujeto/régimen del proveedor.
+    $rixsw = db_row("SELECT RIXCDC FROM [Rec Control];");
+    $rixOff = ($rixsw && ($rixsw['RIXCDC'] === true || $rixsw['RIXCDC'] == -1));
+    $c['RIXOFF'] = $rixOff ? 1 : 0;
+    // Exención por proveedor: VEIMOV = VEICUE (vto. de la exención IIBB). Si el proveedor tiene VEICUE,
+    // VEIMOV no es null → NO retiene (CODCUE_AfterUpdate: retiene sólo si IsNull(VEIMOV)).
+    $veicue = $c['VEICUE'];
+    $exento = ($veicue !== null && $veicue !== '');
+    $c['EXENTO'] = $exento ? 1 : 0;
+    $c['VEIISO'] = $exento ? op_serial_iso($veicue) : '';
+    $c['VEIMOV'] = $exento ? fecha_serial($veicue) : '';
+    $srimov = (!$rixOff && ($c['SRICUE'] === true || $c['SRICUE'] == -1));
+    // Retiene sólo si: IsNull(VEIMOV) (sin exención) Y SRIMOV (sujeto) [Y tiene régimen, chequeado abajo].
+    $c['SUJETO'] = ($srimov && !$exento) ? 1 : 0;
     $c['CODRRI'] = (int) nz($c['CODRRI'], 0);
     $c['ALIRRI'] = 0; $c['DENRRI'] = '';
     if ($c['SUJETO'] && $c['CODRRI'] > 0) {
@@ -279,7 +292,7 @@ function get_proveedor() {
 /** Comprobantes pendientes del proveedor (CP/ND con saldo) — muestra el comprobante EXTERNO (su FC). */
 function pendientes() {
     $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
-    $rows = db_query("SELECT M.NUMMOV, M.CECMOV, M.CEIMOV, M.CEPMOV, M.CENMOV, M.FEXMOV, V.FVXMOV, V.DEBMOV, V.CREMOV, V.DETMOV
+    $rows = db_query("SELECT M.NUMMOV, M.CICMOV, M.CINMOV, M.FEXMOV, M.CECMOV, M.CEIMOV, M.CEPMOV, M.CENMOV, M.CEFMOV, V.FVXMOV, V.DEBMOV, V.CREMOV, V.DETMOV
         FROM [Tbl Movimientos] AS M INNER JOIN [Tbl Movimientos Vencimientos] AS V ON V.NUMMOV=M.NUMMOV
         WHERE M.CODORI='A' AND (M.CODOPE=310 OR M.CODOPE=330) AND M.CODCUE=$cc AND M.SDOMOV<>0
         ORDER BY V.FVXMOV;");
@@ -287,9 +300,15 @@ function pendientes() {
     foreach ($rows as $r) {
         $pend = round((float) nz($r['CREMOV'], 0) - (float) nz($r['DEBMOV'], 0), 2);
         if ($pend <= 0.005) continue;
-        $out[] = array('REFMOV' => (int) $r['NUMMOV'], 'COMP' => comp_str($r['CECMOV'], $r['CEIMOV'], $r['CEPMOV'], $r['CENMOV']),
-            'FEXMOV' => fecha_serial($r['FEXMOV']), 'FVXMOV' => fecha_serial($r['FVXMOV']), 'FVXISO' => op_serial_iso($r['FVXMOV']),
-            'DETMOV' => trim((string) nz($r['DETMOV'], '')), 'SALDO' => $pend);
+        $ext = comp_str($r['CECMOV'], $r['CEIMOV'], $r['CEPMOV'], $r['CENMOV']);
+        $out[] = array(
+            'REFMOV' => (int) $r['NUMMOV'],
+            'INT'    => trim((string) nz($r['CICMOV'], '') . ' ' . str_pad((string) (int) nz($r['CINMOV'], 0), 8, '0', STR_PAD_LEFT)),
+            'INTFEX' => fecha_serial($r['FEXMOV']),
+            'EXT'    => $ext, 'EXTFEX' => fecha_serial($r['CEFMOV']),
+            'FVXMOV' => fecha_serial($r['FVXMOV']), 'FVXISO' => op_serial_iso($r['FVXMOV']),
+            'DETMOV' => trim((string) nz($r['DETMOV'], '')), 'SALDO' => $pend, 'COMP' => $ext,
+        );
     }
     ok($out);
 }
@@ -302,11 +321,13 @@ function listar_pdvs() { ok(db_query("SELECT CODPDV, NOMPDV FROM [Tbl Puntos de 
 /** Cheques en cartera disponibles para endosar (VADCHQ=True), con banco. */
 function cheques_cartera() {
     $ban = array(); foreach (db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos]") as $b) $ban[(int) $b['CODBAN']] = trim((string) nz($b['DENBAN'], ''));
+    $cta = db_row("SELECT DENCUE FROM [Tbl Cuentas Contables] WHERE CODCUE='11103';");   // VALORES A DEPOSITAR (cartera)
+    $ctaNom = $cta ? trim((string) nz($cta['DENCUE'], '')) : 'VALORES A DEPOSITAR';
     $out = array();
-    foreach (db_query("SELECT CODCHQ, CODBAN, SYNCHQ, FEXCHQ, FAXCHQ, IMPCHQ, LIBCHQ, LOCCHQ FROM [Tbl Cheques] WHERE VADCHQ=True ORDER BY FAXCHQ;") as $c)
-        $out[] = array('CODCHQ' => (int) $c['CODCHQ'], 'BANCO' => isset($ban[(int) $c['CODBAN']]) ? $ban[(int) $c['CODBAN']] : '',
-            'SYN' => trim((string) nz($c['SYNCHQ'], '')), 'FEX' => fecha_serial($c['FEXCHQ']), 'FAX' => fecha_serial($c['FAXCHQ']),
-            'LIB' => trim((string) nz($c['LIBCHQ'], '')), 'LOC' => trim((string) nz($c['LOCCHQ'], '')), 'IMP' => round((float) nz($c['IMPCHQ'], 0), 2));
+    foreach (db_query("SELECT CODCHQ, CODBAN, SYNCHQ, FEXCHQ, FAXCHQ, IMPCHQ, PLZCHQ, LIBCHQ, CITCHQ, LOCCHQ FROM [Tbl Cheques] WHERE VADCHQ=True ORDER BY FAXCHQ;") as $c)
+        $out[] = array('CODCHQ' => (int) $c['CODCHQ'], 'CUENTA' => $ctaNom, 'BANCO' => isset($ban[(int) $c['CODBAN']]) ? $ban[(int) $c['CODBAN']] : '',
+            'SYN' => trim((string) nz($c['SYNCHQ'], '')), 'FEX' => fecha_serial($c['FEXCHQ']), 'PLZ' => (int) nz($c['PLZCHQ'], 0), 'FAX' => fecha_serial($c['FAXCHQ']),
+            'LIB' => trim((string) nz($c['LIBCHQ'], '')), 'CIT' => trim((string) nz($c['CITCHQ'], '')), 'LOC' => trim((string) nz($c['LOCCHQ'], '')), 'IMP' => round((float) nz($c['IMPCHQ'], 0), 2));
     ok($out);
 }
 
@@ -336,16 +357,21 @@ function detalle() {
     if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('OP no disponible en este libro'); return; }
 
     $refs = array();
-    foreach (db_query("SELECT R.REFMOV, R.FVXMOV, R.IMPMOV, M.CECMOV, M.CEIMOV, M.CEPMOV, M.CENMOV
+    foreach (db_query("SELECT R.REFMOV, R.FVXMOV, R.IMPMOV, M.CICMOV, M.CINMOV, M.FEXMOV, M.CECMOV, M.CEIMOV, M.CEPMOV, M.CENMOV, M.CEFMOV, M.DETMOV
         FROM [Tbl Movimientos Referencias] AS R LEFT JOIN [Tbl Movimientos] AS M ON M.NUMMOV=R.REFMOV WHERE R.NUMMOV=$num;") as $r)
-        $refs[] = array('COMP' => comp_str($r['CECMOV'], $r['CEIMOV'], $r['CEPMOV'], $r['CENMOV']), 'FVXMOV' => fecha_serial($r['FVXMOV']), 'IMP' => round((float) nz($r['IMPMOV'], 0), 2));
+        $refs[] = array(
+            'INT' => trim((string) nz($r['CICMOV'], '') . ' ' . str_pad((string) (int) nz($r['CINMOV'], 0), 8, '0', STR_PAD_LEFT)), 'INTFEX' => fecha_serial($r['FEXMOV']),
+            'EXT' => comp_str($r['CECMOV'], $r['CEIMOV'], $r['CEPMOV'], $r['CENMOV']), 'EXTFEX' => fecha_serial($r['CEFMOV']),
+            'COMP' => comp_str($r['CECMOV'], $r['CEIMOV'], $r['CEPMOV'], $r['CENMOV']), 'FVXMOV' => fecha_serial($r['FVXMOV']),
+            'DETMOV' => trim((string) nz($r['DETMOV'], '')), 'IMP' => round((float) nz($r['IMPMOV'], 0), 2));
 
     $ban = array(); foreach (db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos]") as $b) $ban[(int) $b['CODBAN']] = trim((string) nz($b['DENBAN'], ''));
+    $ctaNom = array(); foreach (db_query("SELECT CODCUE, DENCUE FROM [Tbl Cuentas Contables] WHERE CODCUE Like '111%' OR CODCUE Like '217%';") as $x) $ctaNom[trim((string) $x['CODCUE'])] = trim((string) nz($x['DENCUE'], ''));
     $chqs = array();
-    foreach (db_query("SELECT C.CODBAN, C.SYNCHQ, C.FEXCHQ, C.FAXCHQ, C.IMPCHQ, C.LIBCHQ, C.LOCCHQ
+    foreach (db_query("SELECT MI.CODCUE, C.CODBAN, C.SYNCHQ, C.FEXCHQ, C.FAXCHQ, C.IMPCHQ, C.PLZCHQ, C.LIBCHQ, C.CITCHQ, C.LOCCHQ
         FROM [Tbl Cheques] AS C INNER JOIN [Tbl Movimientos Imputaciones] AS MI ON MI.CODCHQ=C.CODCHQ WHERE MI.NUMMOV=$num ORDER BY MI.ORDMOV;") as $c)
-        $chqs[] = array('BANCO' => isset($ban[(int) $c['CODBAN']]) ? $ban[(int) $c['CODBAN']] : '', 'SYN' => trim((string) nz($c['SYNCHQ'], '')),
-            'FAX' => fecha_serial($c['FAXCHQ']), 'LIB' => trim((string) nz($c['LIBCHQ'], '')), 'IMP' => round((float) nz($c['IMPCHQ'], 0), 2));
+        $chqs[] = array('CUENTA' => isset($ctaNom[trim((string) $c['CODCUE'])]) ? $ctaNom[trim((string) $c['CODCUE'])] : '', 'BANCO' => isset($ban[(int) $c['CODBAN']]) ? $ban[(int) $c['CODBAN']] : '', 'SYN' => trim((string) nz($c['SYNCHQ'], '')),
+            'FEX' => fecha_serial($c['FEXCHQ']), 'PLZ' => (int) nz($c['PLZCHQ'], 0), 'FAX' => fecha_serial($c['FAXCHQ']), 'LIB' => trim((string) nz($c['LIBCHQ'], '')), 'CIT' => trim((string) nz($c['CITCHQ'], '')), 'LOC' => trim((string) nz($c['LOCCHQ'], '')), 'IMP' => round((float) nz($c['IMPCHQ'], 0), 2));
 
     ok(array('NUMMOV' => $num, 'CINMOV' => (int) nz($h['CINMOV'], 0), 'FEXISO' => op_serial_iso($h['FEXMOV']),
         'CODAUX' => (int) nz($h['CODAUX'], 0), 'CODCUE' => (int) nz($h['CODCUE'], 0), 'DENMOV' => trim((string) nz($h['DENMOV'], '')),

@@ -57,9 +57,20 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
     <div class="row g-2 mt-1 align-items-end">
       <div class="col-auto" style="width:150px">
         <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="siamov"><label class="form-check-label mb-0 small" for="siamov">Alícuota I.V.A.</label></div>
-        <input type="number" step="0.01" id="aiamov" class="form-control form-control-sm op-num" value="0" disabled title="Netea el anticipo (cuando no hay comprobantes)">
+        <input type="text" id="aiamov" class="form-control form-control-sm op-num" disabled title="Netea el anticipo (cuando no hay comprobantes)">
       </div>
-      <div class="col-md-3"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option><option value="5">Interdepósito</option></select></div>
+      <div class="col-auto" style="width:140px"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option><option value="5">Interdepósito</option></select></div>
+      <div class="col-auto" style="width:170px"><label class="form-label mb-1">Cuenta bancaria</label><select id="codcbx" class="form-select" disabled></select></div>
+      <div class="col-auto" style="width:135px"><label class="form-label mb-1">Acreditación</label><input type="date" id="txtfax" class="form-control" disabled></div>
+      <div class="col-auto">
+        <label class="form-label mb-1">Comprobante Proveedor</label>
+        <div class="d-flex gap-1">
+          <input id="cec" class="form-control text-center px-1" style="width:46px" value="RC" maxlength="2" title="Código">
+          <input id="cep" class="form-control op-num" style="width:62px" value="0000" title="Punto de venta">
+          <input id="cen" class="form-control op-num" style="width:96px" value="00000000" title="Número">
+          <input id="cef" type="date" class="form-control" style="width:140px" title="Emisión">
+        </div>
+      </div>
       <div class="col"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
     </div>
   </div></div>
@@ -69,9 +80,9 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
     <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-list-check me-1"></i>Comprobantes a pagar</span>
       <button type="button" id="btnAddRef" class="btn btn-sm btn-outline-light" disabled><i class="bi bi-plus-lg me-1"></i>Agregar comprobante</button></div>
     <div class="card-body p-0"><table class="table table-sm op-grid mb-0">
-      <thead><tr><th>Comprobante</th><th style="width:110px">Vencimiento</th><th class="op-num" style="width:140px">Saldo</th><th class="op-num" style="width:150px">A debitar</th><th style="width:40px"></th></tr></thead>
+      <thead><tr><th style="width:95px">Vencimiento</th><th style="width:155px">Comprobante Interno</th><th style="width:170px">Comprobante Externo</th><th>Detalle</th><th class="op-num" style="width:130px">Saldo</th><th class="op-num" style="width:140px">A debitar</th><th style="width:40px"></th></tr></thead>
       <tbody id="refBody"></tbody>
-      <tfoot><tr class="fw-bold"><td colspan="3" class="text-end">Total a pagar:</td><td class="op-num" id="refTotal">0.00</td><td></td></tr></tfoot>
+      <tfoot><tr class="fw-bold"><td colspan="5" class="text-end">Total a pagar:</td><td class="op-num" id="refTotal">0.00</td><td></td></tr></tfoot>
     </table></div>
   </div>
 
@@ -80,10 +91,10 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
     <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-cash-coin me-1"></i>Cheques entregados</span>
       <span><button type="button" id="btnAddCart" class="btn btn-sm btn-outline-light"><i class="bi bi-wallet2 me-1"></i>De cartera</button>
       <button type="button" id="btnAddChq" class="btn btn-sm btn-outline-light"><i class="bi bi-plus-lg me-1"></i>Cheque propio</button></span></div>
-    <div class="card-body p-0"><table class="table table-sm op-grid mb-0">
-      <thead><tr><th>Cuenta / Banco</th><th style="width:110px">Serie-Nº</th><th style="width:95px">Emisión</th><th style="width:95px">Acred.</th><th>Librador</th><th class="op-num" style="width:130px">Importe</th><th style="width:30px"></th></tr></thead>
+    <div class="card-body p-0 table-responsive"><table class="table table-sm op-grid mb-0" style="min-width:1100px">
+      <thead><tr><th style="width:130px">Cuenta</th><th style="width:115px">Banco</th><th style="width:90px">Serie-Nº</th><th style="width:90px">Emisión</th><th style="width:48px">Plaza</th><th style="width:90px">Acred.</th><th>Librador</th><th style="width:110px">C.U.I.T.</th><th style="width:95px">Localidad</th><th class="op-num" style="width:120px">Importe</th><th style="width:30px"></th></tr></thead>
       <tbody id="chqBody"></tbody>
-      <tfoot><tr class="fw-bold"><td colspan="5" class="text-end">Total cheques:</td><td class="op-num" id="chqTotal">0.00</td><td></td></tr></tfoot>
+      <tfoot><tr class="fw-bold"><td colspan="9" class="text-end">Total cheques:</td><td class="op-num" id="chqTotal">0.00</td><td></td></tr></tfoot>
     </table></div>
   </div>
 
@@ -135,10 +146,11 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
 
 <div class="fc-toast-container"><div id="toastMsg" class="toast align-items-center border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
 
-<script>window.OP_MODO = '<?= h(auth_modo()) ?>';</script>
+<?php $rixsw = db_row("SELECT RIXCDC FROM [Rec Control];"); $opRixOff = ($rixsw && ($rixsw['RIXCDC'] === true || $rixsw['RIXCDC'] == -1)); ?>
+<script>window.OP_MODO = '<?= h(auth_modo()) ?>'; window.OP_RIXOFF = <?= $opRixOff ? 'true' : 'false' ?>;</script>
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/ordenes_pago.js?v=4"></script>
+<script src="assets/js/ordenes_pago.js?v=11"></script>
 '); ?>

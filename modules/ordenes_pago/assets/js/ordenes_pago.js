@@ -15,9 +15,17 @@ const OP = {
     },
 
     async init() {
+        this.rixOff = !!window.OP_RIXOFF;   // switch global Rec Control: empresa NO retiene IIBB
         this.el('fexmov').value = new Date().toISOString().slice(0, 10);
+        this.el('cef').value = this.el('fexmov').value;   // comprobante proveedor: emisión = hoy por defecto
+        this.el('txtfax').value = this.el('fexmov').value; // interdepósito: acreditación = emisión por defecto
         this.el('saldo').value = '0.00';
+        if (this.rixOff) {   // agente de retención IIBB desactivado → bloquear la sección
+            ['siamov', 'rip', 'arb', 'aiamov'].forEach(function (id) { OP.el(id).disabled = true; });
+            this.el('retReg').textContent = '— desactivada (Rec Control)'; this.el('retReg').className = 'text-warning';
+        }
         var ops = await this.api('operaciones'); if (ops.ok) this.el('codaux').innerHTML = ops.data.map(function (o) { return '<option value="' + o.CODAUX + '">' + OP.esc(o.DENAUX) + '</option>'; }).join('');
+        var cb = await this.api('cuentas_bancarias'); if (cb.ok) this.el('codcbx').innerHTML = '<option value="">Cuenta…</option>' + cb.data.map(function (x) { return '<option value="' + x.CODCBX + '">' + OP.esc(x.DENCUE) + '</option>'; }).join('');
         if (this.modo !== 'capacitacion') { var p = await this.api('pdvs'); if (p.ok && p.data.length) this.el('cipmov').value = p.data[0].CODPDV; }
 
         this.autocomplete(this.el('provQ'), this.el('provList'), 'buscar_proveedores', function (o) { return o.CODCUE + ' · ' + o.DENCUE + (o.CITCUE ? ' · ' + o.CITCUE : ''); }, function (o) { OP.pickProveedor(o.CODCUE); });
@@ -29,8 +37,16 @@ const OP = {
         this.el('rip').addEventListener('input', function () { OP.recalc(); });
         this.el('arb').addEventListener('input', function () { OP.recalc(); });
         this.el('aiamov').addEventListener('input', function () { OP.recalc(); });
+        this.el('aiamov').addEventListener('blur', function () { if (this.value !== '') this.value = (parseFloat(this.value) || 0).toFixed(2); });
+        this.el('cep').addEventListener('blur', function () { this.value = String(parseInt(this.value, 10) || 0).padStart(4, '0'); });
+        this.el('cen').addEventListener('blur', function () { this.value = String(parseInt(this.value, 10) || 0).padStart(8, '0'); });
         this.el('efectivo').addEventListener('input', function () { OP.recalc(); });
-        this.el('codfdp').addEventListener('change', function () { OP.el('lblEfeOp').textContent = (this.value == '5') ? 'Importe' : 'Efectivo'; });   // interdepósito (como el legacy, solo relabel)
+        this.el('codfdp').addEventListener('change', function () {   // interdepósito (CODFDP=5): habilita cuenta bancaria + acreditación
+            var inter = this.value == '5';
+            OP.el('lblEfeOp').textContent = inter ? 'Importe' : 'Efectivo';
+            OP.el('codcbx').disabled = !inter; OP.el('txtfax').disabled = !inter;
+            if (!inter) OP.el('codcbx').value = '';
+        });
         this.el('siamov').addEventListener('change', function () { OP.onSia(); });
         this.el('btnBuscar').addEventListener('click', function () { bootstrap.Modal.getOrCreateInstance(OP.el('modalBuscar')).show(); });
         this.el('modalBuscar').addEventListener('shown.bs.modal', function () { OP.loadList(); });
@@ -50,10 +66,22 @@ const OP = {
         // operación auto: saldo<0 (le debemos) → cancelación 342; ≥0 → anticipo 341
         this.el('codaux').value = (this.saldoNum < 0) ? '342' : '341';
         this.el('btnAddRef').disabled = (this.el('codaux').value != '342');
-        // retención IIBB: régimen + alícuota del proveedor (el padrón ARBA la pisaría; pendiente)
-        this.el('codrri').value = d.CODRRI || '';
-        this.el('arb').value = d.SUJETO ? (d.ALIRRI || 0) : 0;
-        this.el('retReg').textContent = d.SUJETO ? (d.DENRRI ? '(' + d.DENRRI + ')' : '') : '(no sujeto)';
+        // Retención IIBB: el switch global (RIXCDC) manda; si está activo, la exención del proveedor
+        // (VEICUE). Retiene sólo si !rixOff && !exento && sujeto. (CODCUE_AfterUpdate del legacy.)
+        this.exento = !!d.EXENTO; this.veiIso = d.VEIISO || '';
+        this.provSri = (d.SRICUE === true || d.SRICUE === 1); this.provCodrri = d.CODRRI || 0;   // para validar al grabar
+        var retDis = function (off, note, cls) {
+            ['siamov', 'rip', 'arb'].forEach(function (id) { OP.el(id).disabled = off; });
+            OP.el('retReg').textContent = note; OP.el('retReg').className = cls || 'text-info';
+            if (off) { OP.el('codrri').value = ''; OP.el('arb').value = 0; }
+        };
+        if (this.rixOff) { /* ya desactivada en init */ }
+        else if (this.exento) retDis(true, '(exento hasta ' + d.VEIMOV + ')', 'text-info');
+        else {
+            retDis(false, d.SUJETO ? (d.DENRRI ? '(' + d.DENRRI + ')' : '') : '(no sujeto)', 'text-info');
+            this.el('codrri').value = d.CODRRI || '';
+            this.el('arb').value = d.SUJETO ? (d.ALIRRI || 0) : 0;
+        }
         // alícuota IVA para netear (SIAMOV/AIAMOV) — de la categoría del proveedor
         this.aiaDefault = d.AIAMOV || 0; this.aiaEdit = !!d.AIAEDIT;
         this.el('siamov').checked = false; this.onSia();
@@ -64,17 +92,19 @@ const OP = {
     async abrirPendientes() {
         var j = await this.api('pendientes', { codcue: this.el('codcue').value }); if (!j.ok) { this.toast(j.error, 'danger'); return; }
         var used = this.refs.map(function (r) { return r.refmov + '|' + r.fvxiso; });
+        var sub = function (a, b) { return OP.esc(a) + (b ? '<br><span class="text-muted small">' + OP.esc(b) + '</span>' : ''); };
         var rows = j.data.filter(function (p) { return used.indexOf(p.REFMOV + '|' + p.FVXISO) < 0; })
-            .map(function (p) { return [OP.esc(p.COMP), OP.esc(p.FEXMOV), OP.esc(p.FVXMOV), '<span class="d-block text-end" data-order="' + p.SALDO + '">' + OP.n(p.SALDO) + '</span>', JSON.stringify(p)]; });
-        if (!this.dtPend) this.dtPend = $('#grdPend').DataTable({ autoWidth: false, columns: [{ title: 'Comprobante' }, { title: 'Emisión' }, { title: 'Vencimiento' }, { title: 'Saldo', className: 'text-end' }, { visible: false }], pageLength: 10, order: [], language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-AR.json' }, createdRow: function (row, d) { row.addEventListener('click', function () { OP.addRef(JSON.parse(d[4])); bootstrap.Modal.getInstance(OP.el('modalPend')).hide(); }); } });
+            .map(function (p) { return [OP.esc(p.FVXMOV), sub(p.INT, p.INTFEX), sub(p.EXT, p.EXTFEX), OP.esc(p.DETMOV), '<span class="d-block text-end" data-order="' + p.SALDO + '">' + OP.n(p.SALDO) + '</span>', JSON.stringify(p)]; });
+        if (!this.dtPend) this.dtPend = $('#grdPend').DataTable({ autoWidth: false, columns: [{ title: 'Vencimiento' }, { title: 'Comp. Interno' }, { title: 'Comp. Externo' }, { title: 'Detalle' }, { title: 'Saldo', className: 'text-end' }, { visible: false }], pageLength: 10, order: [], language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-AR.json' }, createdRow: function (row, d) { row.addEventListener('click', function () { OP.addRef(JSON.parse(d[5])); bootstrap.Modal.getInstance(OP.el('modalPend')).hide(); }); } });
         this.dtPend.clear().rows.add(rows).draw();
         bootstrap.Modal.getOrCreateInstance(this.el('modalPend')).show();
     },
     addRef(p) {
-        var rec = { refmov: p.REFMOV, fvxiso: p.FVXISO, comp: p.COMP, saldo: p.SALDO, imp: p.SALDO };
+        var rec = { refmov: p.REFMOV, fvxiso: p.FVXISO, comp: p.EXT, saldo: p.SALDO, imp: p.SALDO };
         this.refs.push(rec);
+        var sub = function (a, b) { return OP.esc(a) + (b ? '<br><span class="text-muted small">' + OP.esc(b) + '</span>' : ''); };
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + this.esc(p.COMP) + '</td><td>' + this.esc(p.FVXMOV) + '</td><td class="op-num">' + this.n(p.SALDO) + '</td>' +
+        tr.innerHTML = '<td>' + this.esc(p.FVXMOV) + '</td><td>' + sub(p.INT, p.INTFEX) + '</td><td>' + sub(p.EXT, p.EXTFEX) + '</td><td>' + this.esc(p.DETMOV) + '</td><td class="op-num">' + this.n(p.SALDO) + '</td>' +
             '<td><input type="number" step="0.01" class="form-control form-control-sm op-num r-imp" value="' + p.SALDO.toFixed(2) + '"></td>' +
             '<td><button type="button" class="btn btn-sm btn-outline-danger r-del"><i class="bi bi-x"></i></button></td>';
         this.el('refBody').appendChild(tr);
@@ -88,39 +118,46 @@ const OP = {
         var j = await this.api('cartera'); if (!j.ok) { this.toast(j.error, 'danger'); return; }
         var used = this.chqs.filter(function (c) { return c.codchq; }).map(function (c) { return c.codchq; });
         var rows = j.data.filter(function (c) { return used.indexOf(c.CODCHQ) < 0; })
-            .map(function (c) { return [OP.esc(c.BANCO), OP.esc(c.SYN), OP.esc(c.FAX), OP.esc(c.LIB), '<span class="d-block text-end" data-order="' + c.IMP + '">' + OP.n(c.IMP) + '</span>', JSON.stringify(c)]; });
-        if (!this.dtCart) this.dtCart = $('#grdCart').DataTable({ autoWidth: false, columns: [{ title: 'Banco' }, { title: 'Serie-Nº' }, { title: 'Acred.' }, { title: 'Librador' }, { title: 'Importe', className: 'text-end' }, { visible: false }], pageLength: 10, order: [], language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-AR.json' }, createdRow: function (row, d) { row.addEventListener('click', function () { OP.addCartera(JSON.parse(d[5])); bootstrap.Modal.getInstance(OP.el('modalCart')).hide(); }); } });
+            .map(function (c) { return [OP.esc(c.CUENTA), OP.esc(c.BANCO), OP.esc(c.SYN), OP.esc(c.FAX), OP.esc(c.LIB), '<span class="d-block text-end" data-order="' + c.IMP + '">' + OP.n(c.IMP) + '</span>', JSON.stringify(c)]; });
+        if (!this.dtCart) this.dtCart = $('#grdCart').DataTable({ autoWidth: false, columns: [{ title: 'Cuenta' }, { title: 'Banco' }, { title: 'Serie-Nº' }, { title: 'Acred.' }, { title: 'Librador' }, { title: 'Importe', className: 'text-end' }, { visible: false }], pageLength: 10, order: [], language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-AR.json' }, createdRow: function (row, d) { row.addEventListener('click', function () { OP.addCartera(JSON.parse(d[6])); bootstrap.Modal.getInstance(OP.el('modalCart')).hide(); }); } });
         this.dtCart.clear().rows.add(rows).draw();
         bootstrap.Modal.getOrCreateInstance(this.el('modalCart')).show();
     },
     addCartera(c) {
-        var rec = { codchq: c.CODCHQ, codcue: '11103', banco: c.BANCO, syn: c.SYN, fex: c.FEX, fax: c.FAX, lib: c.LIB, imp: c.IMP };
+        var rec = { codchq: c.CODCHQ, codcue: '11103', cuenta: c.CUENTA, banco: c.BANCO, syn: c.SYN, fex: c.FEX, plz: c.PLZ, fax: c.FAX, lib: c.LIB, cit: c.CIT, loc: c.LOC, imp: c.IMP };
         this.chqs.push(rec);
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + this.esc(c.BANCO) + ' <span class="badge bg-secondary">cartera</span></td><td>' + this.esc(c.SYN) + '</td><td>' + this.esc(c.FEX) + '</td><td>' + this.esc(c.FAX) + '</td><td>' + this.esc(c.LIB) + '</td>' +
-            '<td class="op-num">' + this.n(c.IMP) + '</td><td><button type="button" class="btn btn-sm btn-outline-danger c-del"><i class="bi bi-x"></i></button></td>';
+        tr.innerHTML = '<td>' + this.esc(c.CUENTA) + '</td><td>' + this.esc(c.BANCO) + ' <span class="badge bg-secondary">cartera</span></td><td>' + this.esc(c.SYN) + '</td><td>' + this.esc(c.FEX) + '</td><td class="text-center">' + this.esc(c.PLZ) + '</td><td>' + this.esc(c.FAX) + '</td><td>' + this.esc(c.LIB) + '</td><td>' + this.esc(c.CIT) + '</td><td>' + this.esc(c.LOC) + '</td><td class="op-num">' + this.n(c.IMP) + '</td>' +
+            '<td><button type="button" class="btn btn-sm btn-outline-danger c-del"><i class="bi bi-x"></i></button></td>';
         this.el('chqBody').appendChild(tr);
         tr.querySelector('.c-del').addEventListener('click', function () { tr.remove(); OP.chqs = OP.chqs.filter(function (x) { return x !== rec; }); OP.recalc(); });
         this.recalc();
     },
     // ---- Cheque propio ----
     addCheque() {
-        var rec = { codchq: null, codcue: '11103', codban: '', syn: '', fexiso: '', faxiso: '', lib: '', imp: 0 };
+        var rec = { codchq: null, codcue: '11103', codbanTxt: '', syn: '', fexiso: '', plz: 0, faxiso: '', lib: '', cit: '', loc: '', imp: 0 };
         this.chqs.push(rec);
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td><input class="form-control form-control-sm c-ban" placeholder="Banco propio"></td>' +
+        tr.innerHTML = '<td><input class="form-control form-control-sm" value="VALORES A DEPOSITAR" readonly></td>' +
+            '<td><input class="form-control form-control-sm c-ban" placeholder="Banco"></td>' +
             '<td><input class="form-control form-control-sm c-syn"></td>' +
             '<td><input type="date" class="form-control form-control-sm c-fex"></td>' +
+            '<td><input type="number" class="form-control form-control-sm op-num c-plz" value="0"></td>' +
             '<td><input type="date" class="form-control form-control-sm c-fax"></td>' +
             '<td><input class="form-control form-control-sm c-lib"></td>' +
+            '<td><input class="form-control form-control-sm c-cit"></td>' +
+            '<td><input class="form-control form-control-sm c-loc"></td>' +
             '<td><input type="number" step="0.01" class="form-control form-control-sm op-num c-imp"></td>' +
             '<td><button type="button" class="btn btn-sm btn-outline-danger c-del"><i class="bi bi-x"></i></button></td>';
         this.el('chqBody').appendChild(tr);
         tr.querySelector('.c-ban').addEventListener('input', function () { rec.codbanTxt = this.value; });
         tr.querySelector('.c-syn').addEventListener('input', function () { rec.syn = this.value; });
         tr.querySelector('.c-fex').addEventListener('input', function () { rec.fexiso = this.value; });
+        tr.querySelector('.c-plz').addEventListener('input', function () { rec.plz = parseInt(this.value, 10) || 0; });
         tr.querySelector('.c-fax').addEventListener('input', function () { rec.faxiso = this.value; });
         tr.querySelector('.c-lib').addEventListener('input', function () { rec.lib = this.value; });
+        tr.querySelector('.c-cit').addEventListener('input', function () { rec.cit = this.value; });
+        tr.querySelector('.c-loc').addEventListener('input', function () { rec.loc = this.value; });
         tr.querySelector('.c-imp').addEventListener('input', function () { rec.imp = parseFloat(this.value) || 0; OP.recalc(); });
         tr.querySelector('.c-del').addEventListener('click', function () { tr.remove(); OP.chqs = OP.chqs.filter(function (x) { return x !== rec; }); OP.recalc(); });
     },
@@ -128,8 +165,8 @@ const OP = {
     // Tilde SIAMOV: trae la alícuota IVA del proveedor (o editable si la categoría no tiene).
     onSia() {
         var on = this.el('siamov').checked;
-        if (on) { this.el('aiamov').value = this.aiaDefault || 0; this.el('aiamov').disabled = !this.aiaEdit; }
-        else { this.el('aiamov').value = 0; this.el('aiamov').disabled = true; }
+        if (on) { this.el('aiamov').value = (parseFloat(this.aiaDefault) || 0).toFixed(2); this.el('aiamov').disabled = !this.aiaEdit; }
+        else { this.el('aiamov').value = ''; this.el('aiamov').disabled = true; }   // null cuando no está tildado
         this.recalc();
     },
     recalc() {
@@ -146,6 +183,7 @@ const OP = {
         } else { base = parseFloat(this.el('rip').value) || 0; this.el('rip').readOnly = false; }
         var arb = parseFloat(this.el('arb').value) || 0;
         this.rix = Math.round(base * arb) / 100; this.rix = Math.round(this.rix * 100) / 100;
+        if (this.rixOff || this.exento) this.rix = 0;   // agente desactivado (Rec Control) o proveedor exento (VEICUE)
         this.el('rix').textContent = this.n(this.rix);
         var chqTot = this.chqs.reduce(function (s, c) { return s + (c.imp || 0); }, 0);
         var neto = Math.round((total - this.rix) * 100) / 100;
@@ -167,14 +205,20 @@ const OP = {
         if (this.el('codaux').value == '342' && !this.refs.length) { this.el('opErr').textContent = 'Agregá al menos un comprobante a pagar.'; return; }
         if (this.total <= 0) { this.el('opErr').textContent = 'La orden no tiene importe.'; return; }
         if (this.el('rip').value > 0 && !this.el('codrri').value) { this.el('opErr').textContent = 'Elegí el régimen de la retención.'; return; }
+        // Validaciones de retención IIBB (CODCUE_BeforeUpdate del legacy), sólo si la empresa retiene.
+        if (!this.rixOff) {
+            if (!this.exento && this.provSri && !this.provCodrri) { this.el('opErr').textContent = 'Régimen de Retención Ingresos Brutos inexistente para el proveedor.'; return; }
+            if (this.exento && this.veiIso && this.el('fexmov').value > this.veiIso) { this.el('opErr').textContent = 'Vencimiento de exención de Retención Ingresos Brutos inconsistente: la exención venció (' + this.veiIso.split('-').reverse().join('/') + ') antes de la fecha de la orden.'; return; }
+        }
         var data = {
             codcue: this.el('codcue').value, codaux: this.el('codaux').value, fexmov: this.el('fexmov').value, efectivo: this.efe,
             detmov: this.el('detmov').value, cipmov: (this.modo === 'capacitacion') ? 9999 : (this.el('cipmov').value || 1),
-            codfdp: this.el('codfdp').value, totmov: this.total,
+            codfdp: this.el('codfdp').value, codcbx: this.el('codcbx').value || '', fax: this.el('txtfax').value || '', totmov: this.total,
+            cec: this.el('cec').value || 'RC', cep: parseInt(this.el('cep').value, 10) || 0, cen: parseInt(this.el('cen').value, 10) || 0, cef: this.el('cef').value || this.el('fexmov').value,
             referencias: this.refs.map(function (r) { return { refmov: r.refmov, fvxmov: r.fvxiso, imp: r.imp }; }),
             cheques: this.chqs.filter(function (c) { return c.imp > 0; }).map(function (c) {
                 return c.codchq ? { codcue: '11103', codchq: c.codchq, imp: c.imp }
-                    : { codcue: '11103', codban: c.codban || 0, syn: c.syn, fex: c.fexiso, fax: c.faxiso, plz: 0, lib: c.lib, cit: '', loc: '', imp: c.imp };
+                    : { codcue: '11103', codban: 0, syn: c.syn, fex: c.fexiso, fax: c.faxiso, plz: c.plz || 0, lib: c.lib, cit: c.cit || '', loc: c.loc || '', imp: c.imp };
             }),
             ret: { rix: this.rix, pid: parseFloat(this.el('rip').value) || 0, arb: parseFloat(this.el('arb').value) || 0, codrri: this.el('codrri').value || 0, rid: 0, vei: 0, sri: 1, sia: this.el('siamov').checked ? 1 : 0, aia: parseFloat(this.el('aiamov').value) || 0 }
         };
@@ -217,11 +261,12 @@ const OP = {
         this.el('codrri').value = d.CODRRI || ''; this.el('arb').value = d.ARBMOV || 0;
         this.rix = d.RIXMOV; this.el('rix').textContent = this.n(d.RIXMOV); this.el('rinDisp').value = d.RINMOV || '';
         this.refs = [];
-        this.el('refBody').innerHTML = d.referencias.map(function (r) { return '<tr><td>' + OP.esc(r.COMP) + '</td><td>' + OP.esc(r.FVXMOV) + '</td><td class="op-num">' + OP.n(r.IMP) + '</td><td class="op-num">' + OP.n(r.IMP) + '</td><td></td></tr>'; }).join('');
+        var sub = function (a, b) { return OP.esc(a) + (b ? '<br><span class="text-muted small">' + OP.esc(b) + '</span>' : ''); };
+        this.el('refBody').innerHTML = d.referencias.map(function (r) { return '<tr><td>' + OP.esc(r.FVXMOV) + '</td><td>' + sub(r.INT, r.INTFEX) + '</td><td>' + sub(r.EXT, r.EXTFEX) + '</td><td>' + OP.esc(r.DETMOV) + '</td><td class="op-num">' + OP.n(r.IMP) + '</td><td class="op-num">' + OP.n(r.IMP) + '</td><td></td></tr>'; }).join('');
         this.el('refTotal').textContent = this.n(d.referencias.reduce(function (s, r) { return s + r.IMP; }, 0));
         this.chqs = [];
         var chqTot = d.cheques.reduce(function (s, c) { return s + c.IMP; }, 0);
-        this.el('chqBody').innerHTML = d.cheques.map(function (c) { return '<tr><td>' + OP.esc(c.BANCO) + '</td><td>' + OP.esc(c.SYN) + '</td><td></td><td>' + OP.esc(c.FAX) + '</td><td>' + OP.esc(c.LIB) + '</td><td class="op-num">' + OP.n(c.IMP) + '</td><td></td></tr>'; }).join('');
+        this.el('chqBody').innerHTML = d.cheques.map(function (c) { return '<tr><td>' + OP.esc(c.CUENTA) + '</td><td>' + OP.esc(c.BANCO) + '</td><td>' + OP.esc(c.SYN) + '</td><td>' + OP.esc(c.FEX) + '</td><td class="text-center">' + OP.esc(c.PLZ) + '</td><td>' + OP.esc(c.FAX) + '</td><td>' + OP.esc(c.LIB) + '</td><td>' + OP.esc(c.CIT) + '</td><td>' + OP.esc(c.LOC) + '</td><td class="op-num">' + OP.n(c.IMP) + '</td><td></td></tr>'; }).join('');
         this.el('chqTotal').textContent = this.n(chqTot);
         var ret = d.RIXMOV, neto = Math.round((d.TOTMOV - ret) * 100) / 100, efe = Math.round((neto - chqTot) * 100) / 100;
         this.el('tEfectivo').textContent = this.n(efe); this.el('tCheques').textContent = this.n(chqTot);
