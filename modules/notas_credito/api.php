@@ -20,6 +20,7 @@ if (!defined('NC_LIB')) {
     try {
         switch ($action) {
             case 'conceptos':   listar_conceptos(); break;
+            case 'guardar':     guardar(); break;
             default: fail('Acción inválida: ' . $action);
         }
     } catch (Exception $e) { fail($e->getMessage(), 500); }
@@ -148,4 +149,103 @@ function nc_insert($d, $estTrue, $afip) {
 
     return array('nummov' => $nummov, 'cinmov' => $cinmov, 'total' => $total, 'sdomov' => $sdomov, 'balanceo' => round($totDeb - $totCre, 2),
         'cuenta_concepto' => $ctaConcepto, 'tiene_iva' => $tieneIva);
+}
+
+// ───────────────────────── Orquestación AFIP (WSFE + CbtesAsoc) ─────────────────────────
+
+/** Mapea la NC ($d) al request de solicitarCAE (NC tipo 3), con los CbtesAsoc de las FV referenciadas. */
+function nc_afip_request($d) {
+    require_once __DIR__ . '/../../config/afip.php';
+    $letra = strtoupper(trim((string) nz($d['ciimov'], 'A')));
+    $cbteTipo = afip_cbte_tipo('NC', $letra);
+    if (!$cbteTipo) throw new Exception('Clase de NC inválida: ' . $letra);
+    $codaux = (int) $d['codaux'];
+    $aux = db_row("SELECT IVAAUX FROM [Tbl Operaciones Auxiliares] WHERE CODOPE=460 AND CODAUX=$codaux;");
+    $tieneIva = $aux && ($aux['IVAAUX'] === true || $aux['IVAAUX'] == -1);
+
+    $neto = round((float) nz($d['netmov'], 0), 2);
+    $iva  = $tieneIva ? round((float) nz($d['irimov'], 0), 2) : 0;
+    $pix  = round((float) nz($d['pixmov'], 0), 2);
+    $total = round((float) nz($d['totmov'], 0), 2);
+    $coddoc = (int) nz(isset($d['coddoc']) ? $d['coddoc'] : 80, 80);
+    $docnro = preg_replace('/[^0-9]/', '', (string) nz($d['citmov'], ''));
+    if ($docnro === '') { $docnro = '0'; $coddoc = 99; }
+    $cbteFch = (new DateTime('1899-12-30'))->modify('+' . (int) nc_iso($d['fexmov']) . ' days')->format('Ymd');
+
+    // CbtesAsoc: cada FV referenciada (Tipo/PtoVta/Nro/CbteFch).
+    $cbtesAsoc = array();
+    foreach ((isset($d['refs']) && is_array($d['refs']) ? $d['refs'] : array()) as $r) {
+        $fv = db_row("SELECT CICMOV, CIIMOV, CIPMOV, CINMOV, FEXMOV FROM [Tbl Movimientos] WHERE NUMMOV=" . (int) $r['nummov'] . ";");
+        if (!$fv) continue;
+        $t = afip_cbte_tipo(trim((string) $fv['CICMOV']), trim((string) nz($fv['CIIMOV'], 'A')));
+        if (!$t) continue;
+        $cbtesAsoc[] = array('Tipo' => $t, 'PtoVta' => (int) nz($fv['CIPMOV'], 0), 'Nro' => (int) nz($fv['CINMOV'], 0),
+            'CbteFch' => (new DateTime('1899-12-30'))->modify('+' . (int) nz($fv['FEXMOV'], 0) . ' days')->format('Ymd'));
+    }
+
+    $req = array(
+        'pto_vta' => AFIP_PTO_VTA, 'cbte_tipo' => $cbteTipo, 'concepto' => AFIP_CONCEPTO,
+        'doc_tipo' => $coddoc, 'doc_nro' => $docnro, 'cbte_fch' => $cbteFch,
+        'imp_total' => $total, 'imp_trib' => $pix, 'imp_op_ex' => 0,
+        'cond_iva_receptor' => (int) nz(isset($d['cond_iva']) ? $d['cond_iva'] : ((int) nz($d['codcri'], 0) == 1 ? 1 : 5), 1),
+        '_coddoc' => $coddoc,
+    );
+    if ($tieneIva) {
+        $req['imp_neto'] = $neto; $req['imp_iva'] = $iva; $req['imp_tot_conc'] = 0;
+        $req['iva_array'] = array(array('Id' => afip_iva_id(isset($d['ali']) ? $d['ali'] : 21), 'BaseImp' => $neto, 'Importe' => $iva));
+    } else {
+        $req['imp_neto'] = 0; $req['imp_iva'] = 0; $req['imp_tot_conc'] = $neto;   // NO GRAVADO → conceptos no gravados
+    }
+    if ($pix > 0) $req['trib_array'] = array(array('Id' => 7, 'Desc' => 'Percepcion IIBB', 'BaseImp' => $neto, 'Alic' => 0, 'Importe' => $pix));
+    if (count($cbtesAsoc)) $req['cbtes_asoc'] = $cbtesAsoc;
+    return $req;
+}
+
+/** Pide el CAE de la NC a AFIP (NO toca la DB). Devuelve {cinmov, cae, cae_vto, coddoc, pto_vta}. */
+function nc_solicitar_cae($d) {
+    require_once __DIR__ . '/../../includes/afip_wsfe.php';
+    $req = nc_afip_request($d);
+    $coddoc = $req['_coddoc']; unset($req['_coddoc']);
+    $wsfe = new AfipWsfe();
+    $prox = $wsfe->ultimoAutorizado($req['pto_vta'], $req['cbte_tipo']) + 1;
+    $req['cbte_desde'] = $prox; $req['cbte_hasta'] = $prox;
+    $r = $wsfe->solicitarCAE($req);
+    return array('cinmov' => (int) $r['cbte_desde'], 'cae' => $r['cae'], 'cae_vto' => $r['cae_vencimiento'], 'coddoc' => $coddoc, 'pto_vta' => $req['pto_vta']);
+}
+
+/** Emite la NC: pide el CAE (fuera de tx) y graba (en tx). Sincroniza el contador local con AFIP. */
+function nc_emitir($d, $estTrue) {
+    require_once __DIR__ . '/../../config/afip.php';
+    $afip = nc_solicitar_cae($d);
+    $d['cipmov'] = $afip['pto_vta'];
+    db_begin();
+    try {
+        $res = nc_insert($d, $estTrue, $afip);
+        $letra = strtoupper(trim((string) nz($d['ciimov'], 'A')));
+        @db_exec("UPDATE [Tbl Puntos de Venta] SET ULTNC$letra=" . (int) $afip['cinmov'] . " WHERE CODPDV=" . (int) $afip['pto_vta'] . ";");
+        db_commit();
+        $res['cae'] = $afip['cae']; $res['cae_vto'] = $afip['cae_vto'];
+        return $res;
+    } catch (Exception $e) { db_rollback(); throw $e; }
+}
+
+function guardar() {
+    if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
+    $raw = isset($_POST['data']) ? json_decode($_POST['data'], true) : null;
+    if (!is_array($raw)) { fail('Datos inválidos'); return; }
+    // BLANCO (operador/integral) = NC electrónica con CAE. NEGRO (capacitación) = sin CAE, pdv 9999.
+    $estTrue = (auth_modo() !== 'capacitacion');
+    try {
+        if ($estTrue) {
+            $res = nc_emitir($raw, true);
+        } else {
+            unset($raw['cipmov']);
+            db_begin();
+            try { $res = nc_insert($raw, false, null); db_commit(); }
+            catch (Exception $e) { db_rollback(); throw $e; }
+        }
+        ok($res);
+    } catch (Exception $e) {
+        fail('No se pudo ' . ($estTrue ? 'emitir' : 'grabar') . ' la nota de crédito: ' . $e->getMessage(), 500);
+    }
 }

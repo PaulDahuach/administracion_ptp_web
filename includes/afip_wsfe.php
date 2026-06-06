@@ -69,6 +69,11 @@ class AfipWsfe {
         if (isset($data['trib_array']) && is_array($data['trib_array']) && count($data['trib_array']) > 0) {
             $feDetReq['Tributos'] = array('Tributo' => $data['trib_array']);
         }
+        // Comprobantes asociados (CbtesAsoc) — obligatorio para NC/ND: referencian la factura original.
+        // Cada uno: ['Tipo'=>1, 'PtoVta'=>3, 'Nro'=>6079, 'Cuit'=>'30708381132'(opc), 'CbteFch'=>Ymd(opc)].
+        if (isset($data['cbtes_asoc']) && is_array($data['cbtes_asoc']) && count($data['cbtes_asoc']) > 0) {
+            $feDetReq['CbtesAsoc'] = array('CbteAsoc' => $data['cbtes_asoc']);
+        }
         // CondicionIVAReceptorId (RG 5616): 1=RI, 4=Exento, 5=CF, 6=Monotributo…
         if (isset($data['cond_iva_receptor']) && $data['cond_iva_receptor'] !== null && $data['cond_iva_receptor'] !== '') {
             $feDetReq['CondicionIVAReceptorId'] = (int) $data['cond_iva_receptor'];
