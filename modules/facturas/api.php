@@ -145,8 +145,8 @@ function fv_ymd_serial($v) {
 function fv_txt($s) { $s = trim((string) $s); return $s === '' ? 'Null' : "'" . db_esc($s) . "'"; }
 function fv_num($v) { return $v === null || $v === '' ? 'Null' : (string) round((float) $v, 2); }
 
-/** Imputación contable + mayorización (DEBCUE/CRECUE), espejo de op_imp. */
-function fv_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre) {
+/** Imputación contable + mayorización (DEBCUE/CRECUE), espejo de op_imp. $codchq/$fax para cheques. */
+function fv_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $codchq = null, $fax = null) {
     $deb = round((float) $deb, 2); $cre = round((float) $cre, 2);
     $ord++;
     $cc = db_esc((string) $cuenta);
@@ -154,11 +154,52 @@ function fv_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre) {
     $soc = $bal ? round((float) nz($bal['DEBCUE'], 0) - (float) nz($bal['CRECUE'], 0), 2) : 0;
     $debSql = $deb > 0 ? (string) $deb : 'Null';
     $creSql = $cre > 0 ? (string) $cre : 'Null';
-    db_exec("INSERT INTO [Tbl Movimientos Imputaciones] (NUMMOV, ORDMOV, CODCUE, DEBMOV, CREMOV, CODCDC, SOCMOV)
-        VALUES ($nummov, $ord, '$cc', $debSql, $creSql, 1, $soc);");
+    $chqSql = ($codchq !== null && $codchq !== '') ? (int) $codchq : 'Null';
+    $faxSql = ($fax !== null && $fax !== '') ? (int) $fax : 'Null';
+    db_exec("INSERT INTO [Tbl Movimientos Imputaciones] (NUMMOV, ORDMOV, CODCUE, DEBMOV, CREMOV, CODCDC, SOCMOV, CODCHQ, FAXMOV)
+        VALUES ($nummov, $ord, '$cc', $debSql, $creSql, 1, $soc, $chqSql, $faxSql);");
     if ($deb > 0) db_exec("UPDATE [Tbl Cuentas Contables] SET DEBCUE = DEBCUE + $deb WHERE CODCUE='$cc';");
     if ($cre > 0) db_exec("UPDATE [Tbl Cuentas Contables] SET CRECUE = CRECUE + $cre WHERE CODCUE='$cc';");
     $totDeb += $deb; $totCre += $cre;
+}
+
+/**
+ * Recibo de contado vinculado a una FV (CODCDV=1 + cheques). Porta el bloque RECIBO del SetData:
+ * RC (CODOPE=480/CODAUX=481) que cobra los cheques (DEBE valores a depositar CACC_2 + caja CACC_1) contra
+ * deudores (HABER CACC_A = total de la FV). Los cheques quedan en cartera (VADCHQ=True).
+ */
+function fv_recibo_insert($recNum, $d, $estTrue, $fvNum, $ciimov, $cipmov, $debmov, $impcaj, $cheques, $cli) {
+    $rc = db_row("SELECT CACC_A, CACC_1, CACC_2, CACC_Z FROM [Rec Control];");
+    $caccA = trim((string) $rc['CACC_A']); $cacc1 = trim((string) $rc['CACC_1']); $cacc2 = trim((string) $rc['CACC_2']); $caccZ = trim((string) $rc['CACC_Z']);
+    $fex = fv_iso($d['fexmov']); $estSql = $estTrue ? 'True' : 'False';
+    $cinmov = next_number_pdv('ULTREC', $cipmov);
+    $det = 'FC-' . $ciimov . '-' . str_pad((string) $cipmov, 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) $fvNum, 8, '0', STR_PAD_LEFT);
+    $sdomov = ($impcaj > $debmov) ? round(($impcaj - $debmov) * -1, 2) : 0;
+    $soc = round((float) nz($d['soc'], 0), 2);
+
+    db_exec("INSERT INTO [Tbl Movimientos]
+        (NUMMOV, CODORI, FEXMOV, CODOPE, CODAUX, CICMOV, CIIMOV, CIPMOV, CINMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV,
+         CODCUE, SOCMOV, DENMOV, DCXMOV, DNXMOV, CODLOC, CODCRI, CITMOV, CODCDV, CODFDP, DETMOV, COTMOV, CREMOV, TOTMOV, SDOMOV, ESTMOV, NUIMOV, NMIMOV, NOWMOV)
+        VALUES ($recNum, 'D', $fex, 480, 481, 'RC', '$ciimov', $cipmov, $cinmov, 'RC', '$ciimov', $cipmov, $cinmov, $fex,
+         " . (int) $d['codcue'] . ", " . fv_num($soc) . ", " . fv_txt(nz($cli['DENCUE'], '')) . ", " . fv_txt(nz($d['dcxmov'], '')) . ", " . fv_txt(nz($d['dnxmov'], '')) . ", " . (int) nz($d['codloc'], 0) . ", " . (int) nz($d['codcri'], 0) . ", " . fv_txt(nz($d['citmov'], '')) . ", 1, " . (int) nz($d['codfdp'], 4) . ", " . fv_txt($det) . ", " . round((float) nz($d['cotmov'], 1), 4) . ", $impcaj, $impcaj, $sdomov, $estSql, 0, 0, Now());");
+
+    // Asiento: DEBE cheques (CACC_2, cada uno creado en cartera) + caja (CACC_1); HABER deudores (CACC_A).
+    $ord = 0; $totDeb = 0; $totCre = 0; $totChq = 0;
+    foreach ($cheques as $c) {
+        $imp = round((float) nz($c['imp'], 0), 2); if ($imp <= 0) continue; $totChq += $imp;
+        $chq = next_number('ULTCHQ');
+        $fexc = fv_iso(isset($c['fex']) ? $c['fex'] : ''); $faxc = fv_iso(isset($c['fax']) ? $c['fax'] : '');
+        db_exec("INSERT INTO [Tbl Cheques] (CODCHQ, CODBAN, SYNCHQ, FEXCHQ, FAXCHQ, IMPCHQ, PLZCHQ, LIBCHQ, CITCHQ, LOCCHQ, VADCHQ)
+            VALUES ($chq, " . (int) nz($c['codban'], 0) . ", " . fv_txt(nz($c['syn'], '')) . ", " . ($fexc === null ? 'Null' : $fexc) . ", " . ($faxc === null ? 'Null' : $faxc) . ", $imp, " . (int) nz(isset($c['plz']) ? $c['plz'] : 0, 0) . ", " . fv_txt(nz($c['lib'], '')) . ", " . fv_txt(nz(isset($c['cit']) ? $c['cit'] : '', '')) . ", " . fv_txt(nz(isset($c['loc']) ? $c['loc'] : '', '')) . ", True);");
+        fv_imp($ord, $totDeb, $totCre, $recNum, $cacc2, $imp, 0, $chq, $faxc);
+    }
+    $efe = round($impcaj - $totChq, 2);
+    if ($efe > 0) fv_imp($ord, $totDeb, $totCre, $recNum, $cacc1, $efe, 0);
+    fv_imp($ord, $totDeb, $totCre, $recNum, $caccA, 0, $debmov);
+    // Balanceo
+    $dif = round($totDeb - $totCre, 2);
+    if (abs($dif) >= 0.005) { if ($dif > 0) fv_imp($ord, $totDeb, $totCre, $recNum, $caccZ, 0, $dif); else fv_imp($ord, $totDeb, $totCre, $recNum, $caccZ, -$dif, 0); }
+    return $cinmov;
 }
 
 /**
@@ -197,8 +238,13 @@ function fv_insert($d, $estTrue, $afip) {
     $ivas   = isset($d['iva']) && is_array($d['iva']) ? $d['iva'] : array();
     $vtos   = isset($d['vencimientos']) && is_array($d['vencimientos']) ? $d['vencimientos'] : array();
 
+    // Contado con cheque (CODCDV=1 + cheques): se genera un recibo RC vinculado (NRCMOV).
+    $chequesContado = isset($d['cheques']) && is_array($d['cheques']) ? $d['cheques'] : array();
+    $esContadoChq = ($codcdv == 1 && count($chequesContado) > 0);
+
     // Numeración: NUMMOV interno; CINMOV = nº de AFIP (electrónico) o contador local.
     $nummov = next_number('ULTMOV');
+    $recNum = $esContadoChq ? next_number('ULTMOV') : null;
     $cinmov = ($afip && isset($afip['cinmov']) && $afip['cinmov']) ? (int) $afip['cinmov'] : next_number_pdv('ULTCM' . $ciimov, $cipmov);
     $coddoc = (int) nz(($afip && isset($afip['coddoc'])) ? $afip['coddoc'] : (isset($d['coddoc']) ? $d['coddoc'] : 80), 80);
     $caeSql  = ($afip && !empty($afip['cae'])) ? "'" . db_esc($afip['cae']) . "'" : 'Null';
@@ -243,11 +289,11 @@ function fv_insert($d, $estTrue, $afip) {
         (NUMMOV, CODORI, FEXMOV, CODOPE, CODAUX, CICMOV, CIIMOV, CIPMOV, CINMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV, FIXMOV,
          CODCUE, SOCMOV, DENMOV, DCXMOV, DNXMOV, DPXMOV, DDXMOV, CODLOC, CODCRI, CITMOV, CODCDV, CODFDP, CODTRA, CODDST, CODVEN,
          PDCMOV, PDGMOV, IDGMOV, DETMOV, COTMOV, NETMOV, IRIMOV, ABIMOV, ARDMOV, SPIMOV, APIMOV, MPIMOV, PIXMOV,
-         DEBMOV, CREMOV, TOTMOV, SDOMOV, CODDOC, CAEMOV, FVCMOV, ESTMOV, NUIMOV, NMIMOV, NOWMOV)
+         DEBMOV, CREMOV, TOTMOV, SDOMOV, NRCMOV, CODDOC, CAEMOV, FVCMOV, ESTMOV, NUIMOV, NMIMOV, NOWMOV)
         VALUES ($nummov, 'D', $fex, 420, 420, 'FV', '$ciimov', $cipmov, $cinmov, 'FV', '$ciimov', $cipmov, $cinmov, $fex, $fex,
          $codcue, " . fv_num($soc) . ", $denSql, $dcx, $dnx, $dpx, $ddx, $codloc, $codcri, $citSql, $codcdv, $codfdp, $codtra, $coddst, $codven,
          $pdcmov, $pdgmov, $idgmov, $detSql, $cotmov, " . fv_num($netmov) . ", " . fv_num($irimov) . ", $abimov, $ardmov, $spimov, $apimov, $mpimov, $pixmov,
-         $total, $cremov, $total, $sdomov, $coddoc, $caeSql, $fvcSql, $estSql, 0, 0, Now());");
+         $total, $cremov, $total, $sdomov, " . ($recNum !== null ? (int) $recNum : 'Null') . ", $coddoc, $caeSql, $fvcSql, $estSql, 0, 0, Now());");
 
     // ── IVA (una fila por alícuota) ──
     foreach ($ivas as $iv) {
@@ -331,7 +377,13 @@ function fv_insert($d, $estTrue, $afip) {
     // ── Cuenta corriente: SOPCUE += DEBMOV − efectivo de caja ──
     db_exec("UPDATE [Tbl Cuentas Corrientes] SET FUOCUE=$fex, SOPCUE = " . round((float) nz($cli['SOPCUE'], 0) + $total - $impcaj, 2) . " WHERE CODCUE=$codcue;");
 
-    return array('nummov' => $nummov, 'cinmov' => $cinmov, 'total' => $total, 'sdomov' => $sdomov,
+    // ── Recibo de contado vinculado (CODCDV=1 + cheques) ──
+    if ($esContadoChq) {
+        $impCajRec = ($impcaj > 0) ? $impcaj : $total;   // en contado el efectivo cobrado = el total
+        fv_recibo_insert($recNum, $d, $estTrue, $nummov, $ciimov, $cipmov, $total, $impCajRec, $chequesContado, $cli);
+    }
+
+    return array('nummov' => $nummov, 'cinmov' => $cinmov, 'total' => $total, 'sdomov' => $sdomov, 'recibo' => $recNum,
         'cae' => ($afip && isset($afip['cae'])) ? $afip['cae'] : null, 'balanceo' => round($totDeb - $totCre, 2));
 }
 
