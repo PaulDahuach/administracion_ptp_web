@@ -21,6 +21,12 @@ if (!defined('FV_LIB')) {
 }
 
 function fv_iso($s) { if ($s === null || $s === '') return null; if (is_numeric($s)) return (int) $s; return (int) (new DateTime('1899-12-30'))->diff(new DateTime($s))->days; }
+/** Serial de Access desde un cae_vto de AFIP (formato Ymd '20260616') o un serial/iso ya dado. */
+function fv_ymd_serial($v) {
+    $v = (string) $v;
+    if (preg_match('/^\d{8}$/', $v)) { $dt = DateTime::createFromFormat('Ymd', $v); return $dt ? (int) (new DateTime('1899-12-30'))->diff($dt)->days : null; }
+    return fv_iso($v);
+}
 function fv_txt($s) { $s = trim((string) $s); return $s === '' ? 'Null' : "'" . db_esc($s) . "'"; }
 function fv_num($v) { return $v === null || $v === '' ? 'Null' : (string) round((float) $v, 2); }
 
@@ -81,7 +87,8 @@ function fv_insert($d, $estTrue, $afip) {
     $cinmov = ($afip && isset($afip['cinmov']) && $afip['cinmov']) ? (int) $afip['cinmov'] : next_number_pdv('ULTCM' . $ciimov, $cipmov);
     $coddoc = (int) nz(($afip && isset($afip['coddoc'])) ? $afip['coddoc'] : (isset($d['coddoc']) ? $d['coddoc'] : 80), 80);
     $caeSql  = ($afip && !empty($afip['cae'])) ? "'" . db_esc($afip['cae']) . "'" : 'Null';
-    $fvcSql  = ($afip && !empty($afip['cae_vto'])) ? (string) fv_iso($afip['cae_vto']) : 'Null';
+    $fvcSerial = ($afip && !empty($afip['cae_vto'])) ? fv_ymd_serial($afip['cae_vto']) : null;
+    $fvcSql  = ($fvcSerial === null) ? 'Null' : (string) $fvcSerial;
 
     // SDOMOV: 0 si contado (CODCDV=1); si hay saldo a favor (SOC<0) lo neteado; si no = total.
     $acuSAF = 0;   // saldo a favor a aplicar
@@ -213,4 +220,78 @@ function fv_insert($d, $estTrue, $afip) {
         'cae' => ($afip && isset($afip['cae'])) ? $afip['cae'] : null, 'balanceo' => round($totDeb - $totCre, 2));
 }
 
-function guardar() { fail('Grabación interactiva de FV: pendiente (form + integración CAE).'); }
+/** Mapea la FV ($d) al request de WSFE solicitarCAE (sin cbte_desde/hasta, que dependen de la numeración). */
+function fv_afip_request($d) {
+    require_once __DIR__ . '/../../config/afip.php';
+    $letra = strtoupper(trim((string) nz($d['ciimov'], 'A')));
+    $cbteTipo = afip_cbte_tipo('FV', $letra);
+    if (!$cbteTipo) throw new Exception('Clase de comprobante inválida: ' . $letra);
+    $neto = round((float) nz($d['netmov'], 0), 2);
+    $iva  = round((float) nz($d['irimov'], 0), 2);
+    $pix  = round((float) nz($d['pixmov'], 0), 2);
+    $total = round((float) nz($d['totmov'], 0), 2);
+    $coddoc = (int) nz(isset($d['coddoc']) ? $d['coddoc'] : 80, 80);
+    $docnro = preg_replace('/[^0-9]/', '', (string) nz($d['citmov'], ''));
+    if ($docnro === '') { $docnro = '0'; $coddoc = 99; }   // sin CUIT → consumidor final
+    $fexSerial = fv_iso($d['fexmov']);
+    $cbteFch = (new DateTime('1899-12-30'))->modify('+' . (int) $fexSerial . ' days')->format('Ymd');
+
+    $ivaArr = array();
+    foreach ((isset($d['iva']) && is_array($d['iva']) ? $d['iva'] : array()) as $b) {
+        $n = round((float) nz($b['net'], 0), 2); $i = round((float) nz($b['iri'], 0), 2);
+        if ($n == 0 && $i == 0) continue;
+        $ivaArr[] = array('Id' => afip_iva_id($b['ali']), 'BaseImp' => $n, 'Importe' => $i);
+    }
+    $req = array(
+        'pto_vta' => AFIP_PTO_VTA, 'cbte_tipo' => $cbteTipo, 'concepto' => AFIP_CONCEPTO,
+        'doc_tipo' => $coddoc, 'doc_nro' => $docnro, 'cbte_fch' => $cbteFch,
+        'imp_neto' => $neto, 'imp_iva' => $iva, 'imp_trib' => $pix, 'imp_op_ex' => 0, 'imp_tot_conc' => 0, 'imp_total' => $total,
+        'iva_array' => $ivaArr,
+        'cond_iva_receptor' => (int) nz(isset($d['cond_iva']) ? $d['cond_iva'] : ((int) nz($d['codcri'], 0) == 1 ? 1 : 5), 1),
+        '_coddoc' => $coddoc,
+    );
+    if ($pix > 0) $req['trib_array'] = array(array('Id' => 7, 'Desc' => 'Percepcion IIBB', 'BaseImp' => $neto, 'Alic' => 0, 'Importe' => $pix));
+    return $req;
+}
+
+/** Pide el CAE a AFIP para la FV $d (NO toca la DB). Devuelve {cinmov, cae, cae_vto, coddoc}. */
+function fv_solicitar_cae($d) {
+    require_once __DIR__ . '/../../includes/afip_wsfe.php';
+    $req = fv_afip_request($d);
+    $coddoc = $req['_coddoc']; unset($req['_coddoc']);
+    $wsfe = new AfipWsfe();
+    $prox = $wsfe->ultimoAutorizado($req['pto_vta'], $req['cbte_tipo']) + 1;   // AFIP controla la numeración
+    $req['cbte_desde'] = $prox; $req['cbte_hasta'] = $prox;
+    $r = $wsfe->solicitarCAE($req);
+    return array('cinmov' => (int) $r['cbte_desde'], 'cae' => $r['cae'], 'cae_vto' => $r['cae_vencimiento'], 'coddoc' => $coddoc, 'pto_vta' => $req['pto_vta']);
+}
+
+/** Emite la FV: pide el CAE (fuera de tx) y graba (en tx); sincroniza el contador local con AFIP. */
+function fv_emitir($d, $estTrue) {
+    require_once __DIR__ . '/../../config/afip.php';
+    $afip = fv_solicitar_cae($d);
+    $d['cipmov'] = $afip['pto_vta'];                 // el pdv electrónico (CIPMOV = pto venta AFIP)
+    db_begin();
+    try {
+        $res = fv_insert($d, $estTrue, $afip);
+        // Sincronizar el contador local (ULTCM<letra> por PDV) con el nº de AFIP, para no desfasar el legacy.
+        $letra = strtoupper(trim((string) nz($d['ciimov'], 'A')));
+        @db_exec("UPDATE [Tbl Puntos de Venta] SET ULTCM$letra=" . (int) $afip['cinmov'] . " WHERE CODPDV=" . (int) $afip['pto_vta'] . ";");
+        db_commit();
+        $res['cae'] = $afip['cae']; $res['cae_vto'] = $afip['cae_vto'];
+        return $res;
+    } catch (Exception $e) { db_rollback(); throw $e; }
+}
+
+function guardar() {
+    if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
+    $raw = isset($_POST['data']) ? json_decode($_POST['data'], true) : null;
+    if (!is_array($raw)) { fail('Datos inválidos'); return; }
+    $estTrue = (auth_libro_unico() !== 'negro');   // electrónico = libro blanco (oficial)
+    try {
+        $res = fv_emitir($raw, $estTrue);
+        ok($res);
+    } catch (Exception $e) {
+        fail('No se pudo emitir la factura: ' . $e->getMessage(), 500);
+    }
+}
