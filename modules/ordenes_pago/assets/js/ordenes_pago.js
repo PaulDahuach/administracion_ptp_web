@@ -30,6 +30,7 @@ const OP = {
         this.el('rip').addEventListener('input', function () { OP.compRet(); });
         this.el('arb').addEventListener('input', function () { OP.compRet(); });
         this.el('efectivo').addEventListener('input', function () { OP.recalc(); });
+        this.el('codfdp').addEventListener('change', function () { OP.el('lblEfeOp').textContent = (this.value == '5') ? 'Importe' : 'Efectivo'; });   // interdepósito (como el legacy, solo relabel)
         this.el('btnBuscar').addEventListener('click', function () { bootstrap.Modal.getOrCreateInstance(OP.el('modalBuscar')).show(); });
         this.el('modalBuscar').addEventListener('shown.bs.modal', function () { OP.loadList(); });
         this.el('opBuscarGo').addEventListener('click', function () { OP.loadList(); });

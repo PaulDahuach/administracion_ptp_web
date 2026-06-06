@@ -56,7 +56,7 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
     </div>
     <div class="row g-2 mt-1">
       <div class="col-md-6"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
-      <div class="col-md-3"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option></select></div>
+      <div class="col-md-3"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option><option value="5">Interdepósito</option></select></div>
       <div class="col-md-3"><label class="form-label mb-1">Imput. I.V.A.</label><input type="date" id="fixmov" class="form-control"></div>
     </div>
   </div></div>
@@ -95,7 +95,7 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
     </div>
     <!-- Subtotales (al pie, derecha) -->
     <div class="tot-bar">
-      <div class="t" id="boxEfe"><div class="lbl">Efectivo</div><div class="val" id="tEfectivo">0.00</div><input type="number" step="0.01" id="efectivo" class="form-control form-control-sm op-num" value="0" style="display:none"></div>
+      <div class="t" id="boxEfe"><div class="lbl" id="lblEfeOp">Efectivo</div><div class="val" id="tEfectivo">0.00</div><input type="number" step="0.01" id="efectivo" class="form-control form-control-sm op-num" value="0" style="display:none"></div>
       <div class="t"><div class="lbl">Cheques</div><div class="val" id="tCheques">0.00</div></div>
       <div class="t"><div class="lbl">Neto a pagar</div><div class="val" id="tNeto">0.00</div></div>
       <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Orden de Pago</div><div class="val" id="tTotal">0.00</div></div>
@@ -137,5 +137,5 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/ordenes_pago.js?v=2"></script>
+<script src="assets/js/ordenes_pago.js?v=3"></script>
 '); ?>
