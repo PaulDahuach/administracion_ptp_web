@@ -83,6 +83,8 @@ function op_insert($d, $estTrue, $cipmov) {
     if ($fex === null) throw new Exception('Falta la fecha de emisión');
     $codfdp = (int) nz($d['codfdp'], 4);
     $efectivo = round((float) nz($d['efectivo'], 0), 2);
+    $codcbx = (int) nz(isset($d['codcbx']) ? $d['codcbx'] : 0, 0);                       // cuenta bancaria (interdepósito)
+    $faxInter = (isset($d['fax']) && $d['fax']) ? op_iso($d['fax']) : $fex;              // acreditación del interdepósito
     $refs = (isset($d['referencias']) && is_array($d['referencias'])) ? $d['referencias'] : array();
     $chqs = (isset($d['cheques']) && is_array($d['cheques'])) ? $d['cheques'] : array();
     $ret = isset($d['ret']) && is_array($d['ret']) ? $d['ret'] : array();
@@ -130,11 +132,11 @@ function op_insert($d, $estTrue, $cipmov) {
 
     db_exec("INSERT INTO [Tbl Movimientos]
         (NUMMOV, CODORI, FEXMOV, CODOPE, CODAUX, CICMOV, CIPMOV, ESTMOV, CINMOV, CECMOV, CEPMOV, CENMOV, CEFMOV,
-         CODCUE, SOCMOV, DENMOV, CODCRI, CITMOV, CODFDP, DETMOV, TOTMOV, DEBMOV, SDOMOV,
+         CODCUE, SOCMOV, DENMOV, CODCRI, CITMOV, CODFDP, CODCBX, DETMOV, TOTMOV, DEBMOV, SDOMOV,
          RIXMOV, RIDMOV, PIDMOV, VEIMOV, SRIMOV, CODRRI, ARBMOV, SIAMOV, AIAMOV, RINMOV,
          ANUMOV, NUIMOV, NMIMOV, NOWMOV)
         VALUES ($nummov, 'A', $fex, 340, $codaux, 'OP', $cipSql, $estSql, $cinmov, $cec, $cep, $cen, $cefSql,
-         $codcue, $soc, $denSql, $codcri, $citSql, $codfdp, $detSql, $total, $total, $sdomov,
+         $codcue, $soc, $denSql, $codcri, $citSql, $codfdp, " . ($codfdp == 5 ? $codcbx : 'Null') . ", $detSql, $total, $total, $sdomov,
          $rix, $rid, $pid, $veiSql, $sri, $codrri, $arb, $sia, $aia, $rinSql,
          False, 0, 0, Now());");
 
@@ -168,8 +170,16 @@ function op_insert($d, $estTrue, $cipmov) {
     }
     // HABER: retención IIBB → CACC_O
     if ($rix > 0) op_imp($ord, $totDeb, $totCre, $nummov, $caccO, 0, $rix, null, null, $caccZ);
-    // HABER: efectivo → CACC_1 (no en interdepósito)
-    if ($efectivo > 0 && $codfdp != 5) op_imp($ord, $totDeb, $totCre, $nummov, $cacc1, 0, $efectivo, null, null, $caccZ);
+    // HABER: efectivo → CACC_1 (caja); en interdepósito → la cuenta bancaria (CODCBX) con FAXMOV (sale plata)
+    if ($efectivo > 0) {
+        if ($codfdp == 5) {
+            $bk = db_row("SELECT CODCUE FROM [Tbl Cuentas Contables] WHERE CODCBX=$codcbx AND CODCUE Like '11104%';");
+            if (!$bk) throw new Exception('Elegí una cuenta bancaria válida para el interdepósito');
+            op_imp($ord, $totDeb, $totCre, $nummov, trim((string) $bk['CODCUE']), 0, $efectivo, null, $faxInter, $caccZ);
+        } else {
+            op_imp($ord, $totDeb, $totCre, $nummov, $cacc1, 0, $efectivo, null, null, $caccZ);
+        }
+    }
     // HABER: cheques (cada uno a su cuenta; crea/endosa, VADCHQ=False salen)
     foreach ($chqs as $c) {
         $imp = round((float) nz($c['imp'], 0), 2);

@@ -226,6 +226,7 @@ const OP = {
         if (!this.el('codcue').value) { this.el('opErr').textContent = 'Elegí un proveedor.'; return; }
         if (this.el('codaux').value == '342' && !this.refs.length) { this.el('opErr').textContent = 'Agregá al menos un comprobante a pagar.'; return; }
         if (this.total <= 0) { this.el('opErr').textContent = 'La orden no tiene importe.'; return; }
+        if (this.el('codfdp').value == '5' && !this.el('codcbx').value) { this.el('opErr').textContent = 'Elegí la cuenta bancaria del interdepósito.'; return; }
         if (this.el('codaux').value == '343') {   // canc + anticipo: refs cubren la deuda total y el total la supera (excedente)
             var sref = Math.round(this.refs.reduce(function (s, r) { return s + (r.imp || 0); }, 0) * 100) / 100;
             if (!this.refs.length || sref < (this.txtMaxRef || 0) - 0.005) { this.el('opErr').textContent = 'Para Cancelación + Anticipo, las referencias deben cubrir la deuda total (' + this.n(this.txtMaxRef) + ').'; return; }
