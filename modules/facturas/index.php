@@ -64,9 +64,9 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
     <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-box-seam me-1"></i>Productos a facturar</span>
       <button type="button" id="btnAddRem" class="btn btn-sm btn-outline-light" disabled><i class="bi bi-truck me-1"></i>Agregar remito</button></div>
     <div class="card-body p-0 table-responsive"><table class="table table-sm fv-grid mb-0">
-      <thead><tr><th class="fv-num" style="width:90px">Cantidad</th><th style="width:110px">Remito</th><th style="width:80px">P.T.P.</th><th>Código</th><th>Denominación</th><th class="fv-num" style="width:120px">Pr. Unitario</th><th class="fv-num" style="width:130px">Total</th><th style="width:36px"></th></tr></thead>
+      <thead><tr><th class="fv-num" style="width:90px">Cantidad</th><th style="width:110px">Remito</th><th style="width:80px">P.T.P.</th><th>Código</th><th>Denominación</th><th class="fv-num" style="width:120px">Pr. Unitario</th><th style="width:80px">Alíc.</th><th class="fv-num" style="width:130px">Total</th><th style="width:36px"></th></tr></thead>
       <tbody id="prodBody"></tbody>
-      <tfoot><tr class="fw-bold"><td colspan="6" class="text-end">Subtotal:</td><td class="fv-num" id="subTotal">0.00</td><td></td></tr></tfoot>
+      <tfoot><tr class="fw-bold"><td colspan="7" class="text-end">Subtotal:</td><td class="fv-num" id="subTotal">0.00</td><td></td></tr></tfoot>
     </table></div>
   </div>
 
@@ -116,5 +116,5 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/facturas.js?v=4"></script>
+<script src="assets/js/facturas.js?v=5"></script>
 '); ?>

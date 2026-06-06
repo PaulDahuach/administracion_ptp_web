@@ -78,11 +78,14 @@ const FV = {
         var ptp = rec.pdlmov ? String(rec.pdlmov) : '';
         var remN = String(rec.mrvmov);
         var tr = document.createElement('tr');
+        if (!rec.ali) rec.ali = 21;
         tr.innerHTML = '<td class="fv-num">' + this.n(rec.cant) + '</td><td>' + this.esc(remN) + '</td><td>' + this.esc(ptp) + '</td><td>' + this.esc(rec.codpro) + '</td><td>' + this.esc(rec.denmov) + '</td>' +
             '<td><input type="number" step="0.0001" class="form-control form-control-sm fv-num l-pun" value="' + rec.pun + '"></td>' +
+            '<td><select class="form-select form-select-sm l-ali"><option value="21"' + (rec.ali == 10.5 ? '' : ' selected') + '>21%</option><option value="10.5"' + (rec.ali == 10.5 ? ' selected' : '') + '>10.5%</option></select></td>' +
             '<td class="fv-num l-tot">' + this.n(rec.total) + '</td>' +
             '<td><button type="button" class="btn btn-sm btn-outline-danger l-del"><i class="bi bi-x"></i></button></td>';
         this.el('prodBody').appendChild(tr);
+        tr.querySelector('.l-ali').addEventListener('change', function () { rec.ali = parseFloat(this.value) || 21; FV.recalc(); });
         tr.querySelector('.l-pun').addEventListener('input', function () { rec.pun = parseFloat(this.value) || 0; rec.total = Math.round(rec.cant * rec.pun * 100) / 100; tr.querySelector('.l-tot').textContent = FV.n(rec.total); FV.recalc(); });
         tr.querySelector('.l-del').addEventListener('click', function () { tr.remove(); FV.lineas = FV.lineas.filter(function (x) { return x !== rec; }); FV.recalc(); });
         this.recalc();
@@ -98,6 +101,8 @@ const FV = {
         iva = Math.round(iva * 100) / 100;
         var total = Math.round((neto + iva) * 100) / 100;
         this.totales = { neto: neto, iva: iva, total: total, buckets: buckets };
+        var alics = Object.keys(buckets).filter(function (a) { return buckets[a] > 0; }).map(function (a) { return (parseFloat(a) % 1 === 0 ? parseFloat(a) : parseFloat(a).toFixed(1)) + '%'; });
+        this.el('lblAli').textContent = alics.length ? alics.join(' + ') : '21%';
         this.el('subTotal').textContent = this.n(sub);
         this.el('tNeto').textContent = this.n(neto);
         this.el('tIva').textContent = this.n(iva);
@@ -212,7 +217,7 @@ const FV = {
         this.el('pdcmov').value = d.PDCMOV; this.el('detmov').value = d.DETMOV;
         this.lineas = [];
         this.el('prodBody').innerHTML = d.productos.map(function (p) {
-            return '<tr><td class="fv-num">' + FV.n(p.cant) + '</td><td>' + FV.esc(p.rem ? String(p.rem) : '') + '</td><td>' + FV.esc(p.ptp || '') + '</td><td>' + FV.esc(p.codpro) + '</td><td>' + FV.esc(p.denmov) + '</td><td class="fv-num">' + FV.n(p.pun) + '</td><td class="fv-num">' + FV.n(p.total) + '</td><td></td></tr>';
+            return '<tr><td class="fv-num">' + FV.n(p.cant) + '</td><td>' + FV.esc(p.rem ? String(p.rem) : '') + '</td><td>' + FV.esc(p.ptp || '') + '</td><td>' + FV.esc(p.codpro) + '</td><td>' + FV.esc(p.denmov) + '</td><td class="fv-num">' + FV.n(p.pun) + '</td><td></td><td class="fv-num">' + FV.n(p.total) + '</td><td></td></tr>';
         }).join('');
         this.el('subTotal').textContent = this.n(d.NETMOV);
         this.el('tNeto').textContent = this.n(d.NETMOV); this.el('tIva').textContent = this.n(d.IRIMOV); this.el('tTotal').textContent = this.n(d.TOTMOV);
