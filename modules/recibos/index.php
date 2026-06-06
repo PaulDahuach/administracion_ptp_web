@@ -29,7 +29,7 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
   .ac-list.show { display:block; }
   .ac-opt { padding:.25rem .6rem; cursor:pointer; font-size:.85rem; }
   .ac-opt.active, .ac-opt:hover { background:var(--fc-primary); color:#fff; }
-  .tot-bar { display:flex; gap:1rem; flex-wrap:wrap; }
+  .tot-bar { display:flex; gap:1rem; flex-wrap:wrap; justify-content:flex-end; }
   .tot-bar .t { background:var(--bs-tertiary-bg); border-radius:.4rem; padding:.4rem .7rem; min-width:120px; }
   .tot-bar .t .lbl { font-size:.66rem; text-transform:uppercase; color:var(--bs-secondary-color); }
   .tot-bar .t .val { font-weight:700; font-variant-numeric:tabular-nums; }
