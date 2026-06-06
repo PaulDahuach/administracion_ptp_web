@@ -12,7 +12,9 @@ if (db_readonly()) {
 }
 
 $modoAfip = AFIP_MODO;
-$toolbar = '<button id="btnEmitir" class="btn btn-success btn-sm"><i class="bi bi-cloud-arrow-up me-1"></i>Emitir factura (AFIP)</button>'
+$capa = (auth_modo() === 'capacitacion');   // negro (ESTMOV=False): factura NO electrónica, sin CAE
+$btnEmitirLbl = $capa ? '<i class="bi bi-mortarboard me-1"></i>Grabar factura (capacitación)' : '<i class="bi bi-cloud-arrow-up me-1"></i>Emitir factura (AFIP)';
+$toolbar = '<button id="btnEmitir" class="btn btn-success btn-sm">' . $btnEmitirLbl . '</button>'
          . ' <button id="btnImprimirHdr" class="btn btn-primary btn-sm" style="display:none"><i class="bi bi-printer me-1"></i>Imprimir</button>'
          . ' <button id="btnNuevo" class="btn btn-outline-light btn-sm"><i class="bi bi-file-earmark-plus me-1"></i>Nuevo</button>'
          . ' <button id="btnBuscar" class="btn btn-outline-light btn-sm"><i class="bi bi-search me-1"></i>Buscar</button>';
@@ -37,7 +39,8 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
 
 <div class="fc-form" id="fvForm">
   <div class="card fc-card mb-2"><div class="card-body">
-    <?php if ($modoAfip !== 'produccion'): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-cone-striped me-1"></i>AFIP en <b>homologación</b> (testing) — los CAE no son fiscales.</div><?php endif; ?>
+    <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> (negro) — la factura se graba <b>sin CAE</b> (no electrónica, no fiscal).</div>
+    <?php elseif ($modoAfip !== 'produccion'): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-cone-striped me-1"></i>AFIP en <b>homologación</b> (testing) — los CAE no son fiscales.</div><?php endif; ?>
     <div class="row g-2">
       <div class="col-auto" style="width:115px"><label class="form-label mb-1">Movimiento Nº</label><input id="nummov" class="form-control fv-ro" placeholder="(auto)" readonly></div>
       <div class="col-auto" style="width:140px"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control"></div>
@@ -47,7 +50,7 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
       <div class="col-auto" style="width:140px"><label class="form-label mb-1">Saldo</label><input id="saldo" class="form-control fv-num" readonly></div>
       <div class="col-auto" style="width:200px"><label class="form-label mb-1">Factura Nº</label>
         <div class="d-flex gap-1"><input id="letra" class="form-control text-center px-1 fv-ro" style="flex:0 0 34px" value="A" readonly title="Clase">
-          <input class="form-control text-center px-1 fv-ro" style="flex:0 0 46px" value="<?= str_pad((string) AFIP_PTO_VTA, 4, '0', STR_PAD_LEFT) ?>" readonly title="Pto venta">
+          <input class="form-control text-center px-1 fv-ro" style="flex:0 0 46px" value="<?= str_pad((string) ($capa ? 9999 : AFIP_PTO_VTA), 4, '0', STR_PAD_LEFT) ?>" readonly title="Pto venta">
           <input id="cinmov" class="form-control fv-ro" placeholder="(AFIP)" readonly title="Nº"></div></div>
     </div>
     <div class="row g-2 mt-1">
@@ -116,5 +119,5 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/facturas.js?v=5"></script>
+<script src="assets/js/facturas.js?v=6"></script>
 '); ?>

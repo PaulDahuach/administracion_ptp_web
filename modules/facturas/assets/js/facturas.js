@@ -182,11 +182,11 @@ const FV = {
         this.emitida = true;
         this.el('nummov').value = String(j.data.nummov).padStart(8, '0');
         this.el('cinmov').value = String(j.data.cinmov).padStart(8, '0');
-        this.el('caeDisp').textContent = j.data.cae; this.el('caeVto').textContent = j.data.cae_vto;
-        this.el('caeWrap').style.display = '';
+        if (j.data.cae) { this.el('caeDisp').textContent = j.data.cae; this.el('caeVto').textContent = j.data.cae_vto; this.el('caeWrap').style.display = ''; }
         Array.prototype.forEach.call(document.querySelectorAll('#fvForm input, #fvForm select, .l-pun, .l-del, #btnAddRem'), function (el) { el.disabled = true; });
         this.el('btnImprimirHdr').style.display = ''; this.el('btnImprimirHdr').onclick = function () { window.open('imprimir.php?nummov=' + j.data.nummov, '_blank'); };
-        this.toast('Factura ' + this.el('letra').value + ' ' + String(j.data.cinmov).padStart(8, '0') + ' autorizada · CAE ' + j.data.cae, 'success');
+        var nro = this.el('letra').value + ' ' + String(j.data.cinmov).padStart(8, '0');
+        this.toast(j.data.cae ? ('Factura ' + nro + ' autorizada · CAE ' + j.data.cae) : ('Factura ' + nro + ' grabada (capacitación · sin CAE)'), 'success');
     },
 
     // ---- Búsqueda / vista ----

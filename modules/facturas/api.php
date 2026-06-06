@@ -31,6 +31,8 @@ if (!defined('FV_LIB')) {
 
 // ───────────────────────── Lookups ─────────────────────────
 function fac_serial_iso($s) { if ($s === null || $s === '') return ''; return (new DateTime('1899-12-30'))->modify('+' . (int) $s . ' days')->format('Y-m-d'); }
+/** Filtro de visibilidad por libro (doble libro): blanco→ESTMOV=True, negro→False, integral→sin filtro. */
+function fv_estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND ESTMOV=True'; if ($l === 'negro') return ' AND ESTMOV=False'; return ''; }
 
 function buscar_clientes() {
     $q = isset($_GET['q']) ? trim($_GET['q']) : '';
@@ -62,7 +64,7 @@ function remitos_pendientes() {
     $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
     // cuenta de ventas (VTARUB) + alícuota por producto, cacheadas
     $out = array();
-    foreach (db_query("SELECT NUMMOV, CINMOV, CIPMOV, CIIMOV, FEXMOV FROM [Tbl Movimientos] WHERE CODORI='D' AND CICMOV='RV' AND CODCUE=$cc AND SRPMOV=True ORDER BY NUMMOV;") as $rv) {
+    foreach (db_query("SELECT NUMMOV, CINMOV, CIPMOV, CIIMOV, FEXMOV FROM [Tbl Movimientos] WHERE CODORI='D' AND CICMOV='RV' AND CODCUE=$cc AND SRPMOV=True" . fv_estmov_w() . " ORDER BY NUMMOV;") as $rv) {
         $lineas = array();
         foreach (db_query("SELECT S.ORDMOV, S.CODPRO, S.DENMOV, S.EGRMOV, S.SVCMOV, S.CFVMOV, S.PUNMOV, S.PULMOV, S.PUCMOV, S.COSMOV, S.CODUDM, S.FCTMOV, S.DUMMOV, S.CODMON, S.DECMOV, S.ODCMOV, S.PDLMOV, S.ODPMOV, S.STKMOV, S.IBXMOV
             FROM [Tbl Movimientos Stock] AS S WHERE S.NUMMOV=" . (int) $rv['NUMMOV'] . ";") as $l) {
@@ -97,7 +99,7 @@ function listar() {
     $q = isset($_GET['q']) ? trim($_GET['q']) : '';
     $sd = isset($_GET['desde']) && $_GET['desde'] ? (int) (new DateTime('1899-12-30'))->diff(new DateTime($_GET['desde']))->days : null;
     $sh = isset($_GET['hasta']) && $_GET['hasta'] ? (int) (new DateTime('1899-12-30'))->diff(new DateTime($_GET['hasta']))->days : null;
-    $w = 'CODOPE=420';
+    $w = 'CODOPE=420' . fv_estmov_w();   // visibilidad por libro (blanco/negro/integral)
     if ($q !== '') { $qs = db_esc($q); $cond = "(DENMOV Like '%$qs%' OR CITMOV Like '%$qs%' OR CAEMOV Like '%$qs%'"; if (is_numeric($q)) $cond .= ' OR CINMOV=' . (int) $q; $w .= " AND $cond)"; }
     if ($sd !== null) $w .= " AND FEXMOV >= $sd";
     if ($sh !== null) $w .= " AND FEXMOV <= $sh";
@@ -115,6 +117,8 @@ function detalle() {
     $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
     $h = db_row("SELECT * FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=420;");
     if (!$h) { fail('Factura no encontrada'); return; }
+    $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1); $lib = auth_libro_unico();
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Factura no disponible en este libro'); return; }
     $loc = db_row("SELECT L.DENLOC, P.DENPRO FROM [Tbl Localidades] AS L LEFT JOIN [Tbl Provincias] AS P ON L.CODPRO=P.CODPRO WHERE L.CODLOC=" . (int) nz($h['CODLOC'], 0) . ";");
     $cri = db_row("SELECT DENCRI FROM [Tbl Categorias Responsabilidad IVA] WHERE CODCRI=" . (int) nz($h['CODCRI'], 0) . ";");
     $prods = array();
@@ -456,11 +460,20 @@ function guardar() {
     if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
     $raw = isset($_POST['data']) ? json_decode($_POST['data'], true) : null;
     if (!is_array($raw)) { fail('Datos inválidos'); return; }
-    $estTrue = (auth_libro_unico() !== 'negro');   // electrónico = libro blanco (oficial)
+    // BLANCO (operador/integral) = factura electrónica con CAE de AFIP.
+    // NEGRO (capacitación, ESTMOV=False) = factura NO electrónica: sin CAE, pdv 9999, numeración local.
+    $estTrue = (auth_modo() !== 'capacitacion');
     try {
-        $res = fv_emitir($raw, $estTrue);
+        if ($estTrue) {
+            $res = fv_emitir($raw, true);
+        } else {
+            $raw['cipmov'] = 9999;
+            db_begin();
+            try { $res = fv_insert($raw, false, null); db_commit(); }
+            catch (Exception $e) { db_rollback(); throw $e; }
+        }
         ok($res);
     } catch (Exception $e) {
-        fail('No se pudo emitir la factura: ' . $e->getMessage(), 500);
+        fail('No se pudo ' . ($estTrue ? 'emitir' : 'grabar') . ' la factura: ' . $e->getMessage(), 500);
     }
 }
