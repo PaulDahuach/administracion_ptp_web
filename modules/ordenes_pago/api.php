@@ -333,6 +333,29 @@ function buscar_proveedores() {
         WHERE CODORI='A' AND ((DENCUE Like '%$s%')$num) ORDER BY DENCUE;"));
 }
 
+/**
+ * Padrón ARBA (Ingresos Brutos): abre la DB externa (Rec Control.DBPIBR → C:\_Inforemp\PadronRentas.mdb),
+ * tabla PADRONRS, y devuelve la alícuota (ARBPIB) registrada para el CUIT, o null si no está / no accesible.
+ * Porta el lookup de rutRetenciones. (El padrón lo carga ARBA periódicamente; hoy puede estar vacío.)
+ */
+function padron_alicuota($cuit) {
+    $cuit = preg_replace('/[^0-9]/', '', (string) $cuit);   // sin guiones, como en el legacy
+    if ($cuit === '') return null;
+    $rc = db_row("SELECT DBPIBR FROM [Rec Control];");
+    $path = trim((string) nz($rc ? $rc['DBPIBR'] : '', ''));
+    if ($path === '' || !file_exists($path)) return null;
+    try {
+        $cn = new COM('ADODB.Connection');
+        $cn->Open("Provider=Microsoft.ACE.OLEDB.12.0;Data Source=\"$path\";");
+        $rs = $cn->Execute("SELECT ARBPIB FROM [PADRONRS] WHERE CITPIB='" . str_replace("'", "''", $cuit) . "';");
+        $ali = ($rs->EOF) ? null : (float) $rs->Fields['ARBPIB']->Value;
+        $rs->Close(); $cn->Close();
+        return $ali;
+    } catch (Exception $e) {
+        return null;   // padrón inaccesible → se usa la alícuota del régimen
+    }
+}
+
 function get_proveedor() {
     $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
     $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI, C.CODRRI, C.SRICUE, C.VEICUE, C.CODCAT, C.APICUE, C.APBCUE
@@ -367,10 +390,13 @@ function get_proveedor() {
     // Retiene sólo si: IsNull(VEIMOV) (sin exención) Y SRIMOV (sujeto) [Y tiene régimen, chequeado abajo].
     $c['SUJETO'] = ($srimov && !$exento) ? 1 : 0;
     $c['CODRRI'] = (int) nz($c['CODRRI'], 0);
-    $c['ALIRRI'] = 0; $c['DENRRI'] = '';
+    $c['ALIRRI'] = 0; $c['DENRRI'] = ''; $c['PADRON'] = 0;
     if ($c['SUJETO'] && $c['CODRRI'] > 0) {
         $rg = db_row("SELECT DENRRI, ALIRRI FROM [Tbl Regimenes Retencion Ingresos Brutos] WHERE CODRRI=" . $c['CODRRI'] . ";");
         if ($rg) { $c['ALIRRI'] = round((float) nz($rg['ALIRRI'], 0), 4); $c['DENRRI'] = trim((string) nz($rg['DENRRI'], '')); }
+        // Padrón ARBA: si el CUIT está registrado, su alícuota (ARBPIB) pisa la del régimen (rutRetenciones).
+        $pa = padron_alicuota($c['CITCUE']);
+        if ($pa !== null) { $c['ALIRRI'] = round($pa, 4); $c['PADRON'] = 1; }
     }
     ok($c);
 }

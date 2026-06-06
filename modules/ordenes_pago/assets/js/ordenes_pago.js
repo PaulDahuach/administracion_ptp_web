@@ -83,7 +83,8 @@ const OP = {
         if (this.rixOff) { /* ya desactivada en init */ }
         else if (this.exento) retDis(true, '(exento hasta ' + d.VEIMOV + ')', 'text-info');
         else {
-            retDis(false, d.SUJETO ? (d.DENRRI ? '(' + d.DENRRI + ')' : '') : '(no sujeto)', 'text-info');
+            var nota = d.SUJETO ? (d.PADRON ? '(padrón ARBA)' : (d.DENRRI ? '(' + d.DENRRI + ')' : '')) : '(no sujeto)';
+            retDis(false, nota, d.PADRON ? 'text-success' : 'text-info');
             this.el('codrri').value = d.CODRRI || '';
             this.el('arb').value = d.SUJETO ? (d.ALIRRI || 0) : 0;
         }
