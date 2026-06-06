@@ -23,6 +23,7 @@ if (!defined('RECIBO_LIB')) {   // si se incluye como librería (test), no corre
             case 'pendientes':      pendientes();      break;
             case 'bancos':          listar_bancos();   break;
             case 'cuentas_bancarias': listar_cuentas_bancarias(); break;
+            case 'regimenes':       listar_regimenes(); break;
             case 'operaciones':     listar_operaciones(); break;
             case 'pdvs':            listar_pdvs();      break;
             case 'guardar':         guardar();         break;
@@ -279,6 +280,8 @@ function listar_bancos() { ok(db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos] 
 /** Cuentas bancarias propias (disponibilidades 11104xx con CODCBX) para interdepósito. */
 function listar_cuentas_bancarias() { ok(db_query("SELECT CODCBX, DENCUE FROM [Tbl Cuentas Contables] WHERE CODCBX Is Not Null AND CODCUE Like '11104%' ORDER BY DENCUE;")); }
 function listar_operaciones() { ok(db_query("SELECT CODAUX, DENAUX FROM [Tbl Operaciones Auxiliares] WHERE CODOPE=480 ORDER BY CODAUX;")); }
+/** Regímenes de retención de Ganancias (para el combo CODRRG). */
+function listar_regimenes() { ok(db_query("SELECT CODRRG, DENRRG FROM [Tbl Regimenes Retencion Ganancias] ORDER BY DENRRG;")); }
 function listar_pdvs() { ok(db_query("SELECT CODPDV, NOMPDV FROM [Tbl Puntos de Venta] WHERE CODPDV <> 9999 ORDER BY CODPDV;")); }
 
 /** Listado de recibos (CODOPE=480) filtrado por modo + texto/fecha. */
@@ -308,7 +311,7 @@ function listar() {
     ok(array('recibos' => $out, 'tope' => count($out) >= 200));
 }
 
-/** Detalle de un recibo: header + referencias + retenciones + cheques. */
+/** Detalle COMPLETO de un recibo (todos los campos del form) para verlo en la pantalla, bloqueado. */
 function detalle() {
     $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
     $h = db_row("SELECT * FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=480;");
@@ -316,6 +319,7 @@ function detalle() {
     $lib = auth_libro_unico();
     $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
     if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Recibo no disponible en este libro'); return; }
+    $iso = function ($s) { if ($s === null || $s === '') return ''; return (new DateTime('1899-12-30'))->modify('+' . (int) $s . ' days')->format('Y-m-d'); };
 
     $refs = array();
     foreach (db_query("SELECT R.REFMOV, R.FVXMOV, R.IMPMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.CINMOV
@@ -327,19 +331,30 @@ function detalle() {
     $chqs = array();
     foreach (db_query("SELECT C.CODBAN, C.SYNCHQ, C.FEXCHQ, C.FAXCHQ, C.IMPCHQ, C.LIBCHQ, C.LOCCHQ
         FROM [Tbl Cheques] AS C INNER JOIN [Tbl Movimientos Imputaciones] AS MI ON MI.CODCHQ=C.CODCHQ WHERE MI.NUMMOV=$num ORDER BY MI.ORDMOV;") as $c)
-        $chqs[] = array('BANCO' => isset($ban[(int) $c['CODBAN']]) ? $ban[(int) $c['CODBAN']] : '', 'SYN' => trim((string) nz($c['SYNCHQ'], '')),
-            'FEX' => fecha_serial($c['FEXCHQ']), 'FAX' => fecha_serial($c['FAXCHQ']), 'LIB' => trim((string) nz($c['LIBCHQ'], '')),
-            'LOC' => trim((string) nz($c['LOCCHQ'], '')), 'IMP' => round((float) nz($c['IMPCHQ'], 0), 2));
+        $chqs[] = array('CODBAN' => (int) nz($c['CODBAN'], 0), 'BANCO' => isset($ban[(int) $c['CODBAN']]) ? $ban[(int) $c['CODBAN']] : '',
+            'SYN' => trim((string) nz($c['SYNCHQ'], '')), 'FEXISO' => $iso($c['FEXCHQ']), 'FAXISO' => $iso($c['FAXCHQ']), 'FAX' => fecha_serial($c['FAXCHQ']),
+            'LIB' => trim((string) nz($c['LIBCHQ'], '')), 'LOC' => trim((string) nz($c['LOCCHQ'], '')), 'IMP' => round((float) nz($c['IMPCHQ'], 0), 2));
 
-    $ret = array();
-    $defs = array(array('IIBB', 'RT1MOV'), array('Ganancias', 'RT2MOV'), array('IVA', 'RT3MOV'), array('SUSS', 'RT4MOV'));
-    foreach ($defs as $rt) { $v = round((float) nz($h[$rt[1]], 0), 2); if ($v > 0) $ret[] = array('TIPO' => $rt[0], 'IMP' => $v); }
+    $loc = db_row("SELECT L.DENLOC, P.DENPRO FROM [Tbl Localidades] AS L LEFT JOIN [Tbl Provincias] AS P ON L.CODPRO=P.CODPRO WHERE L.CODLOC=" . (int) nz($h['CODLOC'], 0) . ";");
 
-    ok(array('NUMMOV' => $num, 'COMP' => comp_str('RC', '', $h['CIPMOV'], $h['CINMOV']), 'FEXMOV' => fecha_serial($h['FEXMOV']),
+    ok(array(
+        'NUMMOV' => $num, 'CIPMOV' => (int) nz($h['CIPMOV'], 0), 'CINMOV' => (int) nz($h['CINMOV'], 0),
+        'FEXISO' => $iso($h['FEXMOV']), 'FIXISO' => $iso($h['FIXMOV']),
+        'CODAUX' => (int) nz($h['CODAUX'], 0), 'CODCUE' => (int) nz($h['CODCUE'], 0),
         'DENMOV' => trim((string) nz($h['DENMOV'], '')), 'CITMOV' => trim((string) nz($h['CITMOV'], '')),
-        'TOTMOV' => round((float) nz($h['TOTMOV'], 0), 2), 'DETMOV' => trim((string) nz($h['DETMOV'], '')),
-        'ANU' => ($h['ANUMOV'] === true || $h['ANUMOV'] == -1) ? 1 : 0,
-        'referencias' => $refs, 'cheques' => $chqs, 'retenciones' => $ret));
+        'DOMICILIO' => trim(nz($h['DCXMOV'], '') . ' ' . nz($h['DNXMOV'], '')),
+        'LOCALIDAD' => $loc ? trim(nz($loc['DENLOC'], '') . ' - ' . nz($loc['DENPRO'], '')) : '',
+        'SOCMOV' => round((float) nz($h['SOCMOV'], 0), 2), 'DETMOV' => trim((string) nz($h['DETMOV'], '')),
+        'CODFDP' => (int) nz($h['CODFDP'], 4), 'CODCBX' => (int) nz($h['CODCBX'], 0),
+        'ANU' => ($h['ANUMOV'] === true || $h['ANUMOV'] == -1) ? 1 : 0, 'TOTMOV' => round((float) nz($h['TOTMOV'], 0), 2),
+        'ret' => array(
+            'rt1' => round((float) nz($h['RT1MOV'], 0), 2), 'rin' => (int) nz($h['RINMOV'], 0),
+            'rt2' => round((float) nz($h['RT2MOV'], 0), 2), 'rgp' => (int) nz($h['RGPMOV'], 0), 'rgn' => (int) nz($h['RGNMOV'], 0), 'codrrg' => (int) nz($h['CODRRG'], 0),
+            'rt3' => round((float) nz($h['RT3MOV'], 0), 2), 'rvn' => (int) nz($h['RVNMOV'], 0),
+            'rt4' => round((float) nz($h['RT4MOV'], 0), 2), 'rsn' => (int) nz($h['RSNMOV'], 0),
+        ),
+        'referencias' => $refs, 'cheques' => $chqs,
+    ));
 }
 
 /** Núcleo de la anulación (sin transacción → testeable). Porta SetData Case "B" estándar. */

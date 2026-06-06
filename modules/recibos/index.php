@@ -11,6 +11,8 @@ if (db_readonly()) {
 }
 
 $toolbar = '<button id="btnGuardar" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Grabar recibo</button>'
+         . ' <button id="btnAnularHdr" class="btn btn-danger btn-sm" style="display:none"><i class="bi bi-x-octagon me-1"></i>Anular recibo</button>'
+         . ' <button id="btnImprimirHdr" class="btn btn-primary btn-sm" style="display:none"><i class="bi bi-printer me-1"></i>Imprimir</button>'
          . ' <button id="btnNuevo" class="btn btn-outline-light btn-sm"><i class="bi bi-file-earmark-plus me-1"></i>Nuevo</button>'
          . ' <button id="btnBuscar" class="btn btn-outline-light btn-sm"><i class="bi bi-search me-1"></i>Buscar</button>';
 module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
@@ -34,77 +36,98 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
   #grdRec tbody tr, #grdPend tbody tr { cursor:pointer; }
   .rc-ro { font-variant-numeric:tabular-nums; font-weight:600; letter-spacing:.3px; }
   #nummov:not([value=""]), #cinmov:not([value=""]) { color:var(--fc-primary); }
+  .rc-line1 { display:flex; gap:.5rem; flex-wrap:wrap; align-items:flex-start; }
+  .rc-ret-lbl { font-size:.66rem; text-transform:uppercase; color:var(--bs-secondary-color); font-weight:600; margin-bottom:.15rem; }
+  .rc-ret { padding:0 .2rem; }
+  .rc-toggle { cursor:pointer; user-select:none; }
+  .rc-chev { transition:transform .15s ease; }
+  .rc-toggle[aria-expanded="false"] .rc-chev { transform:rotate(-90deg); }
 </style>
 
 <div class="fc-form" id="rcForm" data-keynav data-keynav-submit="#btnGuardar">
   <div class="card fc-card mb-2"><div class="card-body">
-    <!-- Comprobante: identificación (auto / readonly, como el legacy) -->
-    <div class="row g-2">
-      <div class="col-md-2"><label class="form-label mb-1">Movimiento Nº</label><input id="nummov" class="form-control rc-ro" placeholder="(automático)" readonly></div>
-      <div class="col-md-2" id="boxPdv"><label class="form-label mb-1">Punto de venta</label><select id="cipmov" class="form-select" disabled data-nocombo></select></div>
-      <div class="col-md-2"><label class="form-label mb-1">Nº Recibo</label><input id="cinmov" class="form-control rc-ro" placeholder="(automático)" readonly></div>
-      <div class="col-md-2"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control" readonly></div>
-      <div class="col-md-2"><label class="form-label mb-1">Imput. I.V.A.</label><input type="date" id="fixmov" class="form-control"></div>
-      <div class="col-md-2"><label class="form-label mb-1">Operación</label><select id="codaux" class="form-select" disabled data-nocombo></select></div>
-    </div>
-    <!-- Cliente -->
-    <div class="row g-2 mt-1">
-      <div class="col-md-7">
+    <!-- Línea 1 (orden del legacy): Mov Nº · Emisión · PDV · Nº Recibo · Cliente · Saldo · Operación -->
+    <div class="rc-line1">
+      <div style="width:115px"><label class="form-label mb-1">Movimiento Nº</label><input id="nummov" class="form-control rc-ro" placeholder="(auto)" readonly></div>
+      <div style="width:135px"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control" readonly></div>
+      <div style="width:185px" id="boxPdv"><label class="form-label mb-1">Número</label>
+        <div class="d-flex gap-1">
+          <input id="cipmovDisp" class="form-control rc-ro text-center px-1" style="flex:0 0 52px" readonly title="Punto de venta (4 díg.)">
+          <input id="cinmov" class="form-control rc-ro" placeholder="(auto)" readonly title="Nº de recibo (8 díg.)">
+        </div>
+        <input type="hidden" id="cipmov">
+      </div>
+      <div style="flex:1 1 220px">
         <label class="form-label mb-1">Cliente (cuenta corriente)</label>
         <div class="ac-box"><input type="text" id="cliQ" class="form-control" placeholder="Nombre o código…" autocomplete="off"><div class="ac-list" id="cliList"></div></div>
-        <input type="hidden" id="codcue"><div class="small text-muted mt-1" id="cliInfo"></div>
+        <input type="hidden" id="codcue">
+        <div class="small text-muted mt-1" id="cliInfo"></div>
       </div>
-      <div class="col-md-2"><label class="form-label mb-1">Saldo operativo</label><input type="text" id="saldo" class="form-control rc-num" readonly></div>
-      <div class="col-md-3"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
+      <div style="width:135px"><label class="form-label mb-1">Saldo operativo</label><input type="text" id="saldo" class="form-control rc-num" readonly></div>
+      <div style="width:150px"><label class="form-label mb-1">Operación</label><select id="codaux" class="form-select" disabled data-nocombo></select></div>
     </div>
-    <!-- Forma de pago -->
+    <!-- Línea 2: Detalle + Forma de pago + Cuenta bancaria (a la derecha de Detalle) -->
     <div class="row g-2 mt-1">
+      <div class="col-md-6"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
       <div class="col-md-2"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option><option value="5">Interdepósito</option></select></div>
       <div class="col-md-4" id="boxCbx"><label class="form-label mb-1">Cuenta bancaria</label><select id="codcbx" class="form-select" disabled></select></div>
     </div>
   </div></div>
 
+  <!-- RETENCIONES (colapsable; Imput. IVA abre el grupo) -->
   <div class="card fc-card mb-2">
-    <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-list-check me-1"></i>Referencias (comprobantes a cancelar)</span>
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="rc-toggle" data-bs-toggle="collapse" data-bs-target="#bodyRet" aria-expanded="true" role="button"><i class="bi bi-chevron-down rc-chev me-2"></i><i class="bi bi-percent me-1"></i>Retenciones</span>
+      <span class="small text-muted">Total: <b class="rc-num text-body" id="retTotal">0.00</b></span>
+    </div>
+    <div class="collapse show" id="bodyRet"><div class="card-body">
+    <div class="d-flex gap-3 flex-wrap align-items-end">
+      <div style="width:135px"><label class="form-label mb-1">Imput. I.V.A.</label><input type="date" id="fixmov" class="form-control form-control-sm"></div>
+      <div class="rc-ret"><div class="rc-ret-lbl">I.I.B.B.</div><div class="d-flex gap-1">
+        <input type="number" step="0.01" class="form-control form-control-sm rc-num ret-imp" data-rt="1" placeholder="Importe" style="width:95px">
+        <input class="form-control form-control-sm ret-num" data-rt="1" placeholder="Nº" style="width:90px"></div></div>
+      <div class="rc-ret"><div class="rc-ret-lbl">Ganancias</div><div class="d-flex gap-1">
+        <input type="number" step="0.01" class="form-control form-control-sm rc-num ret-imp" data-rt="2" placeholder="Importe" style="width:95px">
+        <input class="form-control form-control-sm ret-gp" placeholder="Año" style="width:58px">
+        <input class="form-control form-control-sm ret-gn" placeholder="Nº" style="width:82px">
+        <select class="form-select form-select-sm ret-rg" style="width:135px"><option value="">Régimen…</option></select></div></div>
+      <div class="rc-ret"><div class="rc-ret-lbl">I.V.A.</div><div class="d-flex gap-1">
+        <input type="number" step="0.01" class="form-control form-control-sm rc-num ret-imp" data-rt="3" placeholder="Importe" style="width:95px">
+        <input class="form-control form-control-sm ret-num" data-rt="3" placeholder="Nº" style="width:90px"></div></div>
+      <div class="rc-ret"><div class="rc-ret-lbl">S.U.S.S.</div><div class="d-flex gap-1">
+        <input type="number" step="0.01" class="form-control form-control-sm rc-num ret-imp" data-rt="4" placeholder="Importe" style="width:95px">
+        <input class="form-control form-control-sm ret-num" data-rt="4" placeholder="Nº" style="width:90px"></div></div>
+    </div>
+  </div></div></div>
+
+  <div class="card fc-card mb-2">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="rc-toggle" data-bs-toggle="collapse" data-bs-target="#bodyRef" aria-expanded="true" role="button"><i class="bi bi-chevron-down rc-chev me-2"></i><i class="bi bi-list-check me-1"></i>Referencias (comprobantes a cancelar)</span>
       <button type="button" id="btnAddRef" class="btn btn-sm btn-outline-light" disabled><i class="bi bi-plus-lg me-1"></i>Agregar comprobante</button></div>
-    <div class="card-body p-0"><table class="table table-sm rc-grid mb-0">
+    <div class="collapse show" id="bodyRef"><div class="card-body p-0"><table class="table table-sm rc-grid mb-0">
       <thead><tr><th>Comprobante</th><th style="width:110px">Vencimiento</th><th class="rc-num" style="width:140px">Saldo</th><th class="rc-num" style="width:150px">A acreditar</th><th style="width:40px"></th></tr></thead>
       <tbody id="refBody"></tbody>
-      <tfoot><tr class="fw-bold"><td colspan="3" class="text-end">Total a cancelar:</td><td class="rc-num" id="refTotal">0,00</td><td></td></tr></tfoot>
-    </table></div>
+      <tfoot><tr class="fw-bold"><td colspan="3" class="text-end">Total a cancelar:</td><td class="rc-num" id="refTotal">0.00</td><td></td></tr></tfoot>
+    </table></div></div>
   </div>
 
-  <div class="row g-2">
-    <div class="col-lg-5"><div class="card fc-card mb-2 h-100">
-      <div class="card-header"><i class="bi bi-percent me-1"></i>Retenciones</div>
-      <div class="card-body p-0"><table class="table table-sm rc-grid mb-0">
-        <thead><tr><th>Tipo</th><th class="rc-num">Importe</th><th style="width:150px">Número</th></tr></thead>
-        <tbody>
-          <tr><td>I.I.B.B.</td><td><input class="form-control form-control-sm rc-num ret-imp" data-rt="1"></td><td><input class="form-control form-control-sm ret-num" data-rt="1" placeholder="Nº"></td></tr>
-          <tr><td>Ganancias</td><td><input class="form-control form-control-sm rc-num ret-imp" data-rt="2"></td><td class="d-flex gap-1"><input class="form-control form-control-sm ret-gp" placeholder="Año" style="width:55px"><input class="form-control form-control-sm ret-gn" placeholder="Nº"><input class="form-control form-control-sm ret-rg" placeholder="Rég" style="width:55px"></td></tr>
-          <tr><td>I.V.A.</td><td><input class="form-control form-control-sm rc-num ret-imp" data-rt="3"></td><td><input class="form-control form-control-sm ret-num" data-rt="3" placeholder="Nº"></td></tr>
-          <tr><td>S.U.S.S.</td><td><input class="form-control form-control-sm rc-num ret-imp" data-rt="4"></td><td><input class="form-control form-control-sm ret-num" data-rt="4" placeholder="Nº"></td></tr>
-        </tbody>
-        <tfoot><tr class="fw-bold"><td class="text-end">Total ret.:</td><td class="rc-num" id="retTotal">0,00</td><td></td></tr></tfoot>
-      </table></div>
-    </div></div>
-    <div class="col-lg-7" id="cardChq"><div class="card fc-card mb-2 h-100">
-      <div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-cash-coin me-1"></i>Cheques recibidos</span>
-        <button type="button" id="btnAddChq" class="btn btn-sm btn-outline-light"><i class="bi bi-plus-lg me-1"></i>Agregar cheque</button></div>
-      <div class="card-body p-0"><table class="table table-sm rc-grid mb-0">
-        <thead><tr><th style="width:150px">Banco</th><th style="width:100px">Serie-Nº</th><th style="width:95px">Emisión</th><th style="width:95px">Acred.</th><th>Librador</th><th class="rc-num" style="width:120px">Importe</th><th style="width:30px"></th></tr></thead>
-        <tbody id="chqBody"></tbody>
-        <tfoot><tr class="fw-bold"><td colspan="5" class="text-end">Total cheques:</td><td class="rc-num" id="chqTotal">0,00</td><td></td></tr></tfoot>
-      </table></div>
-    </div></div>
+  <div class="card fc-card mb-2" id="cardChq">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="rc-toggle" data-bs-toggle="collapse" data-bs-target="#bodyChq" aria-expanded="true" role="button"><i class="bi bi-chevron-down rc-chev me-2"></i><i class="bi bi-cash-coin me-1"></i>Cheques recibidos</span>
+      <button type="button" id="btnAddChq" class="btn btn-sm btn-outline-light"><i class="bi bi-plus-lg me-1"></i>Agregar cheque</button></div>
+    <div class="collapse show" id="bodyChq"><div class="card-body p-0"><table class="table table-sm rc-grid mb-0">
+      <thead><tr><th style="width:220px">Banco</th><th style="width:130px">Serie-Nº</th><th style="width:130px">Emisión</th><th style="width:130px">Acred.</th><th>Librador</th><th class="rc-num" style="width:150px">Importe</th><th style="width:40px"></th></tr></thead>
+      <tbody id="chqBody"></tbody>
+      <tfoot><tr class="fw-bold"><td colspan="5" class="text-end">Total cheques:</td><td class="rc-num" id="chqTotal">0.00</td><td></td></tr></tfoot>
+    </table></div></div>
   </div>
 
   <div class="card fc-card"><div class="card-body tot-bar">
-    <div class="t" id="boxEfe"><div class="lbl" id="lblEfe">Efectivo</div><div class="val" id="tEfectivo">0,00</div><input type="number" step="0.01" id="efectivo" class="form-control form-control-sm rc-num" value="0" style="display:none"></div>
-    <div class="t" id="boxChq"><div class="lbl">Cheques</div><div class="val" id="tCheques">0,00</div></div>
-    <div class="t"><div class="lbl">Retenciones</div><div class="val" id="tRet">0,00</div></div>
-    <div class="t" id="boxCobrar"><div class="lbl">A cobrar</div><div class="val" id="tCobrar">0,00</div></div>
-    <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Recibo</div><div class="val" id="tRecibo">0,00</div></div>
+    <div class="t" id="boxEfe"><div class="lbl" id="lblEfe">Efectivo</div><div class="val" id="tEfectivo">0.00</div><input type="number" step="0.01" id="efectivo" class="form-control form-control-sm rc-num" value="0" style="display:none"></div>
+    <div class="t" id="boxChq"><div class="lbl">Cheques</div><div class="val" id="tCheques">0.00</div></div>
+    <div class="t"><div class="lbl">Retenciones</div><div class="val" id="tRet">0.00</div></div>
+    <div class="t" id="boxCobrar"><div class="lbl">A cobrar</div><div class="val" id="tCobrar">0.00</div></div>
+    <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Recibo</div><div class="val" id="tRecibo">0.00</div></div>
   </div></div>
   <div class="text-danger small mt-2" id="rcErr"></div>
 </div>
@@ -142,5 +165,5 @@ module_head('Recibos — Cobranzas', 'bi-receipt', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/recibos.js?v=7"></script>
+<script src="assets/js/recibos.js?v=18"></script>
 '); ?>
