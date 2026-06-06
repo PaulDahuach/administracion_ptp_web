@@ -37,6 +37,8 @@ const FV = {
         var d = j.data; this.cli = d;
         this.el('codcue').value = codcue; this.el('cliQ').value = d.DENCUE;
         this.el('saldo').value = this.n(d.SALDO);
+        this.saldoAFavor = (parseFloat(d.SALDO) < 0) ? Math.round(-parseFloat(d.SALDO) * 100) / 100 : 0;   // crédito disponible
+        if (this.saldoAFavor > 0) this.toast('El cliente tiene saldo a favor $' + this.n(this.saldoAFavor) + ' — se aplicará a la factura.', 'info');
         this.el('letra').value = d.LETRA || 'A';
         this.el('cliInfo').textContent = [d.CITCUE, d.DENCRI, d.DOMICILIO, d.LOCALIDAD].filter(Boolean).join(' · ');
         if (d.CODCDV) this.el('codcdv').value = d.CODCDV;
@@ -100,6 +102,13 @@ const FV = {
         this.el('tNeto').textContent = this.n(neto);
         this.el('tIva').textContent = this.n(iva);
         this.el('tTotal').textContent = this.n(total);
+        // Saldo a favor del cliente: se aplica a esta factura → "A cobrar" = total − crédito aplicado.
+        var saf = this.saldoAFavor || 0;
+        if (saf > 0 && total > 0) {
+            var aplica = Math.min(saf, total);
+            this.el('boxSaf').style.display = ''; this.el('tSaf').textContent = this.n(aplica);
+            this.el('boxCobrar').style.display = ''; this.el('tCobrar').textContent = this.n(Math.round((total - aplica) * 100) / 100);
+        } else { this.el('boxSaf').style.display = 'none'; this.el('boxCobrar').style.display = 'none'; }
     },
 
     // ---- Cheques (contado) ----
