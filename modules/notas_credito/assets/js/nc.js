@@ -57,8 +57,14 @@ const NC = {
         if (this.esDevolucion()) { neto = Math.round((this.prods || []).reduce(function (s, p) { return s + (p.devolver || 0) * (p.pun || 0); }, 0) * 100) / 100; this.el('netmov').value = neto; }
         else neto = Math.round((parseFloat(this.el('netmov').value) || 0) * 100) / 100;
         var iva = this.concepto().IVA ? Math.round(neto * 21) / 100 : 0;
-        var total = Math.round((neto + iva) * 100) / 100;
-        this.totales = { neto: neto, iva: iva, total: total };
+        // Percepción IIBB (replica del legacy): activa según el cliente + switch PIXCDC; neto > MNPPIX → neto×alícuota.
+        var perc = (this.cli && this.cli.PERCEP) ? this.cli.PERCEP : null;
+        var pix = (perc && perc.activa && neto > perc.mnppix) ? Math.round(neto * perc.alipix) / 100 : 0;
+        var total = Math.round((neto + iva + pix) * 100) / 100;
+        this.totales = { neto: neto, iva: iva, pix: pix, total: total };
+        this.el('boxPix').style.display = (perc && perc.activa) ? '' : 'none';
+        this.el('tPix').textContent = this.n(pix);
+        this.el('lblPix').textContent = (perc && perc.activa) ? (perc.alipix + '%') : '';
         this.el('tNeto').textContent = this.n(neto);
         this.el('tIva').textContent = this.n(iva);
         this.el('tTotal').textContent = this.n(total);

@@ -8,6 +8,7 @@
  */
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/helpers.php';
+require_once __DIR__ . '/../../includes/percep.php';
 if (!defined('FV_LIB')) {
     require_once __DIR__ . '/../../includes/auth.php';
     auth_require_login();
@@ -239,8 +240,11 @@ function fv_insert($d, $estTrue, $afip) {
 
     $netmov = round((float) nz($d['netmov'], 0), 2);
     $irimov = round((float) nz($d['irimov'], 0), 2);
-    $pixmov = round((float) nz($d['pixmov'], 0), 2);
-    $total  = round((float) nz($d['totmov'], 0), 2);
+    // Percepción IIBB server-side (replica del legacy; usa el padrón ARBA cuando el switch PIXCDC la habilita).
+    $cliP = db_row("SELECT SPICUE, CITCUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=$codcue;");
+    $perc = percep_calc($netmov, nz($d['citmov'], $cliP ? $cliP['CITCUE'] : ''), (int) nz($d['codcri'], 0), $cliP ? $cliP['SPICUE'] : false, $estTrue);
+    $pixmov = $perc['pixmov'];
+    $total  = round($netmov + $irimov + $pixmov, 2);
     $impcaj = round((float) nz(isset($d['impcaj']) ? $d['impcaj'] : 0, 0), 2);
     $soc    = round((float) nz($d['soc'], 0), 2);
     $prods  = isset($d['productos']) && is_array($d['productos']) ? $d['productos'] : array();
@@ -287,9 +291,9 @@ function fv_insert($d, $estTrue, $afip) {
     $idgmov = round((float) nz(isset($d['idgmov']) ? $d['idgmov'] : 0, 0), 2);
     $abimov = round((float) nz(isset($d['abimov']) ? $d['abimov'] : 0, 0), 2);
     $ardmov = round((float) nz(isset($d['ardmov']) ? $d['ardmov'] : 0, 0), 2);
-    $spimov = (isset($d['spimov']) && $d['spimov']) ? 'True' : 'False';
-    $apimov = round((float) nz(isset($d['apimov']) ? $d['apimov'] : 0, 0), 2);
-    $mpimov = round((float) nz(isset($d['mpimov']) ? $d['mpimov'] : 0, 0), 2);
+    $spimov = $perc['spimov'] ? 'True' : 'False';                    // de la percep computada server-side
+    $apimov = round((float) $perc['alipix'], 2);
+    $mpimov = round((float) $perc['mnppix'], 2);
     $fdpRow = db_row("SELECT CHQFDP FROM [Tbl Formas de Pago] WHERE CODFDP=$codfdp;");
     $chqFdp = $fdpRow ? ($fdpRow['CHQFDP'] === true || $fdpRow['CHQFDP'] == -1) : false;
     $cremov = ($codfdp != 2 && !$chqFdp) ? (string) $impcaj : 'Null';   // cta cte/efectivo guardan IMPCAJ (0 en cta cte)
@@ -404,8 +408,11 @@ function fv_afip_request($d) {
     if (!$cbteTipo) throw new Exception('Clase de comprobante inválida: ' . $letra);
     $neto = round((float) nz($d['netmov'], 0), 2);
     $iva  = round((float) nz($d['irimov'], 0), 2);
-    $pix  = round((float) nz($d['pixmov'], 0), 2);
-    $total = round((float) nz($d['totmov'], 0), 2);
+    // Percepción IIBB server-side (blanco) → el ImpTotal del CAE coincide con la grabación.
+    $cliP = db_row("SELECT SPICUE, CITCUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=" . (int) $d['codcue'] . ";");
+    $perc = percep_calc($neto, nz($d['citmov'], $cliP ? $cliP['CITCUE'] : ''), (int) nz($d['codcri'], 0), $cliP ? $cliP['SPICUE'] : false, true);
+    $pix  = $perc['pixmov'];
+    $total = round($neto + $iva + $pix, 2);
     $coddoc = (int) nz(isset($d['coddoc']) ? $d['coddoc'] : 80, 80);
     $docnro = preg_replace('/[^0-9]/', '', (string) nz($d['citmov'], ''));
     if ($docnro === '') { $docnro = '0'; $coddoc = 99; }   // sin CUIT → consumidor final
@@ -426,7 +433,7 @@ function fv_afip_request($d) {
         'cond_iva_receptor' => (int) nz(isset($d['cond_iva']) ? $d['cond_iva'] : ((int) nz($d['codcri'], 0) == 1 ? 1 : 5), 1),
         '_coddoc' => $coddoc,
     );
-    if ($pix > 0) $req['trib_array'] = array(array('Id' => 7, 'Desc' => 'Percepcion IIBB', 'BaseImp' => $neto, 'Alic' => 0, 'Importe' => $pix));
+    if ($pix > 0) $req['trib_array'] = array(array('Id' => 7, 'Desc' => 'Percepcion IIBB', 'BaseImp' => $neto, 'Alic' => round($perc['alipix'], 2), 'Importe' => $pix));
     return $req;
 }
 

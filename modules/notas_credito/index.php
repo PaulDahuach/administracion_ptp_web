@@ -84,6 +84,7 @@ module_head('Notas de Crédito — Deudores', 'bi-file-earmark-minus', $toolbar)
   <div class="card fc-card"><div class="card-body tot-bar">
     <div class="t"><div class="lbl">Neto</div><div class="val" id="tNeto">0.00</div></div>
     <div class="t" id="boxIva"><div class="lbl">I.V.A. <span id="lblAli">21%</span></div><div class="val" id="tIva">0.00</div></div>
+    <div class="t" id="boxPix" style="display:none"><div class="lbl">Percep. IIBB <span id="lblPix"></span></div><div class="val" id="tPix">0.00</div></div>
     <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Total Crédito</div><div class="val" id="tTotal">0.00</div></div>
   </div></div>
   <div class="text-danger small mt-2" id="ncErr"></div>
@@ -102,5 +103,5 @@ module_head('Notas de Crédito — Deudores', 'bi-file-earmark-minus', $toolbar)
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/nc.js?v=2"></script>
+<script src="assets/js/nc.js?v=3"></script>
 '); ?>

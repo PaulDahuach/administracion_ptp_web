@@ -11,6 +11,7 @@
  */
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/helpers.php';
+require_once __DIR__ . '/../../includes/percep.php';
 
 if (!defined('NC_LIB')) {
     require_once __DIR__ . '/../../includes/auth.php';
@@ -65,6 +66,9 @@ function get_cliente() {
     $c['SALDO'] = round((float) nz($c['SOPCUE'], 0), 2);
     $c['DOMICILIO'] = trim(nz($c['DCXCUE'], '') . ' ' . nz($c['DNXCUE'], ''));
     $c['LOCALIDAD'] = trim(nz($c['DENLOC'], '') . (nz($c['DENPRO'], '') ? ' - ' . nz($c['DENPRO'], '') : ''));
+    // Percepción IIBB: estado para que el form la compute reactivamente (hoy PIXCDC=True → inactiva).
+    $perc = nc_percep_calc(999999999, $c['CITCUE'], $c['CODCRI'], $c['SPICUE'], true);
+    $c['PERCEP'] = array('activa' => $perc['spimov'], 'alipix' => $perc['alipix'], 'mnppix' => $perc['mnppix']);
     ok($c);
 }
 
@@ -93,6 +97,10 @@ function pendientes() {
 
 /** Filtro de visibilidad por libro (doble libro). */
 function nc_estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND M.ESTMOV=True'; if ($l === 'negro') return ' AND M.ESTMOV=False'; return ''; }
+
+// Percepción IIBB: lógica compartida en includes/percep.php (percep_calc / padron_percep_alicuota).
+function nc_padron_percep($cuit) { return padron_percep_alicuota($cuit); }
+function nc_percep_calc($net, $cuit, $codcri, $spicue, $estTrue) { return percep_calc($net, $cuit, $codcri, $spicue, $estTrue); }
 
 /** Productos de una FV (Tbl Movimientos Stock) para devolver en una NC DEVOLUCION, con la cuenta de ventas. */
 function productos_fv() {
@@ -143,7 +151,7 @@ function nc_insert($d, $estTrue, $afip) {
     $caccN = trim((string) $rc['CACC_N']); $caccZ = trim((string) $rc['CACC_Z']);
 
     $codcue = (int) $d['codcue'];
-    $cli = db_row("SELECT DENCUE, SOPCUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=$codcue AND CODORI='D';");
+    $cli = db_row("SELECT DENCUE, SOPCUE, SPICUE, CITCUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=$codcue AND CODORI='D';");
     if (!$cli) throw new Exception('Cliente inexistente');
 
     $fex = nc_iso($d['fexmov']);
@@ -163,11 +171,14 @@ function nc_insert($d, $estTrue, $afip) {
 
     $netmov = round((float) nz($d['netmov'], 0), 2);                  // neto gravado (si IVAAUX) o no gravado
     $irimov = $tieneIva ? round((float) nz($d['irimov'], 0), 2) : 0;  // IVA débito
-    $pixmov = round((float) nz($d['pixmov'], 0), 2);                  // percep IIBB
-    $total  = round((float) nz($d['totmov'], 0), 2);
+    // Percepción IIBB: se computa SERVER-SIDE replicando el legacy (gateada por PIXCDC/CF/negro/MNPPIX + padrón).
+    $perc   = nc_percep_calc($netmov, nz($d['citmov'], $cli['CITCUE']), (int) nz($d['codcri'], 0), $cli['SPICUE'], $estTrue);
+    $pixmov = $perc['pixmov'];
+    $spimov = $perc['spimov'] ? 'True' : 'False';
+    $apimov = $perc['alipix'];                                        // APIMOV = alícuota percep usada
+    $mpimov = $perc['mnppix'];                                        // MPIMOV = mínimo no percep
+    $total  = round($netmov + $irimov + $pixmov, 2);                  // total = neto + IVA + percep
     $soc    = round((float) nz($d['soc'], 0), 2);
-    $spimov = (isset($d['spimov']) && ($d['spimov'] === true || $d['spimov'] == 1)) ? 'True' : 'False';
-    $mpimov = round((float) nz(isset($d['mpimov']) ? $d['mpimov'] : 0, 0), 2);
     $refs   = isset($d['refs']) && is_array($d['refs']) ? $d['refs'] : array();
     // DEVOLUCION (codaux 462): la NC tiene productos devueltos → reingreso de stock / anulación de servicio.
     $productos = isset($d['productos']) && is_array($d['productos']) ? $d['productos'] : array();
@@ -195,10 +206,10 @@ function nc_insert($d, $estTrue, $afip) {
 
     db_exec("INSERT INTO [Tbl Movimientos]
         (NUMMOV, CODORI, FEXMOV, FIXMOV, CODOPE, CODAUX, CICMOV, CIIMOV, CIPMOV, CINMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV,
-         CODCUE, SOCMOV, DENMOV, DCXMOV, DNXMOV, CODLOC, CODCRI, CITMOV, CODCDV, DETMOV, COTMOV, NETMOV, IRIMOV, SPIMOV, MPIMOV, PIXMOV,
+         CODCUE, SOCMOV, DENMOV, DCXMOV, DNXMOV, CODLOC, CODCRI, CITMOV, CODCDV, DETMOV, COTMOV, NETMOV, IRIMOV, SPIMOV, APIMOV, MPIMOV, PIXMOV,
          CREMOV, TOTMOV, SDOMOV, CODDOC, CAEMOV, FVCMOV, ESTMOV, NUIMOV, NMIMOV, NOWMOV)
         VALUES ($nummov, 'D', $fex, $fex, 460, $codaux, 'NC', '$ciimov', $cipSql, $cinmov, 'NC', '$ciimov', $cipSql, $cinmov, $fex,
-         $codcue, " . nc_num($soc) . ", $denSql, $dcx, $dnx, $codloc, $codcri, $citSql, $codcdv, $detSql, $cotmov, " . nc_num($netmov) . ", " . nc_num($irimov) . ", $spimov, " . nc_num($mpimov) . ", " . nc_num($pixmov) . ",
+         $codcue, " . nc_num($soc) . ", $denSql, $dcx, $dnx, $codloc, $codcri, $citSql, $codcdv, $detSql, $cotmov, " . nc_num($netmov) . ", " . nc_num($irimov) . ", $spimov, " . ($apimov > 0 ? (string) $apimov : 'Null') . ", " . nc_num($mpimov) . ", " . nc_num($pixmov) . ",
          " . nc_num($total) . ", " . nc_num($total) . ", " . nc_num($sdomov) . ", $coddoc, $caeSql, $fvcSql, $estSql, 0, 0, Now());");
 
     // ── IVA (si el concepto lleva IVA) ──
@@ -291,8 +302,11 @@ function nc_afip_request($d) {
 
     $neto = round((float) nz($d['netmov'], 0), 2);
     $iva  = $tieneIva ? round((float) nz($d['irimov'], 0), 2) : 0;
-    $pix  = round((float) nz($d['pixmov'], 0), 2);
-    $total = round((float) nz($d['totmov'], 0), 2);
+    // Percepción IIBB: se computa acá también (server-side, blanco) para que el ImpTotal del CAE coincida con la grabación.
+    $cliP = db_row("SELECT SPICUE, CITCUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=" . (int) $d['codcue'] . ";");
+    $perc = percep_calc($neto, nz($d['citmov'], $cliP ? $cliP['CITCUE'] : ''), (int) nz($d['codcri'], 0), $cliP ? $cliP['SPICUE'] : false, true);
+    $pix  = $perc['pixmov'];
+    $total = round($neto + $iva + $pix, 2);
     $coddoc = (int) nz(isset($d['coddoc']) ? $d['coddoc'] : 80, 80);
     $docnro = preg_replace('/[^0-9]/', '', (string) nz($d['citmov'], ''));
     if ($docnro === '') { $docnro = '0'; $coddoc = 99; }
@@ -322,7 +336,7 @@ function nc_afip_request($d) {
     } else {
         $req['imp_neto'] = 0; $req['imp_iva'] = 0; $req['imp_tot_conc'] = $neto;   // NO GRAVADO → conceptos no gravados
     }
-    if ($pix > 0) $req['trib_array'] = array(array('Id' => 7, 'Desc' => 'Percepcion IIBB', 'BaseImp' => $neto, 'Alic' => 0, 'Importe' => $pix));
+    if ($pix > 0) $req['trib_array'] = array(array('Id' => 7, 'Desc' => 'Percepcion IIBB', 'BaseImp' => $neto, 'Alic' => round($perc['alipix'], 2), 'Importe' => $pix));
     if (count($cbtesAsoc)) $req['cbtes_asoc'] = $cbtesAsoc;
     return $req;
 }
