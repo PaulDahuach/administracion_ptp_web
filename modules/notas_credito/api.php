@@ -141,6 +141,9 @@ function nc_insert($d, $estTrue, $afip) {
     $spimov = (isset($d['spimov']) && ($d['spimov'] === true || $d['spimov'] == 1)) ? 'True' : 'False';
     $mpimov = round((float) nz(isset($d['mpimov']) ? $d['mpimov'] : 0, 0), 2);
     $refs   = isset($d['refs']) && is_array($d['refs']) ? $d['refs'] : array();
+    // DEVOLUCION (codaux 462): la NC tiene productos devueltos → reingreso de stock / anulación de servicio.
+    $productos = isset($d['productos']) && is_array($d['productos']) ? $d['productos'] : array();
+    $esDevolucion = ($codaux == 462 && count($productos) > 0);
 
     // Numeración: NUMMOV interno; CINMOV = nº de AFIP (electrónico) o contador local (negro).
     $nummov = next_number('ULTMOV');
@@ -177,11 +180,43 @@ function nc_insert($d, $estTrue, $afip) {
             VALUES ($nummov, $ali, " . nc_num($netmov) . ", " . nc_num($irimov) . ", False);");
     }
 
-    // ── Asiento (inverso de la FV): DEBE concepto + IVA débito + percep / HABER deudores ──
+    // ── Stock (DEVOLUCION): reingreso de stock físico (INGMOV + CMDMOV en la FV) o anulación de servicio (SVCMOV=-qty) ──
+    if ($esDevolucion) {
+        $ordS = 0;
+        foreach ($productos as $p) {
+            $ordS++;
+            $qty = round((float) nz($p['qty'], 0), 2);
+            if ($qty == 0) continue;
+            $reingresa = isset($p['reingresa']) && ($p['reingresa'] === true || $p['reingresa'] == 1);   // físico → INGMOV; servicio → SVCMOV
+            $ingSql = $reingresa ? nc_num($qty) : 'Null';
+            $svcSql = $reingresa ? 'Null' : nc_num(-$qty);
+            $stkmov = (isset($p['stkmov']) && ($p['stkmov'] === true || $p['stkmov'] == 1)) ? 'True' : 'False';
+            $decmov = (isset($p['decmov']) && ($p['decmov'] === true || $p['decmov'] == 1)) ? 'True' : 'False';
+            $nmd = (isset($p['nmdmov']) && (int) $p['nmdmov'] > 0) ? (int) $p['nmdmov'] : null;
+            $omd = (isset($p['omdmov']) && (int) $p['omdmov'] > 0) ? (int) $p['omdmov'] : null;
+            db_exec("INSERT INTO [Tbl Movimientos Stock]
+                (NUMMOV, ORDMOV, CODPRO, DENMOV, CODSUC, CODMON, CODUDM, FCTMOV, DUMMOV, DECMOV, PUNMOV, PUCMOV, COSMOV, NMDMOV, OMDMOV, CMDMOV, INGMOV, SVCMOV, STKMOV)
+                VALUES ($nummov, $ordS, '" . db_esc(trim((string) $p['codpro'])) . "', " . nc_txt(nz($p['denmov'], '')) . ", " . (int) nz(isset($p['codsuc']) ? $p['codsuc'] : 1, 1) . ", " . nc_txt(nz(isset($p['codmon']) ? $p['codmon'] : 'P', 'P')) . ", " . (int) nz(isset($p['codudm']) ? $p['codudm'] : 1, 1) . ", " . round((float) nz(isset($p['fctmov']) ? $p['fctmov'] : 1, 1), 4) . ", " . (int) nz(isset($p['dummov']) ? $p['dummov'] : 0, 0) . ", $decmov, " . round((float) nz($p['punmov'], 0), 4) . ", " . round((float) nz(isset($p['pucmov']) ? $p['pucmov'] : 0, 0), 4) . ", " . round((float) nz(isset($p['cosmov']) ? $p['cosmov'] : 0, 0), 4) . ", " . ($nmd === null ? 'Null' : $nmd) . ", " . ($omd === null ? 'Null' : $omd) . ", " . nc_num($qty) . ", $ingSql, $svcSql, $stkmov);");
+            // Stock físico: acumular lo devuelto en la línea de la FV original (CMDMOV += qty)
+            if ($reingresa && $nmd !== null && $omd !== null) {
+                $fvs = db_row("SELECT CMDMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$nmd AND ORDMOV=$omd;");
+                db_exec("UPDATE [Tbl Movimientos Stock] SET CMDMOV = " . round((float) nz($fvs ? $fvs['CMDMOV'] : 0, 0) + $qty, 2) . " WHERE NUMMOV=$nmd AND ORDMOV=$omd;");
+            }
+        }
+    }
+
+    // ── Asiento (inverso de la FV): DEBE [concepto | por cuenta de producto] + IVA débito + percep / HABER deudores ──
     $ord = 0; $totDeb = 0; $totCre = 0;
-    nc_imp($ord, $totDeb, $totCre, $nummov, $ctaConcepto, $netmov, 0);
+    if ($esDevolucion) {
+        // DEVOLUCION: DEBE por la cuenta de ventas de cada producto (CICTMP = rubro), agrupado.
+        $byCic = array();
+        foreach ($productos as $p) { $cic = trim((string) nz($p['cic'], '')); if ($cic === '') continue; $byCic[$cic] = (isset($byCic[$cic]) ? $byCic[$cic] : 0) + round((float) nz($p['ndb'], 0), 2); }
+        foreach ($byCic as $cic => $net) nc_imp($ord, $totDeb, $totCre, $nummov, $cic, round($net, 2), 0);
+    } else {
+        nc_imp($ord, $totDeb, $totCre, $nummov, $ctaConcepto, $netmov, 0);
+    }
     if ($tieneIva && $irimov != 0) nc_imp($ord, $totDeb, $totCre, $nummov, $caccC, $irimov, 0);
-    if ($spimov === 'True') nc_imp($ord, $totDeb, $totCre, $nummov, $caccN, $pixmov, 0, true);   // percep IIBB (guarda el 0 explícito, como el legacy)
+    nc_imp($ord, $totDeb, $totCre, $nummov, $caccN, $pixmov, 0, true);   // percep IIBB — fila casi siempre presente (guarda el 0 explícito, como el legacy)
     nc_imp($ord, $totDeb, $totCre, $nummov, $caccA, 0, $total);
     $dif = round($totDeb - $totCre, 2);
     if (abs($dif) >= 0.005) { if ($dif > 0) nc_imp($ord, $totDeb, $totCre, $nummov, $caccZ, 0, $dif); else nc_imp($ord, $totDeb, $totCre, $nummov, $caccZ, -$dif, 0); }
