@@ -1,0 +1,141 @@
+/* Facturas de Venta — emisión con CAE de AFIP. Cliente → remitos pendientes → productos → totales → emitir.
+   Factura A: el precio del producto es NETO; IVA se suma. Importes punto-decimal (en-US). */
+const FV = {
+    cli: null, lineas: [], seq: 0, emitida: false,
+
+    el(id) { return document.getElementById(id); },
+    esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; },
+    n(v) { var x = parseFloat(v); return isNaN(x) ? '0.00' : x.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
+    async api(action, params, opts) {
+        var url = new URL('api.php', location.href); url.searchParams.set('action', action);
+        for (var k in (params || {})) url.searchParams.set(k, params[k]);
+        return await (await fetch(url, opts || {})).json();
+    },
+
+    async init() {
+        this.el('fexmov').value = new Date().toISOString().slice(0, 10);
+        var cd = await this.api('condiciones'); if (cd.ok) this.el('codcdv').innerHTML = cd.data.map(function (o) { return '<option value="' + o.CODCDV + '">' + FV.esc(o.DENCDV) + '</option>'; }).join('');
+        var fp = await this.api('formas_pago'); if (fp.ok) this.el('codfdp').innerHTML = fp.data.map(function (o) { return '<option value="' + o.CODFDP + '">' + FV.esc(o.DENFDP) + '</option>'; }).join('');
+        this.autocomplete(this.el('cliQ'), this.el('cliList'), 'buscar_clientes', function (o) { return o.CODCUE + ' · ' + o.DENCUE + (o.CITCUE ? ' · ' + o.CITCUE : ''); }, function (o) { FV.pickCliente(o.CODCUE); });
+        this.el('btnAddRem').addEventListener('click', function () { FV.abrirRemitos(); });
+        this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
+        this.el('btnEmitir').addEventListener('click', function () { FV.emitir(); });
+        this.el('pdcmov').addEventListener('input', function () { FV.recalc(); });
+    },
+
+    async pickCliente(codcue) {
+        var j = await this.api('get_cliente', { codcue: codcue });
+        if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        var d = j.data; this.cli = d;
+        this.el('codcue').value = codcue; this.el('cliQ').value = d.DENCUE;
+        this.el('saldo').value = this.n(d.SALDO);
+        this.el('letra').value = d.LETRA || 'A';
+        this.el('cliInfo').textContent = [d.CITCUE, d.DENCRI, d.DOMICILIO, d.LOCALIDAD].filter(Boolean).join(' · ');
+        if (d.CODCDV) this.el('codcdv').value = d.CODCDV;
+        this.el('btnAddRem').disabled = false;
+        this.lineas = []; this.el('prodBody').innerHTML = ''; this.recalc();
+    },
+
+    // ---- Remitos pendientes ----
+    async abrirRemitos() {
+        var j = await this.api('remitos_pendientes', { codcue: this.el('codcue').value });
+        if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        var used = {}; this.lineas.forEach(function (l) { used[l.mrvmov + '-' + l.orvmov] = 1; });
+        var rems = j.data.filter(function (r) { return r.lineas.some(function (l) { return !used[l.mrvmov + '-' + l.orvmov]; }); });
+        if (!rems.length) { this.el('remList').innerHTML = ''; this.el('remVacio').style.display = ''; }
+        else {
+            this.el('remVacio').style.display = 'none';
+            this.el('remList').innerHTML = rems.map(function (r) {
+                var ln = r.lineas.filter(function (l) { return !used[l.mrvmov + '-' + l.orvmov]; });
+                return '<div class="card mb-2"><div class="card-header py-1 d-flex justify-content-between align-items-center"><span><b>' + FV.esc(r.COMP) + '</b> · ' + FV.esc(r.FEXMOV) + '</span>' +
+                    '<button class="btn btn-sm btn-success rem-add" data-num="' + r.NUMMOV + '">Agregar todo</button></div>' +
+                    '<table class="table table-sm mb-0"><tbody>' + ln.map(function (l, k) {
+                        return '<tr><td style="width:90px" class="fv-num">' + FV.n(l.cant) + '</td><td>' + FV.esc(l.codpro) + '</td><td>' + FV.esc(l.denmov) + '</td><td class="fv-num" style="width:120px">' + FV.n(l.pun) + '</td><td class="fv-num" style="width:130px">' + FV.n(l.total) + '</td>' +
+                            '<td style="width:80px"><button class="btn btn-sm btn-outline-primary rem-line" data-num="' + r.NUMMOV + '" data-k="' + k + '">+</button></td></tr>';
+                    }).join('') + '</tbody></table></div>';
+            }).join('');
+            // wire (guardo las líneas por remito para el handler)
+            this._remData = {}; rems.forEach(function (r) { FV._remData[r.NUMMOV] = r.lineas.filter(function (l) { return !used[l.mrvmov + '-' + l.orvmov]; }); });
+            Array.prototype.forEach.call(this.el('remList').querySelectorAll('.rem-add'), function (b) { b.addEventListener('click', function () { (FV._remData[this.getAttribute('data-num')] || []).forEach(function (l) { FV.addLinea(l); }); bootstrap.Modal.getInstance(FV.el('modalRem')).hide(); }); });
+            Array.prototype.forEach.call(this.el('remList').querySelectorAll('.rem-line'), function (b) { b.addEventListener('click', function () { var l = (FV._remData[this.getAttribute('data-num')] || [])[+this.getAttribute('data-k')]; if (l) { FV.addLinea(l); this.closest('tr').remove(); } }); });
+        }
+        bootstrap.Modal.getOrCreateInstance(this.el('modalRem')).show();
+    },
+
+    addLinea(l) {
+        var rec = JSON.parse(JSON.stringify(l)); rec._id = ++this.seq;
+        this.lineas.push(rec);
+        var ptp = rec.pdlmov ? String(rec.pdlmov) : '';
+        var remN = String(rec.mrvmov);
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td class="fv-num">' + this.n(rec.cant) + '</td><td>' + this.esc(remN) + '</td><td>' + this.esc(ptp) + '</td><td>' + this.esc(rec.codpro) + '</td><td>' + this.esc(rec.denmov) + '</td>' +
+            '<td><input type="number" step="0.0001" class="form-control form-control-sm fv-num l-pun" value="' + rec.pun + '"></td>' +
+            '<td class="fv-num l-tot">' + this.n(rec.total) + '</td>' +
+            '<td><button type="button" class="btn btn-sm btn-outline-danger l-del"><i class="bi bi-x"></i></button></td>';
+        this.el('prodBody').appendChild(tr);
+        tr.querySelector('.l-pun').addEventListener('input', function () { rec.pun = parseFloat(this.value) || 0; rec.total = Math.round(rec.cant * rec.pun * 100) / 100; tr.querySelector('.l-tot').textContent = FV.n(rec.total); FV.recalc(); });
+        tr.querySelector('.l-del').addEventListener('click', function () { tr.remove(); FV.lineas = FV.lineas.filter(function (x) { return x !== rec; }); FV.recalc(); });
+        this.recalc();
+    },
+
+    recalc() {
+        // Factura A: el precio es neto; IVA se suma. (MVP: agrupa por alícuota.)
+        var sub = 0, buckets = {};
+        this.lineas.forEach(function (l) { var t = Math.round(l.cant * l.pun * 100) / 100; sub += t; var a = l.ali || 21; buckets[a] = (buckets[a] || 0) + t; });
+        sub = Math.round(sub * 100) / 100;
+        var neto = sub, iva = 0;
+        for (var a in buckets) iva += Math.round(buckets[a] * a) / 100;
+        iva = Math.round(iva * 100) / 100;
+        var total = Math.round((neto + iva) * 100) / 100;
+        this.totales = { neto: neto, iva: iva, total: total, buckets: buckets };
+        this.el('subTotal').textContent = this.n(sub);
+        this.el('tNeto').textContent = this.n(neto);
+        this.el('tIva').textContent = this.n(iva);
+        this.el('tTotal').textContent = this.n(total);
+    },
+
+    async emitir() {
+        this.el('fvErr').textContent = '';
+        if (this.emitida) { this.toast('La factura ya fue emitida.', 'info'); return; }
+        if (!this.el('codcue').value) { this.el('fvErr').textContent = 'Elegí un cliente.'; return; }
+        if (!this.lineas.length) { this.el('fvErr').textContent = 'Agregá al menos un producto (de un remito).'; return; }
+        if (this.totales.total <= 0) { this.el('fvErr').textContent = 'La factura no tiene importe.'; return; }
+        var c = this.cli, t = this.totales;
+        var ivaArr = []; for (var a in t.buckets) { var net = Math.round(t.buckets[a] * 100) / 100; ivaArr.push({ ali: parseFloat(a), net: net, iri: Math.round(net * a) / 100, dec: parseFloat(a) == 21 ? 1 : 0 }); }
+        var data = {
+            codcue: this.el('codcue').value, fexmov: this.el('fexmov').value, ciimov: this.el('letra').value,
+            codcdv: this.el('codcdv').value, codfdp: this.el('codfdp').value, pdcmov: parseFloat(this.el('pdcmov').value) || 0,
+            detmov: this.el('detmov').value, cotmov: 1, coddst: 1, codven: c.CODVEN || '', codcri: c.CODCRI, cond_iva: c.COND_IVA,
+            citmov: c.CITCUE, dcxmov: c.DCXCUE, dnxmov: c.DNXCUE, dpxmov: c.DPXCUE, ddxmov: c.DDXCUE, codloc: c.CODLOC,
+            spimov: 1, apimov: 0, mpimov: 0, pixmov: 0, soc: c.SALDO,
+            netmov: t.neto, irimov: t.iva, totmov: t.total, impcaj: 0,
+            iva: ivaArr,
+            productos: this.lineas.map(function (l) { return { mrvmov: l.mrvmov, orvmov: l.orvmov, odcmov: l.odcmov, pdlmov: l.pdlmov, odpmov: l.odpmov, codpro: l.codpro, denmov: l.denmov, codudm: l.codudm, fctmov: l.fctmov, dummov: l.dummov, codmon: l.codmon, decmov: l.decmov, pulmov: l.pul, punmov: l.pun, pucmov: l.puc, cosmov: l.cos, egr: l.cant, stk: l.stk, cic: l.cic, ndb: Math.round(l.cant * l.pun * 100) / 100 }; }),
+            vencimientos: []
+        };
+        this.el('btnEmitir').disabled = true; this.el('btnEmitir').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Autorizando en AFIP…';
+        var fd = new FormData(); fd.append('action', 'guardar'); fd.append('data', JSON.stringify(data));
+        var j = await this.api('guardar', {}, { method: 'POST', body: fd });
+        this.el('btnEmitir').innerHTML = '<i class="bi bi-cloud-arrow-up me-1"></i>Emitir factura (AFIP)';
+        if (!j.ok) { this.el('btnEmitir').disabled = false; this.el('fvErr').textContent = j.error; return; }
+        this.emitida = true;
+        this.el('nummov').value = String(j.data.nummov).padStart(8, '0');
+        this.el('cinmov').value = String(j.data.cinmov).padStart(8, '0');
+        this.el('caeDisp').textContent = j.data.cae; this.el('caeVto').textContent = j.data.cae_vto;
+        this.el('caeWrap').style.display = '';
+        Array.prototype.forEach.call(document.querySelectorAll('#fvForm input, #fvForm select, .l-pun, .l-del, #btnAddRem'), function (el) { el.disabled = true; });
+        this.el('btnImprimirHdr').style.display = ''; this.el('btnImprimirHdr').onclick = function () { window.open('imprimir.php?nummov=' + j.data.nummov, '_blank'); };
+        this.toast('Factura ' + this.el('letra').value + ' ' + String(j.data.cinmov).padStart(8, '0') + ' autorizada · CAE ' + j.data.cae, 'success');
+    },
+
+    autocomplete(input, list, action, label, onPick) {
+        var hi = -1, items = [], t = null;
+        function render() { list.innerHTML = items.map(function (o, k) { return '<div class="ac-opt' + (k === hi ? ' active' : '') + '" data-k="' + k + '">' + FV.esc(label(o)) + '</div>'; }).join(''); list.classList.toggle('show', items.length > 0); }
+        input.addEventListener('input', function () { clearTimeout(t); var q = input.value.trim(); if (q.length < 1) { items = []; render(); return; } t = setTimeout(async function () { var j = await FV.api(action, { q: q }); items = j.ok ? j.data : []; hi = items.length ? 0 : -1; render(); }, 180); });
+        input.addEventListener('keydown', function (e) { if (!list.classList.contains('show')) return; if (e.key === 'ArrowDown') { e.preventDefault(); hi = Math.min(hi + 1, items.length - 1); render(); } else if (e.key === 'ArrowUp') { e.preventDefault(); hi = Math.max(hi - 1, 0); render(); } else if (e.key === 'Enter') { if (hi >= 0) { e.preventDefault(); onPick(items[hi]); list.classList.remove('show'); } } else if (e.key === 'Escape') list.classList.remove('show'); });
+        list.addEventListener('mousedown', function (e) { var o = e.target.closest('.ac-opt'); if (o) { e.preventDefault(); onPick(items[+o.dataset.k]); list.classList.remove('show'); } });
+        input.addEventListener('blur', function () { setTimeout(function () { list.classList.remove('show'); }, 150); });
+    },
+    toast(msg, type) { var t = this.el('toastMsg'); this.el('toastBody').textContent = msg; t.className = 'toast align-items-center border-0 text-bg-' + (type || 'info'); bootstrap.Toast.getOrCreateInstance(t, { delay: 7000 }).show(); }
+};
+document.addEventListener('DOMContentLoaded', function () { FV.init(); });

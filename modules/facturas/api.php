@@ -15,10 +15,78 @@ if (!defined('FV_LIB')) {
     $action = isset($_GET['action']) ? $_GET['action'] : (isset($_POST['action']) ? $_POST['action'] : '');
     if (function_exists('track_hit')) {}
     switch ($action) {
-        case 'guardar': guardar(); break;
+        case 'buscar_clientes':    buscar_clientes(); break;
+        case 'get_cliente':        get_cliente(); break;
+        case 'remitos_pendientes': remitos_pendientes(); break;
+        case 'pdvs':               listar_pdvs(); break;
+        case 'condiciones':        listar_condiciones(); break;
+        case 'formas_pago':        listar_formas_pago(); break;
+        case 'guardar':            guardar(); break;
         default: fail('Acción inválida: ' . $action);
     }
 }
+
+// ───────────────────────── Lookups ─────────────────────────
+function fac_serial_iso($s) { if ($s === null || $s === '') return ''; return (new DateTime('1899-12-30'))->modify('+' . (int) $s . ' days')->format('Y-m-d'); }
+
+function buscar_clientes() {
+    $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+    if (strlen($q) < 1) { ok(array()); return; }
+    $s = db_esc($q); $num = is_numeric($q) ? ' OR CODCUE = ' . (int) $q : '';
+    ok(db_query("SELECT TOP 20 CODCUE, DENCUE, CITCUE FROM [Tbl Cuentas Corrientes] WHERE CODORI='D' AND ((DENCUE Like '%$s%')$num) ORDER BY DENCUE;"));
+}
+
+function get_cliente() {
+    $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.DCXCUE, C.DNXCUE, C.DPXCUE, C.DDXCUE, C.CODLOC, L.DENLOC, P.DENPRO,
+        C.CODCRI, C.CODCAT, C.CODVEN, C.CODCDV, C.SPICUE, C.APICUE, C.APBCUE
+        FROM ([Tbl Provincias] AS P RIGHT JOIN ([Tbl Localidades] AS L INNER JOIN [Tbl Cuentas Corrientes] AS C ON L.CODLOC=C.CODLOC) ON P.CODPRO=L.CODPRO)
+        WHERE C.CODORI='D' AND C.CODCUE=$cc;");
+    if (!$c) { fail('Cliente no encontrado'); return; }
+    $cri = db_row("SELECT DENCRI, ICXCRI, IVACRI FROM [Tbl Categorias Responsabilidad IVA] WHERE CODCRI=" . (int) nz($c['CODCRI'], 0) . ";");
+    $c['LETRA'] = $cri ? strtoupper(trim((string) nz($cri['ICXCRI'], 'A'))) : 'A';      // A (RI) / B (CF, Monotributo)
+    $c['DENCRI'] = $cri ? trim((string) nz($cri['DENCRI'], '')) : '';
+    $c['COND_IVA'] = ((int) nz($c['CODCRI'], 0) == 1) ? 1 : 5;                            // RG 5616: 1=RI, 5=CF
+    $c['SALDO'] = round((float) nz($c['SOPCUE'], 0), 2);
+    $c['DOMICILIO'] = trim(nz($c['DCXCUE'], '') . ' ' . nz($c['DNXCUE'], ''));
+    $c['LOCALIDAD'] = trim('(' . nz($c['DPXCUE'] ? '' : '', '') . ') ' . nz($c['DENLOC'], '') . ' - ' . nz($c['DENPRO'], ''));
+    $c['LOCALIDAD'] = trim(nz($c['DENLOC'], '') . (nz($c['DENPRO'], '') ? ' - ' . nz($c['DENPRO'], '') : ''));
+    ok($c);
+}
+
+/** Remitos (RV) pendientes de facturar del cliente + sus líneas de producto con la cuenta de ventas y alícuota. */
+function remitos_pendientes() {
+    $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    // cuenta de ventas (VTARUB) + alícuota por producto, cacheadas
+    $out = array();
+    foreach (db_query("SELECT NUMMOV, CINMOV, CIPMOV, CIIMOV, FEXMOV FROM [Tbl Movimientos] WHERE CODORI='D' AND CICMOV='RV' AND CODCUE=$cc AND SRPMOV=True ORDER BY NUMMOV;") as $rv) {
+        $lineas = array();
+        foreach (db_query("SELECT S.ORDMOV, S.CODPRO, S.DENMOV, S.EGRMOV, S.SVCMOV, S.CFVMOV, S.PUNMOV, S.PULMOV, S.PUCMOV, S.COSMOV, S.CODUDM, S.FCTMOV, S.DUMMOV, S.CODMON, S.DECMOV, S.ODCMOV, S.PDLMOV, S.ODPMOV, S.STKMOV, S.IBXMOV
+            FROM [Tbl Movimientos Stock] AS S WHERE S.NUMMOV=" . (int) $rv['NUMMOV'] . ";") as $l) {
+            // Cantidad del remito: EGRMOV (no-stock) o |SVCMOV| (stock-controlado, guardado negativo).
+            $entreg = ($l['EGRMOV'] !== null && $l['EGRMOV'] !== '') ? round((float) $l['EGRMOV'], 2) : abs(round((float) nz($l['SVCMOV'], 0), 2));
+            $cfv = round((float) nz($l['CFVMOV'], 0), 2);
+            $pend = round($entreg - $cfv, 2);
+            if ($pend <= 0.0001) continue;
+            $prod = db_row("SELECT CODRUB FROM [Tbl Productos] WHERE CODPRO='" . db_esc(trim((string) $l['CODPRO'])) . "';");
+            $cic = ''; if ($prod) { $ru = db_row("SELECT VTARUB FROM [Tbl Rubros] WHERE CODRUB=" . (int) nz($prod['CODRUB'], 0) . ";"); if ($ru) $cic = trim((string) nz($ru['VTARUB'], '')); }
+            $pun = round((float) nz($l['PUNMOV'], 0), 4);
+            $lineas[] = array(
+                'mrvmov' => (int) $rv['NUMMOV'], 'orvmov' => (int) $l['ORDMOV'], 'codpro' => trim((string) $l['CODPRO']), 'denmov' => trim((string) nz($l['DENMOV'], '')),
+                'cant' => $pend, 'pun' => $pun, 'pul' => round((float) nz($l['PULMOV'], 0), 4), 'puc' => round((float) nz($l['PUCMOV'], 0), 4), 'cos' => round((float) nz($l['COSMOV'], 0), 4),
+                'codudm' => (int) nz($l['CODUDM'], 1), 'fctmov' => round((float) nz($l['FCTMOV'], 1), 4), 'dummov' => (int) nz($l['DUMMOV'], 0), 'codmon' => trim((string) nz($l['CODMON'], 'P')), 'decmov' => ($l['DECMOV'] === true || $l['DECMOV'] == -1) ? 1 : 0,
+                'odcmov' => (int) nz($l['ODCMOV'], 0), 'pdlmov' => (int) nz($l['PDLMOV'], 0), 'odpmov' => (int) nz($l['ODPMOV'], 0), 'stk' => ($l['STKMOV'] === true || $l['STKMOV'] == -1) ? 1 : 0,
+                'cic' => $cic, 'ali' => 21, 'total' => round($pend * $pun, 2),
+            );
+        }
+        if (count($lineas)) $out[] = array('NUMMOV' => (int) $rv['NUMMOV'], 'COMP' => 'RV ' . trim((string) nz($rv['CIIMOV'], '')) . ' ' . str_pad((string) (int) nz($rv['CIPMOV'], 0), 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) (int) nz($rv['CINMOV'], 0), 8, '0', STR_PAD_LEFT), 'FEXMOV' => fecha_serial($rv['FEXMOV']), 'lineas' => $lineas);
+    }
+    ok($out);
+}
+
+function listar_pdvs() { ok(db_query("SELECT CODPDV, NOMPDV FROM [Tbl Puntos de Venta] WHERE CODPDV <> 9999 ORDER BY CODPDV;")); }
+function listar_condiciones() { ok(db_query("SELECT CODCDV, DENCDV FROM [Tbl Condiciones de Venta] ORDER BY DENCDV;")); }
+function listar_formas_pago() { ok(db_query("SELECT CODFDP, DENFDP FROM [Tbl Formas de Pago] ORDER BY CODFDP;")); }
 
 function fv_iso($s) { if ($s === null || $s === '') return null; if (is_numeric($s)) return (int) $s; return (int) (new DateTime('1899-12-30'))->diff(new DateTime($s))->days; }
 /** Serial de Access desde un cae_vto de AFIP (formato Ymd '20260616') o un serial/iso ya dado. */
