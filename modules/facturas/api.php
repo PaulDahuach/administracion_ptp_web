@@ -68,8 +68,13 @@ function remitos_pendientes() {
             $cfv = round((float) nz($l['CFVMOV'], 0), 2);
             $pend = round($entreg - $cfv, 2);
             if ($pend <= 0.0001) continue;
-            $prod = db_row("SELECT CODRUB FROM [Tbl Productos] WHERE CODPRO='" . db_esc(trim((string) $l['CODPRO'])) . "';");
-            $cic = ''; if ($prod) { $ru = db_row("SELECT VTARUB FROM [Tbl Rubros] WHERE CODRUB=" . (int) nz($prod['CODRUB'], 0) . ";"); if ($ru) $cic = trim((string) nz($ru['VTARUB'], '')); }
+            // Cuenta de ventas = Tbl Subrubros.VTASUB por CODRUB+CODSUB del producto.
+            $prod = db_row("SELECT CODRUB, CODSUB FROM [Tbl Productos] WHERE CODPRO='" . db_esc(trim((string) $l['CODPRO'])) . "';");
+            $cic = '';
+            if ($prod) {
+                $sr = db_row("SELECT VTASUB FROM [Tbl Subrubros] WHERE CODRUB=" . (int) nz($prod['CODRUB'], 0) . " AND CODSUB=" . (int) nz($prod['CODSUB'], 0) . ";");
+                if ($sr) $cic = trim((string) nz($sr['VTASUB'], ''));
+            }
             $pun = round((float) nz($l['PUNMOV'], 0), 4);
             $lineas[] = array(
                 'mrvmov' => (int) $rv['NUMMOV'], 'orvmov' => (int) $l['ORDMOV'], 'codpro' => trim((string) $l['CODPRO']), 'denmov' => trim((string) nz($l['DENMOV'], '')),
