@@ -249,10 +249,19 @@ function buscar_proveedores() {
 
 function get_proveedor() {
     $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
-    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI, C.CODRRI, C.SRICUE
+    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI, C.CODRRI, C.SRICUE, C.CODCAT, C.APICUE, C.APBCUE
         FROM ([Tbl Provincias] AS P RIGHT JOIN ([Tbl Localidades] AS L INNER JOIN [Tbl Cuentas Corrientes] AS C ON L.CODLOC=C.CODLOC) ON P.CODPRO=L.CODPRO)
         WHERE C.CODORI='A' AND C.CODCUE=$cc;");
     if (!$c) { fail('Proveedor no encontrado'); return; }
+    // Alícuota IVA para netear anticipos (SIAMOV/AIAMOV): ALICAT de la categoría (+ percepciones).
+    $cat = db_row("SELECT ALICAT FROM [Tbl Categorias Cuentas Corrientes] WHERE CODCAT=" . (int) nz($c['CODCAT'], 0) . ";");
+    $alicat = $cat ? $cat['ALICAT'] : null;
+    $c['AIAEDIT'] = ($alicat === null || $alicat === '') ? 1 : 0;   // editable sólo si la categoría no tiene
+    $aia = (float) nz($alicat, 0);
+    $rcp = db_row("SELECT ALIPIX, ALIPVA FROM [Rec Control];");
+    if ($c['APICUE'] === true || $c['APICUE'] == -1) $aia += (float) nz($rcp['ALIPIX'], 0);
+    if ($c['APBCUE'] === true || $c['APBCUE'] == -1) $aia += (float) nz($rcp['ALIPVA'], 0);
+    $c['AIAMOV'] = round($aia, 2);
     $c['SALDO'] = round((float) nz($c['SOPCUE'], 0), 2);
     $c['DOMICILIO'] = trim(nz($c['DCXCUE'], '') . ' ' . nz($c['DNXCUE'], ''));
     $c['LOCALIDAD'] = trim(nz($c['DENLOC'], '') . ' - ' . nz($c['DENPRO'], ''));

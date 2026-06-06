@@ -54,10 +54,13 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
       <div style="width:135px"><label class="form-label mb-1">Saldo operativo</label><input type="text" id="saldo" class="form-control op-num" readonly></div>
       <div style="width:150px"><label class="form-label mb-1">Operación</label><select id="codaux" class="form-select" disabled data-nocombo></select></div>
     </div>
-    <div class="row g-2 mt-1">
-      <div class="col-md-6"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
+    <div class="row g-2 mt-1 align-items-end">
+      <div class="col-auto" style="width:150px">
+        <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="siamov"><label class="form-check-label mb-0 small" for="siamov">Alícuota I.V.A.</label></div>
+        <input type="number" step="0.01" id="aiamov" class="form-control form-control-sm op-num" value="0" disabled title="Netea el anticipo (cuando no hay comprobantes)">
+      </div>
       <div class="col-md-3"><label class="form-label mb-1">Forma de pago</label><select id="codfdp" class="form-select"><option value="4">Cheques</option><option value="1">Efectivo</option><option value="5">Interdepósito</option></select></div>
-      <div class="col-md-3"><label class="form-label mb-1">Imput. I.V.A.</label><input type="date" id="fixmov" class="form-control"></div>
+      <div class="col"><label class="form-label mb-1">Detalle</label><input type="text" id="detmov" class="form-control"></div>
     </div>
   </div></div>
 
@@ -137,5 +140,5 @@ module_head('Órdenes de Pago — Acreedores', 'bi-cash-stack', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/ordenes_pago.js?v=3"></script>
+<script src="assets/js/ordenes_pago.js?v=4"></script>
 '); ?>

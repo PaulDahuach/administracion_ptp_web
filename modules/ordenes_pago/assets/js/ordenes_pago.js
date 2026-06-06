@@ -16,7 +16,6 @@ const OP = {
 
     async init() {
         this.el('fexmov').value = new Date().toISOString().slice(0, 10);
-        this.el('fixmov').value = this.el('fexmov').value;
         this.el('saldo').value = '0.00';
         var ops = await this.api('operaciones'); if (ops.ok) this.el('codaux').innerHTML = ops.data.map(function (o) { return '<option value="' + o.CODAUX + '">' + OP.esc(o.DENAUX) + '</option>'; }).join('');
         if (this.modo !== 'capacitacion') { var p = await this.api('pdvs'); if (p.ok && p.data.length) this.el('cipmov').value = p.data[0].CODPDV; }
@@ -27,10 +26,12 @@ const OP = {
         this.el('btnAddChq').addEventListener('click', function () { OP.addCheque(); });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.el('btnGuardar').addEventListener('click', function () { OP.guardar(); });
-        this.el('rip').addEventListener('input', function () { OP.compRet(); });
-        this.el('arb').addEventListener('input', function () { OP.compRet(); });
+        this.el('rip').addEventListener('input', function () { OP.recalc(); });
+        this.el('arb').addEventListener('input', function () { OP.recalc(); });
+        this.el('aiamov').addEventListener('input', function () { OP.recalc(); });
         this.el('efectivo').addEventListener('input', function () { OP.recalc(); });
         this.el('codfdp').addEventListener('change', function () { OP.el('lblEfeOp').textContent = (this.value == '5') ? 'Importe' : 'Efectivo'; });   // interdepósito (como el legacy, solo relabel)
+        this.el('siamov').addEventListener('change', function () { OP.onSia(); });
         this.el('btnBuscar').addEventListener('click', function () { bootstrap.Modal.getOrCreateInstance(OP.el('modalBuscar')).show(); });
         this.el('modalBuscar').addEventListener('shown.bs.modal', function () { OP.loadList(); });
         this.el('opBuscarGo').addEventListener('click', function () { OP.loadList(); });
@@ -53,7 +54,10 @@ const OP = {
         this.el('codrri').value = d.CODRRI || '';
         this.el('arb').value = d.SUJETO ? (d.ALIRRI || 0) : 0;
         this.el('retReg').textContent = d.SUJETO ? (d.DENRRI ? '(' + d.DENRRI + ')' : '') : '(no sujeto)';
-        this.refs = []; this.el('refBody').innerHTML = ''; this.compRet();
+        // alícuota IVA para netear (SIAMOV/AIAMOV) — de la categoría del proveedor
+        this.aiaDefault = d.AIAMOV || 0; this.aiaEdit = !!d.AIAEDIT;
+        this.el('siamov').checked = false; this.onSia();
+        this.refs = []; this.el('refBody').innerHTML = ''; this.recalc();
     },
 
     // ---- Referencias ----
@@ -121,26 +125,40 @@ const OP = {
         tr.querySelector('.c-del').addEventListener('click', function () { tr.remove(); OP.chqs = OP.chqs.filter(function (x) { return x !== rec; }); OP.recalc(); });
     },
 
-    compRet() {
-        var base = parseFloat(this.el('rip').value) || 0, ali = parseFloat(this.el('arb').value) || 0;
-        this.rix = Math.round(base * ali) / 100; this.rix = Math.round(this.rix * 100) / 100;
-        this.el('rix').textContent = this.n(this.rix);
+    // Tilde SIAMOV: trae la alícuota IVA del proveedor (o editable si la categoría no tiene).
+    onSia() {
+        var on = this.el('siamov').checked;
+        if (on) { this.el('aiamov').value = this.aiaDefault || 0; this.el('aiamov').disabled = !this.aiaEdit; }
+        else { this.el('aiamov').value = 0; this.el('aiamov').disabled = true; }
         this.recalc();
     },
     recalc() {
         var refTot = this.refs.reduce(function (s, r) { return s + (r.imp || 0); }, 0);
+        var total = Math.round(refTot * 100) / 100;   // cancelación: total = Σreferencias
+        this.total = total;
+        // Base de la retención IIBB: con el tilde, se netea desde el total con la alícuota IVA
+        // (total / (1+alícuota/100)); sin tilde, base manual.
+        var base;
+        if (this.el('siamov').checked) {
+            var aia = parseFloat(this.el('aiamov').value) || 0;
+            base = Math.round((total / (1 + aia / 100)) * 100) / 100;
+            this.el('rip').value = base.toFixed(2); this.el('rip').readOnly = true;
+        } else { base = parseFloat(this.el('rip').value) || 0; this.el('rip').readOnly = false; }
+        var arb = parseFloat(this.el('arb').value) || 0;
+        this.rix = Math.round(base * arb) / 100; this.rix = Math.round(this.rix * 100) / 100;
+        this.el('rix').textContent = this.n(this.rix);
         var chqTot = this.chqs.reduce(function (s, c) { return s + (c.imp || 0); }, 0);
-        var rix = this.rix || 0;
-        var neto = Math.round((refTot - rix) * 100) / 100;
+        var neto = Math.round((total - this.rix) * 100) / 100;
         var efe = Math.max(0, Math.round((neto - chqTot) * 100) / 100);
-        this.efe = efe; this.total = Math.round(refTot * 100) / 100;
+        this.efe = efe;
         this.el('tEfectivo').textContent = this.n(efe);
         this.el('tCheques').textContent = this.n(chqTot);
         this.el('tNeto').textContent = this.n(neto);
-        this.el('tTotal').textContent = this.n(refTot);
+        this.el('tTotal').textContent = this.n(total);
         this.el('refTotal').textContent = this.n(refTot);
         this.el('chqTotal').textContent = this.n(chqTot);
     },
+    compRet() { this.recalc(); },
 
     async guardar() {
         this.el('opErr').textContent = '';
@@ -150,15 +168,15 @@ const OP = {
         if (this.total <= 0) { this.el('opErr').textContent = 'La orden no tiene importe.'; return; }
         if (this.el('rip').value > 0 && !this.el('codrri').value) { this.el('opErr').textContent = 'Elegí el régimen de la retención.'; return; }
         var data = {
-            codcue: this.el('codcue').value, codaux: this.el('codaux').value, fexmov: this.el('fexmov').value,
-            fixmov: this.el('fixmov').value || this.el('fexmov').value, codfdp: this.el('codfdp').value, efectivo: this.efe,
-            detmov: this.el('detmov').value, cipmov: (this.modo === 'capacitacion') ? 9999 : (this.el('cipmov').value || 1), totmov: this.total,
+            codcue: this.el('codcue').value, codaux: this.el('codaux').value, fexmov: this.el('fexmov').value, efectivo: this.efe,
+            detmov: this.el('detmov').value, cipmov: (this.modo === 'capacitacion') ? 9999 : (this.el('cipmov').value || 1),
+            codfdp: this.el('codfdp').value, totmov: this.total,
             referencias: this.refs.map(function (r) { return { refmov: r.refmov, fvxmov: r.fvxiso, imp: r.imp }; }),
             cheques: this.chqs.filter(function (c) { return c.imp > 0; }).map(function (c) {
                 return c.codchq ? { codcue: '11103', codchq: c.codchq, imp: c.imp }
                     : { codcue: '11103', codban: c.codban || 0, syn: c.syn, fex: c.fexiso, fax: c.faxiso, plz: 0, lib: c.lib, cit: '', loc: '', imp: c.imp };
             }),
-            ret: { rix: this.rix, pid: parseFloat(this.el('rip').value) || 0, arb: parseFloat(this.el('arb').value) || 0, codrri: this.el('codrri').value || 0, rid: 0, vei: 0, sri: 1, sia: 0, aia: 0 }
+            ret: { rix: this.rix, pid: parseFloat(this.el('rip').value) || 0, arb: parseFloat(this.el('arb').value) || 0, codrri: this.el('codrri').value || 0, rid: 0, vei: 0, sri: 1, sia: this.el('siamov').checked ? 1 : 0, aia: parseFloat(this.el('aiamov').value) || 0 }
         };
         var fd = new FormData(); fd.append('action', 'guardar'); fd.append('data', JSON.stringify(data));
         this.el('btnGuardar').disabled = true;
@@ -192,7 +210,7 @@ const OP = {
         var bm = bootstrap.Modal.getInstance(this.el('modalBuscar')); if (bm) bm.hide();
         this.el('nummov').value = String(d.NUMMOV).padStart(8, '0');
         this.el('cinmov').value = String(d.CINMOV).padStart(8, '0');
-        this.el('fexmov').value = d.FEXISO; this.el('fixmov').value = d.FEXISO;
+        this.el('fexmov').value = d.FEXISO;
         this.el('codaux').value = d.CODAUX; this.el('codcue').value = d.CODCUE; this.el('provQ').value = d.DENMOV;
         this.el('provInfo').textContent = [d.CITMOV].filter(Boolean).join(' · ');
         this.el('saldo').value = this.n(d.SOCMOV); this.el('detmov').value = d.DETMOV; this.el('codfdp').value = d.CODFDP;
