@@ -101,11 +101,12 @@ function op_insert($d, $estTrue, $cipmov) {
     elseif ($codaux == 343) $sdomov = round($total - $maxRef, 2); // canc + anticipo
     else $sdomov = 0;                                            // cancelación (342)
 
-    // OP: el header guarda CIPMOV=0 (acreedores no tienen PDV de venta); el nº ODP sale del contador
-    // por-PDV (ULTODP) del PDV del operador ($cipmov), o 9999 en capacitación.
+    // OP: el header guarda CIPMOV=0 en blanco (acreedores no tienen PDV de venta) y Null en negro
+    // (como el legacy: 11127 blancas con 0, 5772 negras con Null). El nº ODP sale del contador por-PDV
+    // (ULTODP) del PDV del operador ($cipmov), o 9999 en capacitación.
     $nummov = next_number('ULTMOV');
     $cinmov = next_number_pdv('ULTODP', $estTrue ? (int) $cipmov : 9999);
-    $cipSql = '0';
+    $cipSql = $estTrue ? '0' : 'Null';
     $estSql = $estTrue ? 'True' : 'False';
     $soc = round((float) nz($cli['SOPCUE'], 0), 2);
 

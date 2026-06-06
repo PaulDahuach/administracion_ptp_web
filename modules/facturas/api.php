@@ -178,15 +178,16 @@ function fv_recibo_insert($recNum, $d, $estTrue, $fvNum, $ciimov, $cipmov, $debm
     $rc = db_row("SELECT CACC_A, CACC_1, CACC_2, CACC_Z FROM [Rec Control];");
     $caccA = trim((string) $rc['CACC_A']); $cacc1 = trim((string) $rc['CACC_1']); $cacc2 = trim((string) $rc['CACC_2']); $caccZ = trim((string) $rc['CACC_Z']);
     $fex = fv_iso($d['fexmov']); $estSql = $estTrue ? 'True' : 'False';
+    $cipSql = ($cipmov === null) ? 'Null' : (string) $cipmov;   // negro = Null (contador 9999)
     $cinmov = next_number_pdv('ULTREC', $cipmov);
-    $det = 'FC-' . $ciimov . '-' . str_pad((string) $cipmov, 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) $fvNum, 8, '0', STR_PAD_LEFT);
+    $det = 'FC-' . $ciimov . '-' . str_pad((string) (int) $cipmov, 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) $fvNum, 8, '0', STR_PAD_LEFT);
     $sdomov = ($impcaj > $debmov) ? round(($impcaj - $debmov) * -1, 2) : 0;
     $soc = round((float) nz($d['soc'], 0), 2);
 
     db_exec("INSERT INTO [Tbl Movimientos]
         (NUMMOV, CODORI, FEXMOV, CODOPE, CODAUX, CICMOV, CIIMOV, CIPMOV, CINMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV,
          CODCUE, SOCMOV, DENMOV, DCXMOV, DNXMOV, CODLOC, CODCRI, CITMOV, CODCDV, CODFDP, DETMOV, COTMOV, CREMOV, TOTMOV, SDOMOV, ESTMOV, NUIMOV, NMIMOV, NOWMOV)
-        VALUES ($recNum, 'D', $fex, 480, 481, 'RC', '$ciimov', $cipmov, $cinmov, 'RC', '$ciimov', $cipmov, $cinmov, $fex,
+        VALUES ($recNum, 'D', $fex, 480, 481, 'RC', '$ciimov', $cipSql, $cinmov, 'RC', '$ciimov', $cipSql, $cinmov, $fex,
          " . (int) $d['codcue'] . ", " . fv_num($soc) . ", " . fv_txt(nz($cli['DENCUE'], '')) . ", " . fv_txt(nz($d['dcxmov'], '')) . ", " . fv_txt(nz($d['dnxmov'], '')) . ", " . (int) nz($d['codloc'], 0) . ", " . (int) nz($d['codcri'], 0) . ", " . fv_txt(nz($d['citmov'], '')) . ", 1, " . (int) nz($d['codfdp'], 4) . ", " . fv_txt($det) . ", " . round((float) nz($d['cotmov'], 1), 4) . ", $impcaj, $impcaj, $sdomov, $estSql, 0, 0, Now());");
 
     // Asiento: DEBE cheques (CACC_2, cada uno creado en cartera) + caja (CACC_1); HABER deudores (CACC_A).
@@ -229,7 +230,9 @@ function fv_insert($d, $estTrue, $afip) {
     $fex = fv_iso($d['fexmov']);
     if ($fex === null) throw new Exception('Falta la fecha de emisión');
     $ciimov = strtoupper(trim((string) nz($d['ciimov'], 'A')));
-    $cipmov = (int) nz($d['cipmov'], 0);
+    // PDV: blanco = pto venta real (AFIP); negro/capacitación = Null (el contador usa 9999 vía next_number_pdv).
+    $cipmov = (isset($d['cipmov']) && (int) $d['cipmov'] > 0) ? (int) $d['cipmov'] : null;
+    $cipSql = ($cipmov === null) ? 'Null' : (string) $cipmov;
     $codcdv = (int) nz($d['codcdv'], 2);
     $codfdp = (int) nz($d['codfdp'], 9);
     $estSql = $estTrue ? 'True' : 'False';
@@ -296,7 +299,7 @@ function fv_insert($d, $estTrue, $afip) {
          CODCUE, SOCMOV, DENMOV, DCXMOV, DNXMOV, DPXMOV, DDXMOV, CODLOC, CODCRI, CITMOV, CODCDV, CODFDP, CODTRA, CODDST, CODVEN,
          PDCMOV, PDGMOV, IDGMOV, DETMOV, COTMOV, NETMOV, IRIMOV, ABIMOV, ARDMOV, SPIMOV, APIMOV, MPIMOV, PIXMOV,
          DEBMOV, CREMOV, TOTMOV, SDOMOV, NRCMOV, CODDOC, CAEMOV, FVCMOV, ESTMOV, NUIMOV, NMIMOV, NOWMOV)
-        VALUES ($nummov, 'D', $fex, 420, 420, 'FV', '$ciimov', $cipmov, $cinmov, 'FV', '$ciimov', $cipmov, $cinmov, $fex, $fex,
+        VALUES ($nummov, 'D', $fex, 420, 420, 'FV', '$ciimov', $cipSql, $cinmov, 'FV', '$ciimov', $cipSql, $cinmov, $fex, $fex,
          $codcue, " . fv_num($soc) . ", $denSql, $dcx, $dnx, $dpx, $ddx, $codloc, $codcri, $citSql, $codcdv, $codfdp, $codtra, $coddst, $codven,
          $pdcmov, $pdgmov, $idgmov, $detSql, $cotmov, " . fv_num($netmov) . ", " . fv_num($irimov) . ", $abimov, $ardmov, $spimov, $apimov, $mpimov, $pixmov,
          $total, $cremov, $total, $sdomov, " . ($recNum !== null ? (int) $recNum : 'Null') . ", $coddoc, $caeSql, $fvcSql, $estSql, 0, 0, Now());");
@@ -467,7 +470,7 @@ function guardar() {
         if ($estTrue) {
             $res = fv_emitir($raw, true);
         } else {
-            $raw['cipmov'] = 9999;
+            unset($raw['cipmov']);   // negro: CIPMOV=Null (el contador usa 9999), como el legacy y remitos/recibos
             db_begin();
             try { $res = fv_insert($raw, false, null); db_commit(); }
             catch (Exception $e) { db_rollback(); throw $e; }
