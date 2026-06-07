@@ -46,6 +46,10 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
   #cpForm .imp-grp { padding:.3rem .55rem .4rem; }
   #cpForm .imp-grp-h { margin-bottom:.2rem; }
   #cpForm .table-sm > :not(caption) > * > * { padding:.2rem .4rem; }
+  /* subforms en 2 columnas como el legacy (izq ≈24% · der ≈76%) */
+  #cpSubforms > .cp-col-left { flex:0 0 24%; max-width:24%; min-width:268px; }
+  #cpSubforms > .cp-col-right { flex:1 1 auto; min-width:0; }
+  @media (max-width:991px) { #cpSubforms > .cp-col-left, #cpSubforms > .cp-col-right { flex:1 1 100%; max-width:100%; } }
 </style>
 
 <div class="fc-form" id="cpForm" data-ivacta="<?= htmlspecialchars($ivaCta, ENT_QUOTES) ?>">
@@ -131,76 +135,86 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
     </div>
   </div></div>
 
-  <!-- Productos (entra a stock) — sólo con el toggle -->
-  <div class="card fc-card mb-2" id="cardProd" style="display:none">
-    <div class="card-header"><i class="bi bi-box-seam me-1"></i>Productos (entra a stock) <span class="small text-muted">— el neto gravado sale de estas líneas</span></div>
-    <div class="card-body">
-      <div class="row g-2 align-items-end mb-2">
-        <div class="col" style="min-width:190px"><label class="form-label mb-1 small">Producto</label>
-          <div class="ac-box"><input type="text" id="prodQ" class="form-control form-control-sm" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="prodList"></div></div>
-          <input type="hidden" id="prodCod"></div>
-        <div class="col-auto" style="width:76px"><label class="form-label mb-1 small">Moneda</label><select id="prodMon" class="form-select form-select-sm"><option value="P">$</option><option value="D">u$s</option></select></div>
-        <div class="col-auto" style="width:90px"><label class="form-label mb-1 small">Cantidad</label><input type="number" step="0.01" id="prodCant" class="form-control form-control-sm cp-num"></div>
-        <div class="col-auto" style="width:105px"><label class="form-label mb-1 small" id="lblCos">Costo $</label><input type="number" step="0.0001" id="prodCos" class="form-control form-control-sm cp-num"></div>
-        <div class="col-auto" style="width:100px"><label class="form-label mb-1 small" id="lblLis">Lista $</label><input type="number" step="0.0001" id="prodLis" class="form-control form-control-sm cp-num" value="0"></div>
-        <div class="col-auto" style="width:72px"><label class="form-label mb-1 small">Factor</label><input type="number" step="0.0001" id="prodFct" class="form-control form-control-sm cp-num" value="1"></div>
-        <div class="col-auto" style="width:72px"><label class="form-label mb-1 small">Bonif %</label><input type="number" step="0.01" id="prodBon" class="form-control form-control-sm cp-num" value="0"></div>
-        <div class="col-auto" style="width:88px"><label class="form-label mb-1 small">Flete</label><input type="number" step="0.0001" id="prodFlt" class="form-control form-control-sm cp-num" value="0"></div>
-        <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="prodStk" checked><label class="form-check-label small" for="prodStk">Stock</label></div></div>
-        <div class="col-auto"><button type="button" id="btnAddProd" class="btn btn-sm btn-outline-primary mt-3"><i class="bi bi-plus-lg"></i></button></div>
+  <!-- Subforms en 2 columnas como el legacy: izquierda ≈24% (Remitos·Anticipos·Vencimientos), derecha ≈76% (Productos·Imputación) -->
+  <div id="cpSubforms" class="d-flex flex-wrap align-items-start" style="gap:.5rem">
+    <div class="cp-col-left">
+
+      <!-- Remitos del proveedor pendientes de facturar -->
+      <div class="card fc-card mb-2" id="cardRem" style="display:none">
+        <div class="card-header"><i class="bi bi-truck me-1"></i>Remitos pendientes</div>
+        <div class="card-body"><div id="remList" class="small"></div></div>
       </div>
-      <table class="table table-sm mb-0"><thead><tr><th>Producto</th><th>Mon</th><th class="cp-num" style="width:78px">Cant</th><th class="cp-num" style="width:95px">Costo</th><th class="cp-num" style="width:100px">Costo $</th><th class="cp-num" style="width:65px">Bonif</th><th style="width:46px">Stk</th><th class="cp-num" style="width:115px">Neto</th><th style="width:32px"></th></tr></thead><tbody id="prodBody"></tbody></table>
-    </div>
-  </div>
 
-  <!-- Remitos del proveedor pendientes de facturar -->
-  <div class="card fc-card mb-2" id="cardRem" style="display:none">
-    <div class="card-header"><i class="bi bi-truck me-1"></i>Remitos del proveedor pendientes <span class="small text-muted">— tildá los que factura este comprobante (descomprometen stock)</span></div>
-    <div class="card-body"><div id="remList" class="small"></div></div>
-  </div>
-
-  <!-- Imputación contable (Debe) — multi-fila -->
-  <div class="card fc-card mb-2">
-    <div class="card-header d-flex align-items-center">
-      <span><i class="bi bi-diagram-3 me-1"></i>Imputación contable (Debe)</span>
-      <span class="small ms-auto">Imputado <b id="impSum" class="cp-num">0.00</b> / Total <b id="impTot" class="cp-num">0.00</b> <span id="impOk"></span></span>
-    </div>
-    <div class="card-body">
-      <div class="row g-2 align-items-end mb-2">
-        <div class="col"><label class="form-label mb-1 small">Cuenta</label>
-          <div class="ac-box"><input type="text" id="impCtaQ" class="form-control form-control-sm" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="impCtaList"></div></div>
-          <input type="hidden" id="impCta"></div>
-        <div class="col-md-3"><label class="form-label mb-1 small">Centro de costo</label><select id="impCdc" class="form-select form-select-sm"></select></div>
-        <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">Debe</label><input type="number" step="0.01" id="impDeb" class="form-control form-control-sm cp-num"></div>
-        <div class="col-auto"><button type="button" id="btnAddImp" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Agregar</button></div>
-        <div class="col-auto"><button type="button" id="btnSugIva" class="btn btn-sm btn-outline-secondary" title="Agrega la fila de IVA Crédito Fiscal por el IVA del comprobante">+ IVA Crédito</button></div>
+      <!-- Anticipos / Acreditaciones (saldo a favor del proveedor) -->
+      <div class="card fc-card mb-2" id="cardAnt" style="display:none">
+        <div class="card-header"><i class="bi bi-cash-coin me-1"></i>Anticipos / Acreditaciones <span class="small text-muted">— baja de vencimientos</span></div>
+        <div class="card-body">
+          <table class="table table-sm mb-0"><thead><tr><th>Com</th><th>Número</th><th>Fecha</th><th class="cp-num">Saldo</th><th class="cp-num" style="width:96px">A debitar</th></tr></thead><tbody id="antBody"></tbody></table>
+          <div class="small text-muted mt-1">Aplicado: <b id="antSum" class="cp-num">0.00</b></div>
+        </div>
       </div>
-      <table class="table table-sm mb-0"><thead><tr><th>Cuenta</th><th>Centro de costo</th><th class="cp-num" style="width:160px">Debe</th><th style="width:36px"></th></tr></thead><tbody id="impBody"></tbody></table>
-    </div>
-  </div>
 
-  <!-- Anticipos / Acreditaciones (saldo a favor del proveedor) -->
-  <div class="card fc-card mb-2" id="cardAnt" style="display:none">
-    <div class="card-header"><i class="bi bi-cash-coin me-1"></i>Anticipos / Acreditaciones <span class="small text-muted">— saldo a favor del proveedor; lo que debités acá baja de los vencimientos</span></div>
-    <div class="card-body">
-      <table class="table table-sm mb-0"><thead><tr><th>Com</th><th>Número</th><th>Fecha</th><th class="cp-num" style="width:150px">Saldo disponible</th><th class="cp-num" style="width:160px">A debitar</th></tr></thead><tbody id="antBody"></tbody></table>
-      <div class="small text-muted mt-1">Aplicado: <b id="antSum" class="cp-num">0.00</b></div>
-    </div>
-  </div>
-
-  <!-- Vencimientos (a pagar) — multi-fila -->
-  <div class="card fc-card mb-2">
-    <div class="card-header d-flex align-items-center">
-      <span><i class="bi bi-calendar-event me-1"></i>Vencimientos (a pagar)</span>
-      <span class="small ms-auto">Vencimientos <b id="vtoSum" class="cp-num">0.00</b> / Total <b id="vtoTot" class="cp-num">0.00</b> <span id="vtoOk"></span></span>
-    </div>
-    <div class="card-body">
-      <div class="row g-2 align-items-end mb-2">
-        <div class="col-auto" style="width:180px"><label class="form-label mb-1 small">Fecha</label><input type="date" id="vtoFx" class="form-control form-control-sm"></div>
-        <div class="col-auto" style="width:160px"><label class="form-label mb-1 small">A pagar</label><input type="number" step="0.01" id="vtoImp" class="form-control form-control-sm cp-num"></div>
-        <div class="col-auto"><button type="button" id="btnAddVto" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Agregar</button></div>
+      <!-- Vencimientos (a pagar) — multi-fila -->
+      <div class="card fc-card mb-2">
+        <div class="card-header d-flex align-items-center">
+          <span><i class="bi bi-calendar-event me-1"></i>Vencimientos</span>
+          <span class="small ms-auto"><b id="vtoSum" class="cp-num">0.00</b>/<b id="vtoTot" class="cp-num">0.00</b> <span id="vtoOk"></span></span>
+        </div>
+        <div class="card-body">
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col-auto" style="width:148px"><label class="form-label mb-1 small">Fecha</label><input type="date" id="vtoFx" class="form-control form-control-sm"></div>
+            <div class="col-auto" style="width:120px"><label class="form-label mb-1 small">A pagar</label><input type="number" step="0.01" id="vtoImp" class="form-control form-control-sm cp-num"></div>
+            <div class="col-auto"><button type="button" id="btnAddVto" class="btn btn-sm btn-outline-primary mt-3"><i class="bi bi-plus-lg"></i></button></div>
+          </div>
+          <table class="table table-sm mb-0"><thead><tr><th>Fecha</th><th class="cp-num">A pagar</th><th style="width:30px"></th></tr></thead><tbody id="vtoBody"></tbody></table>
+        </div>
       </div>
-      <table class="table table-sm mb-0"><thead><tr><th>Fecha</th><th class="cp-num" style="width:160px">A pagar</th><th style="width:36px"></th></tr></thead><tbody id="vtoBody"></tbody></table>
+
+    </div>
+    <div class="cp-col-right">
+
+      <!-- Productos (entra a stock) -->
+      <div class="card fc-card mb-2" id="cardProd" style="display:none">
+        <div class="card-header"><i class="bi bi-box-seam me-1"></i>Productos (entra a stock) <span class="small text-muted">— el neto gravado sale de estas líneas</span></div>
+        <div class="card-body">
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col" style="min-width:190px"><label class="form-label mb-1 small">Producto</label>
+              <div class="ac-box"><input type="text" id="prodQ" class="form-control form-control-sm" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="prodList"></div></div>
+              <input type="hidden" id="prodCod"></div>
+            <div class="col-auto" style="width:76px"><label class="form-label mb-1 small">Moneda</label><select id="prodMon" class="form-select form-select-sm"><option value="P">$</option><option value="D">u$s</option></select></div>
+            <div class="col-auto" style="width:90px"><label class="form-label mb-1 small">Cantidad</label><input type="number" step="0.01" id="prodCant" class="form-control form-control-sm cp-num"></div>
+            <div class="col-auto" style="width:105px"><label class="form-label mb-1 small" id="lblCos">Costo $</label><input type="number" step="0.0001" id="prodCos" class="form-control form-control-sm cp-num"></div>
+            <div class="col-auto" style="width:100px"><label class="form-label mb-1 small" id="lblLis">Lista $</label><input type="number" step="0.0001" id="prodLis" class="form-control form-control-sm cp-num" value="0"></div>
+            <div class="col-auto" style="width:72px"><label class="form-label mb-1 small">Factor</label><input type="number" step="0.0001" id="prodFct" class="form-control form-control-sm cp-num" value="1"></div>
+            <div class="col-auto" style="width:72px"><label class="form-label mb-1 small">Bonif %</label><input type="number" step="0.01" id="prodBon" class="form-control form-control-sm cp-num" value="0"></div>
+            <div class="col-auto" style="width:88px"><label class="form-label mb-1 small">Flete</label><input type="number" step="0.0001" id="prodFlt" class="form-control form-control-sm cp-num" value="0"></div>
+            <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="prodStk" checked><label class="form-check-label small" for="prodStk">Stock</label></div></div>
+            <div class="col-auto"><button type="button" id="btnAddProd" class="btn btn-sm btn-outline-primary mt-3"><i class="bi bi-plus-lg"></i></button></div>
+          </div>
+          <table class="table table-sm mb-0"><thead><tr><th>Producto</th><th>Mon</th><th class="cp-num" style="width:78px">Cant</th><th class="cp-num" style="width:95px">Costo</th><th class="cp-num" style="width:100px">Costo $</th><th class="cp-num" style="width:65px">Bonif</th><th style="width:46px">Stk</th><th class="cp-num" style="width:115px">Neto</th><th style="width:32px"></th></tr></thead><tbody id="prodBody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- Imputación contable (Debe) — multi-fila -->
+      <div class="card fc-card mb-2">
+        <div class="card-header d-flex align-items-center">
+          <span><i class="bi bi-diagram-3 me-1"></i>Imputación contable (Debe)</span>
+          <span class="small ms-auto">Imputado <b id="impSum" class="cp-num">0.00</b> / Total <b id="impTot" class="cp-num">0.00</b> <span id="impOk"></span></span>
+        </div>
+        <div class="card-body">
+          <div class="row g-2 align-items-end mb-2">
+            <div class="col"><label class="form-label mb-1 small">Cuenta</label>
+              <div class="ac-box"><input type="text" id="impCtaQ" class="form-control form-control-sm" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="impCtaList"></div></div>
+              <input type="hidden" id="impCta"></div>
+            <div class="col-md-3"><label class="form-label mb-1 small">Centro de costo</label><select id="impCdc" class="form-select form-select-sm"></select></div>
+            <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">Debe</label><input type="number" step="0.01" id="impDeb" class="form-control form-control-sm cp-num"></div>
+            <div class="col-auto"><button type="button" id="btnAddImp" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Agregar</button></div>
+            <div class="col-auto"><button type="button" id="btnSugIva" class="btn btn-sm btn-outline-secondary" title="Agrega la fila de IVA Crédito Fiscal por el IVA del comprobante">+ IVA Crédito</button></div>
+          </div>
+          <table class="table table-sm mb-0"><thead><tr><th>Cuenta</th><th>Centro de costo</th><th class="cp-num" style="width:160px">Debe</th><th style="width:36px"></th></tr></thead><tbody id="impBody"></tbody></table>
+        </div>
+      </div>
+
     </div>
   </div>
 
