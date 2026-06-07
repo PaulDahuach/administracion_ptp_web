@@ -25,6 +25,7 @@ const FV = {
         this.el('btnAddRem').addEventListener('click', function () { FV.abrirRemitos(); });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.el('btnEmitir').addEventListener('click', function () { FV.emitir(); });
+        this.el('btnAnularHdr').addEventListener('click', function () { if (FV.anulNum) FV.anular(FV.anulNum); });
         this.el('pdcmov').addEventListener('input', function () { FV.recalc(); });
         this.el('btnBuscar').addEventListener('click', function () { bootstrap.Modal.getOrCreateInstance(FV.el('modalBuscar')).show(); FV.loadList(); });
         this.el('bGo').addEventListener('click', function () { FV.loadList(); });
@@ -185,6 +186,7 @@ const FV = {
         if (j.data.cae) { this.el('caeDisp').textContent = j.data.cae; this.el('caeVto').textContent = j.data.cae_vto; this.el('caeWrap').style.display = ''; }
         Array.prototype.forEach.call(document.querySelectorAll('#fvForm input, #fvForm select, .l-pun, .l-del, #btnAddRem'), function (el) { el.disabled = true; });
         this.el('btnImprimirHdr').style.display = ''; this.el('btnImprimirHdr').onclick = function () { window.open('imprimir.php?nummov=' + j.data.nummov, '_blank'); };
+        if (j.data.anulable) { this.anulNum = j.data.nummov; this.el('btnAnularHdr').style.display = ''; }
         var nro = this.el('letra').value + ' ' + String(j.data.cinmov).padStart(8, '0');
         this.toast(j.data.cae ? ('Factura ' + nro + ' autorizada · CAE ' + j.data.cae) : ('Factura ' + nro + ' grabada (capacitación · sin CAE)'), 'success');
     },
@@ -222,13 +224,22 @@ const FV = {
         this.el('subTotal').textContent = this.n(d.NETMOV);
         this.el('tNeto').textContent = this.n(d.NETMOV); this.el('tIva').textContent = this.n(d.IRIMOV); this.el('tTotal').textContent = this.n(d.TOTMOV);
         if (d.CAE) { this.el('caeDisp').textContent = d.CAE; this.el('caeVto').textContent = d.CAE_VTO; this.el('caeWrap').style.display = ''; }
-        this.lockForm(num);
+        this.lockForm(num, d.ANULABLE);
     },
-    lockForm(num) {
+    lockForm(num, anulable) {
         Array.prototype.forEach.call(document.querySelectorAll('#fvForm input, #fvForm select'), function (el) { el.disabled = true; });
         this.el('btnEmitir').style.display = 'none'; this.el('btnAddRem').style.display = 'none';
         this.el('btnImprimirHdr').style.display = ''; this.el('btnImprimirHdr').onclick = function () { window.open('imprimir.php?nummov=' + num, '_blank'); };
+        if (anulable) { this.anulNum = num; this.el('btnAnularHdr').style.display = ''; }
         this.emitida = true;
+    },
+    async anular(num) {
+        if (!confirm('¿Anular esta factura?\nSe revierten el asiento contable, la cuenta corriente, los vencimientos y el stock (y el recibo de contado si lo hubiera). No se puede deshacer.')) return;
+        var fd = new FormData(); fd.append('action', 'anular'); fd.append('nummov', num);
+        var j = await this.api('anular', {}, { method: 'POST', body: fd });
+        if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        this.el('btnAnularHdr').style.display = 'none'; this.el('btnImprimirHdr').style.display = 'none';
+        this.toast('Factura ' + num + ' anulada.', 'success');
     },
     autocomplete(input, list, action, label, onPick) {
         var hi = -1, items = [], t = null;

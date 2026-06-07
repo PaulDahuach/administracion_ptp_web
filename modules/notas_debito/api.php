@@ -29,6 +29,7 @@ if (!defined('ND_LIB')) {
             case 'get_cliente':     get_cliente(); break;
             case 'facturas':        facturas(); break;
             case 'guardar':         guardar(); break;
+            case 'anular':          anular(); break;
             default: fail('Acción inválida: ' . $action);
         }
     } catch (Exception $e) { fail($e->getMessage(), 500); }
@@ -310,8 +311,25 @@ function guardar() {
             try { $res = nd_insert($raw, false, null); db_commit(); }
             catch (Exception $e) { db_rollback(); throw $e; }
         }
+        require_once __DIR__ . '/../../includes/comprobante_anular.php';
+        $res['anulable'] = anular_es_anulable($estTrue, isset($res['cae']) ? $res['cae'] : '');
         ok($res);
     } catch (Exception $e) {
         fail('No se pudo ' . ($estTrue ? 'emitir' : 'grabar') . ' la nota de débito: ' . $e->getMessage(), 500);
+    }
+}
+
+/** Anula una ND (admin + capacitación/sin-CAE/homologación · transacción · revierte todo). */
+function anular() {
+    require_once __DIR__ . '/../../includes/comprobante_anular.php';
+    $num = isset($_POST['nummov']) ? (int) $_POST['nummov'] : 0;
+    try {
+        anular_check($num, 440, 'Nota de débito');
+        db_begin();
+        try { anular_comprobante($num, 440); db_commit(); }
+        catch (Exception $e) { db_rollback(); throw $e; }
+        ok(array('anulado' => $num));
+    } catch (Exception $e) {
+        fail('No se pudo anular la nota de débito: ' . $e->getMessage(), 400);
     }
 }

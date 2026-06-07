@@ -26,6 +26,7 @@ if (!defined('FV_LIB')) {
         case 'listar':             listar(); break;
         case 'detalle':            detalle(); break;
         case 'guardar':            guardar(); break;
+        case 'anular':             anular(); break;
         default: fail('Acción inválida: ' . $action);
     }
 }
@@ -120,6 +121,9 @@ function detalle() {
     if (!$h) { fail('Factura no encontrada'); return; }
     $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1); $lib = auth_libro_unico();
     if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Factura no disponible en este libro'); return; }
+    require_once __DIR__ . '/../../includes/comprobante_anular.php';
+    $anu = ($h['ANUMOV'] === true || $h['ANUMOV'] == -1);
+    $anulable = (!$anu && anular_es_anulable($estTrue, nz($h['CAEMOV'], ''))) ? 1 : 0;
     $loc = db_row("SELECT L.DENLOC, P.DENPRO FROM [Tbl Localidades] AS L LEFT JOIN [Tbl Provincias] AS P ON L.CODPRO=P.CODPRO WHERE L.CODLOC=" . (int) nz($h['CODLOC'], 0) . ";");
     $cri = db_row("SELECT DENCRI FROM [Tbl Categorias Responsabilidad IVA] WHERE CODCRI=" . (int) nz($h['CODCRI'], 0) . ";");
     $prods = array();
@@ -134,7 +138,7 @@ function detalle() {
         'DOMICILIO' => trim(nz($h['DCXMOV'], '') . ' ' . nz($h['DNXMOV'], '')), 'LOCALIDAD' => $loc ? trim(nz($loc['DENLOC'], '') . (nz($loc['DENPRO'], '') ? ' - ' . nz($loc['DENPRO'], '') : '')) : '', 'DENCRI' => $cri ? trim((string) nz($cri['DENCRI'], '')) : '',
         'CODCDV' => (int) nz($h['CODCDV'], 0), 'CODFDP' => (int) nz($h['CODFDP'], 0), 'PDCMOV' => round((float) nz($h['PDCMOV'], 0), 2), 'DETMOV' => trim((string) nz($h['DETMOV'], '')),
         'NETMOV' => round((float) nz($h['NETMOV'], 0), 2), 'IRIMOV' => round((float) nz($h['IRIMOV'], 0), 2), 'TOTMOV' => round((float) nz($h['TOTMOV'], 0), 2),
-        'CAE' => trim((string) nz($h['CAEMOV'], '')), 'CAE_VTO' => $h['FVCMOV'] ? fecha_serial($h['FVCMOV']) : '', 'ANU' => ($h['ANUMOV'] === true || $h['ANUMOV'] == -1) ? 1 : 0, 'productos' => $prods));
+        'CAE' => trim((string) nz($h['CAEMOV'], '')), 'CAE_VTO' => $h['FVCMOV'] ? fecha_serial($h['FVCMOV']) : '', 'ANU' => $anu ? 1 : 0, 'ANULABLE' => $anulable, 'productos' => $prods));
 }
 
 function listar_pdvs() { ok(db_query("SELECT CODPDV, NOMPDV FROM [Tbl Puntos de Venta] WHERE CODPDV <> 9999 ORDER BY CODPDV;")); }
@@ -482,8 +486,25 @@ function guardar() {
             try { $res = fv_insert($raw, false, null); db_commit(); }
             catch (Exception $e) { db_rollback(); throw $e; }
         }
+        require_once __DIR__ . '/../../includes/comprobante_anular.php';
+        $res['anulable'] = anular_es_anulable($estTrue, isset($res['cae']) ? $res['cae'] : '');
         ok($res);
     } catch (Exception $e) {
         fail('No se pudo ' . ($estTrue ? 'emitir' : 'grabar') . ' la factura: ' . $e->getMessage(), 500);
+    }
+}
+
+/** Anula una FV (admin + capacitación/sin-CAE/homologación · transacción · revierte todo + RC de contado). */
+function anular() {
+    require_once __DIR__ . '/../../includes/comprobante_anular.php';
+    $num = isset($_POST['nummov']) ? (int) $_POST['nummov'] : 0;
+    try {
+        anular_check($num, 420, 'Factura');
+        db_begin();
+        try { anular_comprobante($num, 420); db_commit(); }
+        catch (Exception $e) { db_rollback(); throw $e; }
+        ok(array('anulado' => $num));
+    } catch (Exception $e) {
+        fail('No se pudo anular la factura: ' . $e->getMessage(), 400);
     }
 }

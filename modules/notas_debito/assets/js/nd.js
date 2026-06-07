@@ -29,6 +29,7 @@ const ND = {
         this.el('fexmov').addEventListener('change', function () { if (ND.el('fexmov').value) ND.el('fvxmov').value = ND.addDays(ND.el('fexmov').value, 30); });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.el('btnEmitir').addEventListener('click', function () { ND.emitir(); });
+        this.el('btnAnularHdr').addEventListener('click', function () { if (ND.anulNum) ND.anular(ND.anulNum); });
     },
 
     concepto() { return this.conceptos[this.el('codaux').value] || { IVA: true }; },
@@ -98,8 +99,18 @@ const ND = {
         if (j.data.cae) { this.el('caeDisp').textContent = j.data.cae; this.el('caeVto').textContent = j.data.cae_vto; this.el('caeWrap').style.display = ''; }
         Array.prototype.forEach.call(document.querySelectorAll('#ndForm input, #ndForm select'), function (el) { el.disabled = true; });
         this.el('btnImprimirHdr').style.display = ''; this.el('btnImprimirHdr').onclick = function () { window.open('imprimir.php?nummov=' + j.data.nummov, '_blank'); };
+        if (j.data.anulable) { this.anulNum = j.data.nummov; this.el('btnAnularHdr').style.display = ''; }
         var nro = this.el('letra').value + ' ' + String(j.data.cinmov).padStart(8, '0');
         this.toast(j.data.cae ? ('ND ' + nro + ' autorizada · CAE ' + j.data.cae) : ('ND ' + nro + ' grabada (capacitación · sin CAE)'), 'success');
+    },
+
+    async anular(num) {
+        if (!confirm('¿Anular esta nota de débito?\nSe revierten el asiento contable, la cuenta corriente y el vencimiento. No se puede deshacer.')) return;
+        var fd = new FormData(); fd.append('action', 'anular'); fd.append('nummov', num);
+        var j = await this.api('anular', {}, { method: 'POST', body: fd });
+        if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        this.el('btnAnularHdr').style.display = 'none'; this.el('btnImprimirHdr').style.display = 'none';
+        this.toast('Nota de débito ' + num + ' anulada.', 'success');
     },
 
     autocomplete(input, list, action, label, onPick) {

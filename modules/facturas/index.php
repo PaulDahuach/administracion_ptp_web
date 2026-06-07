@@ -16,6 +16,7 @@ $capa = (auth_modo() === 'capacitacion');   // negro (ESTMOV=False): factura NO 
 $btnEmitirLbl = $capa ? '<i class="bi bi-mortarboard me-1"></i>Grabar factura (capacitación)' : '<i class="bi bi-cloud-arrow-up me-1"></i>Emitir factura (AFIP)';
 $toolbar = '<button id="btnEmitir" class="btn btn-success btn-sm">' . $btnEmitirLbl . '</button>'
          . ' <button id="btnImprimirHdr" class="btn btn-primary btn-sm" style="display:none"><i class="bi bi-printer me-1"></i>Imprimir</button>'
+         . ' <button id="btnAnularHdr" class="btn btn-danger btn-sm" style="display:none"><i class="bi bi-x-octagon me-1"></i>Anular</button>'
          . ' <button id="btnNuevo" class="btn btn-outline-light btn-sm"><i class="bi bi-file-earmark-plus me-1"></i>Nuevo</button>'
          . ' <button id="btnBuscar" class="btn btn-outline-light btn-sm"><i class="bi bi-search me-1"></i>Buscar</button>';
 module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
@@ -119,5 +120,5 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/facturas.js?v=6"></script>
+<script src="assets/js/facturas.js?v=7"></script>
 '); ?>

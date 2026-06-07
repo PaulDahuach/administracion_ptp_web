@@ -26,6 +26,7 @@ if (!defined('NC_LIB')) {
             case 'pendientes':      pendientes(); break;
             case 'productos_fv':    productos_fv(); break;
             case 'guardar':         guardar(); break;
+            case 'anular':          anular(); break;
             default: fail('Acción inválida: ' . $action);
         }
     } catch (Exception $e) { fail($e->getMessage(), 500); }
@@ -384,8 +385,25 @@ function guardar() {
             try { $res = nc_insert($raw, false, null); db_commit(); }
             catch (Exception $e) { db_rollback(); throw $e; }
         }
+        require_once __DIR__ . '/../../includes/comprobante_anular.php';
+        $res['anulable'] = anular_es_anulable($estTrue, isset($res['cae']) ? $res['cae'] : '');
         ok($res);
     } catch (Exception $e) {
         fail('No se pudo ' . ($estTrue ? 'emitir' : 'grabar') . ' la nota de crédito: ' . $e->getMessage(), 500);
+    }
+}
+
+/** Anula una NC (admin + capacitación/sin-CAE/homologación · transacción · revierte todo + restaura la FV). */
+function anular() {
+    require_once __DIR__ . '/../../includes/comprobante_anular.php';
+    $num = isset($_POST['nummov']) ? (int) $_POST['nummov'] : 0;
+    try {
+        anular_check($num, 460, 'Nota de crédito');
+        db_begin();
+        try { anular_comprobante($num, 460); db_commit(); }
+        catch (Exception $e) { db_rollback(); throw $e; }
+        ok(array('anulado' => $num));
+    } catch (Exception $e) {
+        fail('No se pudo anular la nota de crédito: ' . $e->getMessage(), 400);
     }
 }
