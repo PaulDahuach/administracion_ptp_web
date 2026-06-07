@@ -61,8 +61,27 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
       <div class="col-auto" style="width:110px"><label class="form-label mb-1">Alícuota %</label><input type="number" step="0.01" id="alimov" class="form-control cp-num" value="21"></div>
       <div class="col-md-2"><label class="form-label mb-1">I.V.A.</label><input id="irimov" class="form-control cp-num" readonly value="0.00"></div>
       <div class="col-md-2"><label class="form-label mb-1">No gravado</label><input type="number" step="0.01" id="nogmov" class="form-control cp-num" value="0"></div>
+      <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="conProd"><label class="form-check-label small" for="conProd">Con productos (entra a stock)</label></div></div>
     </div>
   </div></div>
+
+  <!-- Productos (entra a stock) — sólo con el toggle -->
+  <div class="card fc-card mb-2" id="cardProd" style="display:none">
+    <div class="card-header"><i class="bi bi-box-seam me-1"></i>Productos (entra a stock) <span class="small text-muted">— el neto gravado sale de estas líneas</span></div>
+    <div class="card-body">
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col"><label class="form-label mb-1 small">Producto</label>
+          <div class="ac-box"><input type="text" id="prodQ" class="form-control form-control-sm" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="prodList"></div></div>
+          <input type="hidden" id="prodCod"></div>
+        <div class="col-auto" style="width:110px"><label class="form-label mb-1 small">Cantidad</label><input type="number" step="0.01" id="prodCant" class="form-control form-control-sm cp-num"></div>
+        <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">Costo $</label><input type="number" step="0.0001" id="prodCos" class="form-control form-control-sm cp-num"></div>
+        <div class="col-auto" style="width:95px"><label class="form-label mb-1 small">Bonif %</label><input type="number" step="0.01" id="prodBon" class="form-control form-control-sm cp-num" value="0"></div>
+        <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="prodStk" checked><label class="form-check-label small" for="prodStk">Stock</label></div></div>
+        <div class="col-auto"><button type="button" id="btnAddProd" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Agregar</button></div>
+      </div>
+      <table class="table table-sm mb-0"><thead><tr><th>Producto</th><th class="cp-num" style="width:90px">Cant</th><th class="cp-num" style="width:110px">Costo $</th><th class="cp-num" style="width:80px">Bonif</th><th style="width:60px">Stock</th><th class="cp-num" style="width:130px">Neto</th><th style="width:36px"></th></tr></thead><tbody id="prodBody"></tbody></table>
+    </div>
+  </div>
 
   <!-- Imputación contable (Debe) — multi-fila -->
   <div class="card fc-card mb-2">
@@ -114,5 +133,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=3"></script>
+<script src="assets/js/cp.js?v=4"></script>
 '); ?>

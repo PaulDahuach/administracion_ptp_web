@@ -3,7 +3,7 @@
    Sin productos/stock (v1). */
 const CP = {
     prov: null, grabado: false, totales: { neto: 0, iva: 0, nog: 0, ali: 21, total: 0 },
-    imps: [], vtos: [], centros: {}, impSel: null,
+    imps: [], vtos: [], productos: [], centros: {}, impSel: null, prodSel: null,
     ivaCta() { return document.getElementById('cpForm').getAttribute('data-ivacta') || ''; },
 
     el(id) { return document.getElementById(id); },
@@ -28,6 +28,9 @@ const CP = {
         this.el('btnAddImp').addEventListener('click', function () { CP.addImp(); });
         this.el('btnSugIva').addEventListener('click', function () { CP.sugerirIva(); });
         this.el('btnAddVto').addEventListener('click', function () { CP.addVto(); });
+        this.el('conProd').addEventListener('change', function () { CP.toggleProd(); });
+        this.el('btnAddProd').addEventListener('click', function () { CP.addProd(); });
+        this.autocomplete(this.el('prodQ'), this.el('prodList'), 'productos', function (o) { return o.CODPRO + ' · ' + o.DENPRO; }, function (o) { CP.prodSel = { codpro: o.CODPRO, denpro: (o.DENPRO || '').trim(), cospro: o.COSPRO, codudm: o.CODUDM, codmon: o.CODMON }; CP.el('prodCod').value = o.CODPRO; CP.el('prodQ').value = o.CODPRO + ' · ' + (o.DENPRO || '').trim(); CP.el('prodCos').value = o.COSPRO || ''; });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.el('btnGrabar').addEventListener('click', function () { CP.grabar(); });
         this.el('btnAnularHdr').addEventListener('click', function () { if (CP.anulNum) CP.anular(CP.anulNum); });
@@ -44,7 +47,10 @@ const CP = {
     },
 
     recalc() {
-        var neto = this.r2(this.el('netmov').value), ali = parseFloat(this.el('alimov').value) || 0, nog = this.r2(this.el('nogmov').value);
+        var ali = parseFloat(this.el('alimov').value) || 0, nog = this.r2(this.el('nogmov').value);
+        var conProd = this.el('conProd').checked;
+        var neto = conProd ? this.prodSum() : this.r2(this.el('netmov').value);
+        if (conProd) this.el('netmov').value = neto;
         var iva = Math.round(neto * ali) / 100, total = Math.round((neto + iva + nog) * 100) / 100;
         this.el('irimov').value = this.n(iva);
         this.totales = { neto: neto, iva: iva, nog: nog, ali: ali, total: total };
@@ -104,9 +110,38 @@ const CP = {
         Array.prototype.forEach.call(this.el('vtoBody').querySelectorAll('.v-del'), function (b) { b.addEventListener('click', function () { CP.vtos.splice(+this.getAttribute('data-k'), 1); CP.renderVtos(); CP.refresh(); }); });
     },
 
+    // ---- Productos (entra a stock) ----
+    toggleProd() {
+        var on = this.el('conProd').checked;
+        this.el('cardProd').style.display = on ? '' : 'none';
+        this.el('netmov').readOnly = on;
+        if (!on) { this.productos = []; this.renderProds(); }
+        this.recalc();
+    },
+    prodNet(p) { return Math.round(p.cant * p.cos * (1 - p.bon / 100) * 100) / 100; },
+    prodSum() { return Math.round(this.productos.reduce(function (s, p) { return s + CP.prodNet(p); }, 0) * 100) / 100; },
+    addProd() {
+        if (!this.prodSel) { this.toast('Elegí un producto.', 'warning'); return; }
+        var cant = this.r2(this.el('prodCant').value), cos = parseFloat(this.el('prodCos').value) || 0, bon = this.r2(this.el('prodBon').value);
+        if (cant <= 0 || cos <= 0) { this.toast('Poné cantidad y costo.', 'warning'); return; }
+        this.productos.push({ codpro: this.prodSel.codpro, denpro: this.prodSel.denpro, cant: cant, cos: cos, bon: bon, stk: this.el('prodStk').checked, codudm: this.prodSel.codudm, codmon: this.prodSel.codmon });
+        this.prodSel = null; this.el('prodCod').value = ''; this.el('prodQ').value = ''; this.el('prodCant').value = ''; this.el('prodCos').value = '';
+        this.renderProds(); this.recalc();
+    },
+    renderProds() {
+        this.el('prodBody').innerHTML = this.productos.map(function (p, k) {
+            return '<tr><td>' + CP.esc(p.codpro + ' · ' + p.denpro) + '</td><td class="cp-num">' + CP.n(p.cant) + '</td><td class="cp-num">' + CP.n(p.cos) + '</td><td class="cp-num">' + CP.n(p.bon) + '</td>' +
+                '<td>' + (p.stk ? '<i class="bi bi-check-lg text-success"></i>' : '—') + '</td><td class="cp-num">' + CP.n(CP.prodNet(p)) + '</td>' +
+                '<td><button type="button" class="btn btn-sm btn-outline-danger p-del" data-k="' + k + '"><i class="bi bi-x"></i></button></td></tr>';
+        }).join('');
+        Array.prototype.forEach.call(this.el('prodBody').querySelectorAll('.p-del'), function (b) { b.addEventListener('click', function () { CP.productos.splice(+this.getAttribute('data-k'), 1); CP.renderProds(); CP.recalc(); }); });
+    },
+
     async grabar() {
         this.el('cpErr').textContent = '';
         if (this.grabado) { this.toast('El comprobante ya fue grabado.', 'info'); return; }
+        var conProd = this.el('conProd').checked;
+        if (conProd && !this.productos.length) { this.el('cpErr').textContent = 'Agregá al menos un producto (o destildá "Con productos").'; return; }
         var t = this.totales, p = this.prov;
         if (!this.el('codcue').value) { this.el('cpErr').textContent = 'Elegí un proveedor.'; return; }
         if (!(parseInt(this.el('cen').value, 10) > 0)) { this.el('cpErr').textContent = 'Cargá el número del comprobante del proveedor.'; return; }
@@ -114,12 +149,13 @@ const CP = {
         if (Math.abs(this.impSum() - t.total) >= 0.01) { this.el('cpErr').textContent = 'La imputación (' + this.n(this.impSum()) + ') no coincide con el total (' + this.n(t.total) + ').'; return; }
         if (Math.abs(this.vtoSum() - t.total) >= 0.01) { this.el('cpErr').textContent = 'Los vencimientos (' + this.n(this.vtoSum()) + ') no coinciden con el total (' + this.n(t.total) + ').'; return; }
         var data = {
-            codcue: this.el('codcue').value, fexmov: this.el('fexmov').value, codcat: 2, detmov: this.el('detmov').value,
+            codcue: this.el('codcue').value, fexmov: this.el('fexmov').value, codcat: conProd ? 1 : 2, detmov: this.el('detmov').value,
             cec: this.el('cec').value, cei: this.el('cei').value, cep: this.el('cep').value, cen: this.el('cen').value, cef: this.el('cef').value,
             citmov: p.CITCUE, codcri: p.CODCRI, nogmov: t.nog, total: t.total,
             ivas: t.neto > 0 ? [{ net: t.neto, ali: t.ali, iva: t.iva }] : [],
             imputaciones: this.imps.map(function (i) { return { codcue: i.codcue, codcdc: i.codcdc, debmov: i.debmov }; }),
-            vencimientos: this.vtos.map(function (v) { return { fvxmov: v.fvxmov, detmov: '', cremov: v.cremov }; })
+            vencimientos: this.vtos.map(function (v) { return { fvxmov: v.fvxmov, detmov: '', cremov: v.cremov }; }),
+            productos: conProd ? this.productos.map(function (p) { return { codpro: p.codpro, denmov: p.denpro, ingmov: p.cant, punmov: p.cos, bonmov: p.bon, stkmov: p.stk ? 1 : 0, codmon: p.codmon, codudm: p.codudm, fctmov: 1 }; }) : []
         };
         this.el('btnGrabar').disabled = true; this.el('btnGrabar').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Grabando…';
         var fd = new FormData(); fd.append('action', 'guardar'); fd.append('data', JSON.stringify(data));

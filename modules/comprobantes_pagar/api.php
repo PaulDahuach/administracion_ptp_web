@@ -27,6 +27,7 @@ if (!defined('CP_LIB')) {
             case 'get_proveedor':      get_proveedor(); break;
             case 'cuentas':            cuentas_imputables(); break;
             case 'centros_costo':      centros_costo(); break;
+            case 'productos':          buscar_productos(); break;
             case 'guardar':            guardar(); break;
             case 'anular':             anular(); break;
             default: fail('Acción inválida: ' . $action);
@@ -69,6 +70,14 @@ function cuentas_imputables() {
 }
 
 function centros_costo() { ok(db_query("SELECT CODCDC, DENCDC FROM [Tbl Centros de Costo] ORDER BY CODCDC;")); }
+
+/** Productos (para la grilla de stock del CP con productos): código, denominación, costo y unidad/moneda. */
+function buscar_productos() {
+    $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+    if (strlen($q) < 1) { ok(array()); return; }
+    $s = db_esc($q);
+    ok(db_query("SELECT TOP 20 CODPRO, DENPRO, COSPRO, CODUDM, CODMON FROM [Tbl Productos] WHERE DENPRO Is Not Null AND ((DENPRO Like '%$s%') OR (CODPRO Like '$s%')) ORDER BY DENPRO;"));
+}
 
 /** Inserta una fila de imputación (DEBE o HABER) + mayoriza DEBCUE/CRECUE. */
 function cp_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $codcdc = 1, $ali = null, $iva = null, $tot = null) {
