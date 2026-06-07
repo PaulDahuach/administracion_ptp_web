@@ -42,7 +42,7 @@ function anular_check($num, $codope, $nombre) {
 
 function anular_comprobante($num, $codope) {
     $num = (int) $num; $codope = (int) $codope;
-    $h = db_row("SELECT NUMMOV, CODORI, CODOPE, CODCUE, DEBMOV, CREMOV, NRCMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=$codope;");
+    $h = db_row("SELECT NUMMOV, CODORI, CODOPE, CODCUE, DEBMOV, CREMOV, NRCMOV, CINMOV, CECMOV, CEIMOV, CEPMOV, CENMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=$codope;");
     if (!$h) throw new Exception('Comprobante no encontrado');
     $codcue = (int) $h['CODCUE'];
     $codori = strtoupper(trim((string) nz($h['CODORI'], 'D')));   // D=deudores / A=acreedores (signo de anticipos/SANCUE)
@@ -113,6 +113,26 @@ function anular_comprobante($num, $codope) {
         }
     }
     db_exec("DELETE FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num;");
+
+    // 6b) Remitos del proveedor facturados por este CP: re-comprometer stock (RMCSTK += ICCMOV×FCT), des-marcar
+    //     (ECCMOV=Null), sacar la nota "CP - ..." del DETMOV del remito y borrar el vínculo. (Correcto: el legacy NO lo hacía.)
+    if ($codope === 310) {
+        $cinmov = (int) nz($h['CINMOV'], 0);
+        $note = "CP - " . str_pad((string) $cinmov, 8, '0', STR_PAD_LEFT) . " " . trim((string) nz($h['CECMOV'], '')) . " - " . trim((string) nz($h['CEIMOV'], '')) . " - " . str_pad((string) (int) nz($h['CEPMOV'], 0), 4, '0', STR_PAD_LEFT) . " - " . str_pad((string) (int) nz($h['CENMOV'], 0), 8, '0', STR_PAD_LEFT);
+        foreach (db_query("SELECT REMMOV FROM [Tbl Movimientos Remitos] WHERE NUMMOV=$num;") as $lr) {
+            $rem = (int) $lr['REMMOV'];
+            foreach (db_query("SELECT CODPRO, ICCMOV, FCTMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$rem;") as $rs) {
+                $icc = round((float) nz($rs['ICCMOV'], 0), 4); $rfct = round((float) nz($rs['FCTMOV'], 1), 4); if ($rfct == 0) $rfct = 1;
+                db_exec("UPDATE [Tbl Stock] SET RMCSTK = RMCSTK + " . round($icc * $rfct, 4) . " WHERE CODSUC=1 AND CODPRO='" . db_esc(trim((string) $rs['CODPRO'])) . "';");
+            }
+            db_exec("UPDATE [Tbl Movimientos Stock] SET ECCMOV = Null WHERE NUMMOV=$rem;");
+            $rd = db_row("SELECT DETMOV FROM [Tbl Movimientos] WHERE NUMMOV=$rem;");
+            if ($rd && strpos((string) nz($rd['DETMOV'], ''), $note) !== false) {
+                db_exec("UPDATE [Tbl Movimientos] SET DETMOV=" . (function_exists('cp_txt') ? cp_txt(str_replace($note, '', (string) $rd['DETMOV'])) : ("'" . db_esc(str_replace($note, '', (string) $rd['DETMOV'])) . "'")) . " WHERE NUMMOV=$rem;");
+            }
+        }
+        db_exec("DELETE FROM [Tbl Movimientos Remitos] WHERE NUMMOV=$num;");
+    }
 
     // 7) Vencimientos propios (FV/ND) + IVA: borrar.
     db_exec("DELETE FROM [Tbl Movimientos Vencimientos] WHERE NUMMOV=$num;");

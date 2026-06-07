@@ -28,6 +28,7 @@ if (!defined('CP_LIB')) {
             case 'cuentas':            cuentas_imputables(); break;
             case 'centros_costo':      centros_costo(); break;
             case 'productos':          buscar_productos(); break;
+            case 'remitos_pendientes': remitos_pendientes(); break;
             case 'guardar':            guardar(); break;
             case 'anular':             anular(); break;
             default: fail('Acción inválida: ' . $action);
@@ -77,6 +78,22 @@ function buscar_productos() {
     if (strlen($q) < 1) { ok(array()); return; }
     $s = db_esc($q);
     ok(db_query("SELECT TOP 20 CODPRO, DENPRO, COSPRO, CODUDM, CODMON FROM [Tbl Productos] WHERE DENPRO Is Not Null AND ((DENPRO Like '%$s%') OR (CODPRO Like '$s%')) ORDER BY DENPRO;"));
+}
+
+/** Remitos de proveedor (CODOPE=300) pendientes de facturar (con líneas de stock sin marcar, ECCMOV null) para un proveedor. */
+function remitos_pendientes() {
+    $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    if ($cc <= 0) { ok(array()); return; }
+    $out = array();
+    foreach (db_query("SELECT NUMMOV, FEXMOV, CINMOV, CEPMOV, CENMOV FROM [Tbl Movimientos] WHERE CODORI='A' AND CODOPE=300 AND CODCUE=$cc AND (ANUMOV=False OR ANUMOV Is Null) ORDER BY FEXMOV DESC;") as $r) {
+        $num = (int) $r['NUMMOV'];
+        $pend = db_query("SELECT CODPRO, DENMOV, ICCMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num AND ECCMOV Is Null;");
+        if (!count($pend)) continue;
+        $prods = array();
+        foreach ($pend as $ps) $prods[] = trim((string) nz($ps['CODPRO'], '')) . ' ' . trim((string) nz($ps['DENMOV'], '')) . ' (' . rtrim(rtrim(number_format((float) nz($ps['ICCMOV'], 0), 2, '.', ''), '0'), '.') . ')';
+        $out[] = array('NUMMOV' => $num, 'FECHA' => fecha_serial($r['FEXMOV']), 'NUMERO' => str_pad((string) nz($r['CINMOV'], 0), 8, '0', STR_PAD_LEFT), 'PRODUCTOS' => implode(' · ', $prods));
+    }
+    ok($out);
 }
 
 /** Inserta una fila de imputación (DEBE o HABER) + mayoriza DEBCUE/CRECUE. */
@@ -154,7 +171,7 @@ function cp_insert($d, $estTrue) {
     $sdomov = round(-$sumVto, 2);                                 // negativo = le debemos
 
     // ── Header ──
-    $den = cp_txt(nz($prov['DENCUE'], '')); $cit = cp_txt(nz($d['citmov'], ''));
+    $den = cp_txt(nz($prov['DENCUE'], '')); $cit = cp_txt(isset($d['citmov']) ? nz($d['citmov'], '') : '');
     $dcx = cp_txt(nz($prov['DCXCUE'], '')); $dnx = cp_txt(nz($prov['DNXCUE'], ''));
     $codloc = (int) nz($prov['CODLOC'], 0); $codcri = (int) nz($d['codcri'], 0);
     $det = cp_txt(isset($d['detmov']) ? $d['detmov'] : '');
@@ -178,31 +195,65 @@ function cp_insert($d, $estTrue) {
         $dec = true;
     }
 
-    // ── Productos (CODAUX=311): entra mercadería a stock (EXISTK) + actualiza el costo del producto (v2 pesos) ──
+    // ── Productos (CODAUX=311): entra mercadería a stock (EXISTK) + actualiza costo del producto (pesos o u$s) ──
+    // Moneda 'P' (pesos): el costo está en $. Moneda 'D' (u$s): el costo está en u$s y se pasa a $ con la cotización
+    // del comprobante (PUNMOV = COSMOV × COTMOV). En Tbl Productos el costo/lista se guardan en la moneda del producto
+    // por unidad base (÷ factor): COSPRO=COSMOV/FCT, PLCPRO=PULMOV/FCT; COTPRO=cotización (sólo productos en u$s).
     if ($codcat == 1) {
         $ordP = 0;
         foreach ($productos as $p) {
-            $codpro = trim((string) nz($p['codpro'], ''));
-            if ($codpro === '') continue;
-            $ordP++;
+            $codpro = trim((string) nz($p['codpro'], '')); if ($codpro === '') continue;
+            $ordP++; $cpe = db_esc($codpro);
+            $codmon = strtoupper(trim((string) nz(isset($p['codmon']) ? $p['codmon'] : 'P', 'P')));
             $ing = round((float) nz($p['ingmov'], 0), 4);
-            $pun = round((float) nz($p['punmov'], 0), 4);
-            $bon = round((float) nz(isset($p['bonmov']) ? $p['bonmov'] : 0, 0), 2);
+            $cos = round((float) nz(isset($p['cosmov']) ? $p['cosmov'] : 0, 0), 4);   // costo en la moneda del producto
+            $pul = round((float) nz(isset($p['pulmov']) ? $p['pulmov'] : 0, 0), 4);   // precio de lista (misma moneda)
             $fct = round((float) nz(isset($p['fctmov']) ? $p['fctmov'] : 1, 1), 4); if ($fct == 0) $fct = 1;
-            $codmon = trim((string) nz(isset($p['codmon']) ? $p['codmon'] : 'P', 'P'));
+            $bon = round((float) nz(isset($p['bonmov']) ? $p['bonmov'] : 0, 0), 2);
+            $flt = round((float) nz(isset($p['fltmov']) ? $p['fltmov'] : 0, 0), 4);
+            $pun = ($codmon === 'P') ? $cos : round($cos * $cotmov, 4);               // costo $ (para el neto/comprobante)
             $codudm = (int) nz(isset($p['codudm']) ? $p['codudm'] : 1, 1);
             $dummov = (int) nz(isset($p['dummov']) ? $p['dummov'] : 0, 0);
+            $extmov = trim((string) nz(isset($p['extmov']) ? $p['extmov'] : '', ''));
+            $apv = (isset($p['apvmov']) && ($p['apvmov'] === true || $p['apvmov'] == 1));
             $stk = (isset($p['stkmov']) && ($p['stkmov'] === true || $p['stkmov'] == 1));
-            $cpe = db_esc($codpro);
-            $ingSql = $stk ? cp_num($ing) : 'Null';
-            $svcSql = $stk ? 'Null' : cp_num($ing);
+            $ingSql = $stk ? cp_num($ing) : 'Null'; $svcSql = $stk ? 'Null' : cp_num($ing);
             db_exec("INSERT INTO [Tbl Movimientos Stock]
-                (NUMMOV, ORDMOV, CODPRO, CODSUC, DENMOV, CODMON, PUNMOV, COSMOV, BONMOV, INGMOV, SVCMOV, STKMOV, FCTMOV, DUMMOV, CODUDM, DECMOV)
-                VALUES ($nummov, $ordP, '$cpe', 1, " . cp_txt(nz($p['denmov'], '')) . ", '" . db_esc($codmon) . "', " . cp_num($pun) . ", " . cp_num($pun) . ", " . cp_num($bon) . ", $ingSql, $svcSql, " . ($stk ? 'True' : 'False') . ", $fct, $dummov, $codudm, False);");
+                (NUMMOV, ORDMOV, CODPRO, CODSUC, DENMOV, CODMON, DECMOV, EXTMOV, FLTMOV, PULMOV, COSMOV, PUNMOV, BONMOV, APVMOV, CODUDM, FCTMOV, DUMMOV, INGMOV, SVCMOV, STKMOV)
+                VALUES ($nummov, $ordP, '$cpe', 1, " . cp_txt(nz($p['denmov'], '')) . ", '" . db_esc($codmon) . "', False, " . cp_txt($extmov) . ", " . cp_num($flt) . ", " . cp_num($pul) . ", " . cp_num($cos) . ", " . cp_num($pun) . ", " . cp_num($bon) . ", " . ($apv ? 'True' : 'False') . ", $codudm, $fct, $dummov, $ingSql, $svcSql, " . ($stk ? 'True' : 'False') . ");");
             if ($stk) db_exec("UPDATE [Tbl Stock] SET EXISTK = EXISTK + " . round($ing * $fct, 4) . " WHERE CODSUC=1 AND CODPRO='$cpe';");
-            // Costo del producto: COSPRO = costo neto unitario (unidad base), FUCPRO = fecha del comprobante.
-            db_exec("UPDATE [Tbl Productos] SET FUCPRO=$cef, COSPRO=" . round($pun * (1 - $bon / 100) / $fct, 4) . ", PLCPRO=" . round($pun / $fct, 4) . " WHERE CODPRO='$cpe';");
+            // Tbl Productos: costo/lista por unidad base; cotización sólo si el producto es en u$s; precio de venta si APV (mantiene el margen).
+            $cospro = round($cos / $fct, 4); $plcpro = round($pul / $fct, 4);
+            $pro = db_row("SELECT CODMON, COTPRO, PLCPRO, PLVPRO FROM [Tbl Productos] WHERE CODPRO='$cpe';");
+            $setCot = ($pro && strtoupper(trim((string) nz($pro['CODMON'], 'P'))) !== 'P') ? ", COTPRO=" . cp_num($cotmov) : '';
+            $setPlv = '';
+            if ($apv && $pro && (float) nz($pro['PLCPRO'], 0) != 0) {
+                $mk = (float) nz($pro['PLVPRO'], 0) / (float) $pro['PLCPRO'];     // margen actual = PLV/PLC → se mantiene sobre el costo nuevo
+                $setPlv = ", PLVPRO=" . round($plcpro * $mk, 4);
+            }
+            db_exec("UPDATE [Tbl Productos] SET FUCPRO=$cef, FLTPRO=" . cp_num($flt) . ", COSPRO=$cospro, PLCPRO=$plcpro$setCot$setPlv WHERE CODPRO='$cpe';");
+            // Tbl Productos Proveedores (costo de ESTE proveedor para ESTE producto)
+            $pp = db_row("SELECT CODPRO FROM [Tbl Productos Proveedores] WHERE CODPRO='$cpe' AND CODCUE=$codcue;");
+            if ($pp) db_exec("UPDATE [Tbl Productos Proveedores] SET EXTPRO=" . cp_txt($extmov) . ", FUCPRO=$cef, COTPRO=" . cp_num($cotmov) . ", FLTPRO=" . cp_num($flt) . ", COSPRO=$cospro, PLCPRO=$plcpro WHERE CODPRO='$cpe' AND CODCUE=$codcue;");
+            else db_exec("INSERT INTO [Tbl Productos Proveedores] (CODPRO, CODCUE, CODMON, EXTPRO, FUCPRO, COTPRO, FLTPRO, COSPRO, PLCPRO)
+                VALUES ('$cpe', $codcue, '" . db_esc($codmon) . "', " . cp_txt($extmov) . ", $cef, " . cp_num($cotmov) . ", " . cp_num($flt) . ", $cospro, $plcpro);");
         }
+    }
+
+    // ── Remitos del proveedor: facturar remitos pendientes → descomprometer stock (RMCSTK) + marcar facturado (ECCMOV) ──
+    $remitos = isset($d['remitos']) && is_array($d['remitos']) ? $d['remitos'] : array();
+    foreach ($remitos as $remNum) {
+        $remNum = (int) $remNum; if ($remNum <= 0) continue;
+        db_exec("INSERT INTO [Tbl Movimientos Remitos] (NUMMOV, REMMOV) VALUES ($nummov, $remNum);");
+        $rm = db_row("SELECT DETMOV FROM [Tbl Movimientos] WHERE NUMMOV=$remNum;");
+        $note = "CP - " . str_pad((string) $cinmov, 8, '0', STR_PAD_LEFT) . " " . $cec . " - " . $cei . " - " . str_pad((string) $cep, 4, '0', STR_PAD_LEFT) . " - " . str_pad((string) $cen, 8, '0', STR_PAD_LEFT);
+        db_exec("UPDATE [Tbl Movimientos] SET DETMOV=" . cp_txt(trim((string) nz($rm['DETMOV'], '')) . $note) . " WHERE NUMMOV=$remNum;");
+        foreach (db_query("SELECT CODPRO, ICCMOV, FCTMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$remNum;") as $rs) {
+            $icc = round((float) nz($rs['ICCMOV'], 0), 4); $rfct = round((float) nz($rs['FCTMOV'], 1), 4); if ($rfct == 0) $rfct = 1;
+            $rcp = db_esc(trim((string) $rs['CODPRO']));
+            db_exec("UPDATE [Tbl Stock] SET RMCSTK = RMCSTK - " . round($icc * $rfct, 4) . " WHERE CODSUC=1 AND CODPRO='$rcp';");
+        }
+        db_exec("UPDATE [Tbl Movimientos Stock] SET ECCMOV = ICCMOV WHERE NUMMOV=$remNum;");
     }
 
     // ── Vencimientos (lo que pagaremos: CREMOV) ──
