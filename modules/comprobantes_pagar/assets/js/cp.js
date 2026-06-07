@@ -36,6 +36,13 @@ const CP = {
         this.el('cotmov').addEventListener('input', function () { CP.recalc(); });
         this.el('ap1mov').addEventListener('input', function () { CP.percepFromPct(); });
         this.el('ap2mov').addEventListener('input', function () { CP.percepFromPct(); });
+        this.el('toggle493').addEventListener('click', function (e) {
+            e.preventDefault();
+            var r = CP.el('row493'), shown = r.style.display !== 'none';
+            r.style.display = shown ? 'none' : 'flex';
+            this.innerHTML = (shown ? '<i class="bi bi-plus-square me-1"></i>' : '<i class="bi bi-dash-square me-1"></i>') + 'Neto D.493/01 (2ª alícuota)';
+            if (shown) { CP.el('net2mov').value = '0'; CP.recalc(); }   // al colapsar, se limpia la 2ª alícuota
+        });
         this.el('prodMon').addEventListener('change', function () { CP.monLabels(); });
         this.el('btnAddImp').addEventListener('click', function () { CP.addImp(); });
         this.el('btnSugIva').addEventListener('click', function () { CP.sugerirIva(); });

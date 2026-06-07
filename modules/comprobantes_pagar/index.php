@@ -56,24 +56,50 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
     </div>
   </div></div>
 
+  <style>
+    .imp-grp { border:1px solid var(--bs-border-color); border-radius:.45rem; padding:.4rem .65rem .55rem; }
+    .imp-grp-h { font-size:.66rem; text-transform:uppercase; letter-spacing:.03em; color:var(--bs-secondary-color); font-weight:600; margin-bottom:.35rem; }
+    #toggle493 { text-decoration:none; }
+  </style>
   <div class="card fc-card mb-2"><div class="card-body">
-    <div class="row g-2 align-items-end">
-      <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">Neto gravado</label><input type="number" step="0.01" id="netmov" class="form-control cp-num" value="0"></div>
-      <div class="col-auto" style="width:80px"><label class="form-label mb-1 small">Alíc. %</label><input type="number" step="0.01" id="alimov" class="form-control cp-num" value="21"></div>
-      <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">I.V.A.</label><input id="irimov" class="form-control cp-num" readonly value="0.00"></div>
-      <div class="col-auto px-2 text-muted" style="align-self:center">+</div>
-      <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">Neto gravado 2</label><input type="number" step="0.01" id="net2mov" class="form-control cp-num" value="0"></div>
-      <div class="col-auto" style="width:80px"><label class="form-label mb-1 small">Alíc. %</label><input type="number" step="0.01" id="ali2mov" class="form-control cp-num" value="10.5"></div>
-      <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">I.V.A.</label><input id="iri2mov" class="form-control cp-num" readonly value="0.00"></div>
-      <div class="col-auto" style="width:140px"><label class="form-label mb-1 small">No gravado</label><input type="number" step="0.01" id="nogmov" class="form-control cp-num" value="0"></div>
-    </div>
-    <div class="row g-2 align-items-end mt-1">
-      <div class="col-auto" style="width:110px"><label class="form-label mb-1 small">Perc. IVA %</label><input type="number" step="0.01" id="ap1mov" class="form-control cp-num" value="0"></div>
-      <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">Perc. IVA $</label><input type="number" step="0.01" id="ip1mov" class="form-control cp-num" value="0"></div>
-      <div class="col-auto px-2"></div>
-      <div class="col-auto" style="width:110px"><label class="form-label mb-1 small">Perc. IIBB %</label><input type="number" step="0.01" id="ap2mov" class="form-control cp-num" value="0"></div>
-      <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">Perc. IIBB $</label><input type="number" step="0.01" id="ip2mov" class="form-control cp-num" value="0"></div>
-      <div class="col-auto ms-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="conProd"><label class="form-check-label small" for="conProd">Con productos (entra a stock)</label></div></div>
+    <div class="d-flex flex-wrap align-items-start" style="gap:1.1rem">
+      <!-- GRAVADO (con 2ª alícuota colapsable: Neto D.493/01) -->
+      <div class="imp-grp">
+        <div class="imp-grp-h">Gravado</div>
+        <div class="d-flex align-items-end" style="gap:.4rem">
+          <div style="width:140px"><label class="form-label mb-1 small">Neto</label><input type="number" step="0.01" id="netmov" class="form-control form-control-sm cp-num" value="0"></div>
+          <div style="width:70px"><label class="form-label mb-1 small">Alíc.%</label><input type="number" step="0.01" id="alimov" class="form-control form-control-sm cp-num" value="21"></div>
+          <div style="width:120px"><label class="form-label mb-1 small">I.V.A.</label><input id="irimov" class="form-control form-control-sm cp-num" readonly value="0.00"></div>
+        </div>
+        <a href="#" id="toggle493" class="small d-inline-block mt-1"><i class="bi bi-plus-square me-1"></i>Neto D.493/01 (2ª alícuota)</a>
+        <div id="row493" class="mt-1" style="display:none; gap:.4rem; align-items:flex-end">
+          <div style="width:140px"><input type="number" step="0.01" id="net2mov" class="form-control form-control-sm cp-num" value="0" title="Neto D.493/01"></div>
+          <div style="width:70px"><input type="number" step="0.01" id="ali2mov" class="form-control form-control-sm cp-num" value="10.5"></div>
+          <div style="width:120px"><input id="iri2mov" class="form-control form-control-sm cp-num" readonly value="0.00"></div>
+        </div>
+      </div>
+      <!-- NO GRAVADO -->
+      <div class="imp-grp">
+        <div class="imp-grp-h">No gravado</div>
+        <div style="width:130px"><label class="form-label mb-1 small">Importe</label><input type="number" step="0.01" id="nogmov" class="form-control form-control-sm cp-num" value="0"></div>
+      </div>
+      <!-- PERCEPCION I.V.A. -->
+      <div class="imp-grp">
+        <div class="imp-grp-h">Percep. I.V.A.</div>
+        <div class="d-flex align-items-end" style="gap:.4rem">
+          <div style="width:68px"><label class="form-label mb-1 small">%</label><input type="number" step="0.01" id="ap1mov" class="form-control form-control-sm cp-num" value="0"></div>
+          <div style="width:120px"><label class="form-label mb-1 small">$</label><input type="number" step="0.01" id="ip1mov" class="form-control form-control-sm cp-num" value="0"></div>
+        </div>
+      </div>
+      <!-- PERCEPCION INGRESOS BRUTOS -->
+      <div class="imp-grp">
+        <div class="imp-grp-h">Percep. Ingresos Brutos</div>
+        <div class="d-flex align-items-end" style="gap:.4rem">
+          <div style="width:68px"><label class="form-label mb-1 small">%</label><input type="number" step="0.01" id="ap2mov" class="form-control form-control-sm cp-num" value="0"></div>
+          <div style="width:120px"><label class="form-label mb-1 small">$</label><input type="number" step="0.01" id="ip2mov" class="form-control form-control-sm cp-num" value="0"></div>
+        </div>
+      </div>
+      <div class="ms-auto align-self-center"><div class="form-check"><input class="form-check-input" type="checkbox" id="conProd"><label class="form-check-label small" for="conProd">Con productos (entra a stock)</label></div></div>
     </div>
   </div></div>
 
@@ -157,5 +183,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=6"></script>
+<script src="assets/js/cp.js?v=7"></script>
 '); ?>
