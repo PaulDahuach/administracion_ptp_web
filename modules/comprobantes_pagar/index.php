@@ -36,13 +36,18 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
   <div class="card fc-card mb-2"><div class="card-body">
     <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> (negro) — se graba en el libro de capacitación.</div><?php endif; ?>
     <div class="row g-2">
-      <div class="col-auto" style="width:115px"><label class="form-label mb-1">Movimiento Nº</label><input id="nummov" class="form-control cp-ro" placeholder="(auto)" readonly></div>
-      <div class="col-auto" style="width:140px"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control"></div>
-      <div class="col"><label class="form-label mb-1">Proveedor (cuenta corriente)</label>
+      <div class="col-auto" style="width:105px"><label class="form-label mb-1">Movimiento Nº</label><input id="nummov" class="form-control cp-ro" placeholder="(auto)" readonly></div>
+      <div class="col-auto" style="width:130px"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control"></div>
+      <div class="col-auto" style="width:152px"><label class="form-label mb-1">Número</label>
+        <div class="d-flex" style="gap:.25rem">
+          <input id="cipmov" class="form-control cp-ro text-center px-1" style="width:46px" value="0000" readonly title="Punto de venta interno">
+          <input id="cinmov" class="form-control cp-ro" placeholder="(auto)" readonly></div></div>
+      <div class="col"><label class="form-label mb-1">Cuenta corriente (proveedor)</label>
         <div class="ac-box"><input type="text" id="provQ" class="form-control" placeholder="Nombre o código…" autocomplete="off"><div class="ac-list" id="provList"></div></div>
         <input type="hidden" id="codcue"><div class="small text-muted mt-1" id="provInfo"></div></div>
-      <div class="col-auto" style="width:150px"><label class="form-label mb-1">Saldo (le debemos)</label><input id="saldo" class="form-control cp-num" readonly></div>
-      <div class="col-auto" style="width:120px"><label class="form-label mb-1">Nuestro Nº</label><input id="cinmov" class="form-control cp-ro" placeholder="(auto)" readonly></div>
+      <div class="col-auto" style="width:140px"><label class="form-label mb-1">Saldo Anticipos</label><input id="sancue" class="form-control cp-num" readonly></div>
+      <div class="col-auto" style="width:140px"><label class="form-label mb-1">Saldo Operativo</label><input id="saldo" class="form-control cp-num" readonly></div>
+      <div class="col-auto" style="width:90px"><label class="form-label mb-1">Cotización</label><input type="number" step="0.0001" id="cotmov" class="form-control cp-num" value="1" title="Cotización u$s (para productos en dólares)"></div>
     </div>
     <div class="row g-2 mt-1">
       <div class="col-12"><label class="form-label mb-1 text-muted small">Comprobante del proveedor</label></div>
@@ -51,7 +56,6 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
       <div class="col-auto" style="width:90px"><input type="number" id="cep" class="form-control cp-num" placeholder="PDV" value="0"></div>
       <div class="col-auto" style="width:130px"><input type="number" id="cen" class="form-control cp-num" placeholder="Número"></div>
       <div class="col-auto" style="width:150px"><input type="date" id="cef" class="form-control" title="Fecha del comprobante"></div>
-      <div class="col-auto" style="width:120px"><input type="number" step="0.0001" id="cotmov" class="form-control cp-num" value="1" title="Cotización u$s (para productos en dólares)" placeholder="Cotiz. u$s"></div>
       <div class="col"><input id="detmov" class="form-control" placeholder="Detalle (opcional)"></div>
     </div>
   </div></div>
@@ -183,5 +187,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=7"></script>
+<script src="assets/js/cp.js?v=8"></script>
 '); ?>

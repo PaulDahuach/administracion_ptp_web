@@ -66,6 +66,7 @@ const CP = {
         var d = j.data; this.prov = d;
         this.el('codcue').value = codcue; this.el('provQ').value = d.DENCUE;
         this.el('saldo').value = this.n(d.SALDO);
+        this.el('sancue').value = this.n(d.SALDO_ANTIC);
         this.el('provInfo').textContent = [d.CITCUE, d.DENCRI, d.DOMICILIO, d.LOCALIDAD].filter(Boolean).join(' · ');
         var r = await this.api('remitos_pendientes', { codcue: codcue });
         this.remPend = (r.ok && r.data) ? r.data : [];
