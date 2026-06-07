@@ -98,12 +98,18 @@ function anular_comprobante($num, $codope) {
     }
     db_exec("UPDATE [Tbl Movimientos Imputaciones] SET DEBMOV=0, CREMOV=0 WHERE NUMMOV=$num;");
 
-    // 6) Stock: la NC devolución física acumuló lo devuelto en la FV (CMDMOV += qty) → revertir. Borrar las líneas.
-    foreach (db_query("SELECT NMDMOV, OMDMOV, CMDMOV, INGMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num;") as $s) {
+    // 6) Stock: (a) NC devolución física → revertir CMDMOV de la FV; (b) CP que entró mercadería (CODOPE=310,
+    //    STKMOV=True) → revertir EXISTK (-= INGMOV×FCTMOV). Luego borrar las líneas.
+    foreach (db_query("SELECT NMDMOV, OMDMOV, CMDMOV, INGMOV, STKMOV, FCTMOV, CODPRO FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num;") as $s) {
         $nmd = (int) nz($s['NMDMOV'], 0); $omd = (int) nz($s['OMDMOV'], 0); $cmd = round((float) nz($s['CMDMOV'], 0), 2);
         if ($nmd > 0 && $omd > 0 && $cmd != 0 && nz($s['INGMOV'], 0) != 0) {
             $fvs = db_row("SELECT CMDMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$nmd AND ORDMOV=$omd;");
             db_exec("UPDATE [Tbl Movimientos Stock] SET CMDMOV = " . round((float) nz($fvs ? $fvs['CMDMOV'] : 0, 0) - $cmd, 2) . " WHERE NUMMOV=$nmd AND ORDMOV=$omd;");
+        }
+        $stk = ($s['STKMOV'] === true || $s['STKMOV'] == -1); $ing = round((float) nz($s['INGMOV'], 0), 4); $cpro = trim((string) nz($s['CODPRO'], ''));
+        if ($codope === 310 && $stk && $ing != 0 && $cpro !== '') {
+            $fct = round((float) nz($s['FCTMOV'], 1), 4); if ($fct == 0) $fct = 1;
+            db_exec("UPDATE [Tbl Stock] SET EXISTK = EXISTK - " . round($ing * $fct, 4) . " WHERE CODSUC=1 AND CODPRO='" . db_esc($cpro) . "';");
         }
     }
     db_exec("DELETE FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num;");

@@ -110,9 +110,9 @@ function cp_insert($d, $estTrue) {
     $cep = (int) nz($d['cep'], 0);
     $cen = (int) nz($d['cen'], 0);
     $cef = isset($d['cef']) && $d['cef'] !== '' ? cp_iso($d['cef']) : $fex;
-    $codcat = (int) nz($d['codcat'], 2);                          // 1=con productos / 2=sin (v1: 2)
-    if ($codcat == 1) throw new Exception('La carga con productos/stock no está soportada en v1 (usá un comprobante de gasto/servicio sin productos).');
-    $codaux = 312;                                                // sin productos
+    $codcat = (int) nz($d['codcat'], 2);                          // 1=con productos (CODAUX=311) / 2=sin (312)
+    $codaux = ($codcat == 1) ? 311 : 312;
+    $productos = isset($d['productos']) && is_array($d['productos']) ? $d['productos'] : array();
 
     // Importes
     $ivas = isset($d['ivas']) && is_array($d['ivas']) ? array_values($d['ivas']) : array();
@@ -167,6 +167,33 @@ function cp_insert($d, $estTrue) {
         db_exec("INSERT INTO [Tbl Movimientos IVA] (NUMMOV, NETMOV, ALIMOV, IRIMOV, DECMOV)
             VALUES ($nummov, " . cp_num($net) . ", $ali, " . cp_num((float) nz($iv['iva'], 0)) . ", " . ($dec ? 'True' : 'False') . ");");
         $dec = true;
+    }
+
+    // ── Productos (CODAUX=311): entra mercadería a stock (EXISTK) + actualiza el costo del producto (v2 pesos) ──
+    if ($codcat == 1) {
+        $ordP = 0;
+        foreach ($productos as $p) {
+            $codpro = trim((string) nz($p['codpro'], ''));
+            if ($codpro === '') continue;
+            $ordP++;
+            $ing = round((float) nz($p['ingmov'], 0), 4);
+            $pun = round((float) nz($p['punmov'], 0), 4);
+            $bon = round((float) nz(isset($p['bonmov']) ? $p['bonmov'] : 0, 0), 2);
+            $fct = round((float) nz(isset($p['fctmov']) ? $p['fctmov'] : 1, 1), 4); if ($fct == 0) $fct = 1;
+            $codmon = trim((string) nz(isset($p['codmon']) ? $p['codmon'] : 'P', 'P'));
+            $codudm = (int) nz(isset($p['codudm']) ? $p['codudm'] : 1, 1);
+            $dummov = (int) nz(isset($p['dummov']) ? $p['dummov'] : 0, 0);
+            $stk = (isset($p['stkmov']) && ($p['stkmov'] === true || $p['stkmov'] == 1));
+            $cpe = db_esc($codpro);
+            $ingSql = $stk ? cp_num($ing) : 'Null';
+            $svcSql = $stk ? 'Null' : cp_num($ing);
+            db_exec("INSERT INTO [Tbl Movimientos Stock]
+                (NUMMOV, ORDMOV, CODPRO, CODSUC, DENMOV, CODMON, PUNMOV, COSMOV, BONMOV, INGMOV, SVCMOV, STKMOV, FCTMOV, DUMMOV, CODUDM, DECMOV)
+                VALUES ($nummov, $ordP, '$cpe', 1, " . cp_txt(nz($p['denmov'], '')) . ", '" . db_esc($codmon) . "', " . cp_num($pun) . ", " . cp_num($pun) . ", " . cp_num($bon) . ", $ingSql, $svcSql, " . ($stk ? 'True' : 'False') . ", $fct, $dummov, $codudm, False);");
+            if ($stk) db_exec("UPDATE [Tbl Stock] SET EXISTK = EXISTK + " . round($ing * $fct, 4) . " WHERE CODSUC=1 AND CODPRO='$cpe';");
+            // Costo del producto: COSPRO = costo neto unitario (unidad base), FUCPRO = fecha del comprobante.
+            db_exec("UPDATE [Tbl Productos] SET FUCPRO=$cef, COSPRO=" . round($pun * (1 - $bon / 100) / $fct, 4) . ", PLCPRO=" . round($pun / $fct, 4) . " WHERE CODPRO='$cpe';");
+        }
     }
 
     // ── Vencimientos (lo que pagaremos: CREMOV) ──
