@@ -12,11 +12,13 @@
 
 define('AFIP_MODO', 'testing');   // 'testing' | 'produccion'
 
+// PDV electrónico en producción: default 3 (PTP-HP, FELPDV=1), overridable por instalación con la config
+// 'pto_vta_electronico' de system.php (caso multi-PC). En homologación queda fijo en 1 (atado al cert).
 if (AFIP_MODO === 'produccion') {
     define('AFIP_CUIT', '30708381132');                                                            // PTP (sin guiones)
     define('AFIP_CERT', 'C:/_Inforemp/_Sistemas/_ProcesadoraTextilParque/_CertificadoDigital/03ptp.crt');
     define('AFIP_KEY',  'C:/_Inforemp/_Sistemas/_ProcesadoraTextilParque/_CertificadoDigital/01ptp.rsa');
-    define('AFIP_PTO_VTA', 3);
+    define('AFIP_PTO_VTA', function_exists('sys') ? (int) sys('pto_vta_electronico', 3) : 3);
 } else {
     define('AFIP_CUIT', '20239619631');                                                            // cert de homologación (Paul Dahuach)
     define('AFIP_CERT', 'C:/_Inforemp/_Sistemas/_PaulDahuach/_CertificadoDigital/03paul_testing.crt');
