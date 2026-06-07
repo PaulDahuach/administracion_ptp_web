@@ -29,6 +29,7 @@ if (!defined('CP_LIB')) {
             case 'centros_costo':      centros_costo(); break;
             case 'productos':          buscar_productos(); break;
             case 'remitos_pendientes': remitos_pendientes(); break;
+            case 'anticipos_pendientes': anticipos_pendientes(); break;
             case 'guardar':            guardar(); break;
             case 'anular':             anular(); break;
             default: fail('Acción inválida: ' . $action);
@@ -81,6 +82,17 @@ function buscar_productos() {
     if (strlen($q) < 1) { ok(array()); return; }
     $s = db_esc($q);
     ok(db_query("SELECT TOP 20 CODPRO, DENPRO, COSPRO, PLCPRO, COTPRO, CODUDM, CODMON FROM [Tbl Productos] WHERE DENPRO Is Not Null AND ((DENPRO Like '%$s%') OR (CODPRO Like '$s%')) ORDER BY DENPRO;"));
+}
+
+/** Anticipos del proveedor: movimientos acreedores con saldo a favor (SDOMOV>0) para aplicar (debitar) a este comprobante. */
+function anticipos_pendientes() {
+    $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    if ($cc <= 0) { ok(array()); return; }
+    $out = array();
+    foreach (db_query("SELECT NUMMOV, CICMOV, CINMOV, SDOMOV, FEXMOV FROM [Tbl Movimientos] WHERE CODORI='A' AND CODCUE=$cc AND SDOMOV>0 AND (ANUMOV=False OR ANUMOV Is Null) ORDER BY FEXMOV;") as $r) {
+        $out[] = array('NUMMOV' => (int) $r['NUMMOV'], 'COM' => trim((string) nz($r['CICMOV'], '')), 'NUMERO' => str_pad((string) nz($r['CINMOV'], 0), 8, '0', STR_PAD_LEFT), 'SALDO' => round((float) nz($r['SDOMOV'], 0), 2), 'FECHA' => fecha_serial($r['FEXMOV']));
+    }
+    ok($out);
 }
 
 /** Remitos de proveedor (CODOPE=300) pendientes de facturar (con líneas de stock sin marcar, ECCMOV null) para un proveedor. */

@@ -3,7 +3,7 @@
    Productos con costo en pesos o u$s (cotización), factor, lista, flete, "act. precio venta"; remitos del proveedor. */
 const CP = {
     prov: null, grabado: false, totales: { neto: 0, iva: 0, nog: 0, ali: 21, total: 0 },
-    imps: [], vtos: [], productos: [], remPend: [], centros: {}, impSel: null, prodSel: null, totManual: false,
+    imps: [], vtos: [], productos: [], remPend: [], antPend: [], centros: {}, impSel: null, prodSel: null, totManual: false,
     ivaCta() { return document.getElementById('cpForm').getAttribute('data-ivacta') || ''; },
     cotmov() { return parseFloat(this.el('cotmov').value) || 1; },
 
@@ -92,6 +92,9 @@ const CP = {
         var r = await this.api('remitos_pendientes', { codcue: codcue });
         this.remPend = (r.ok && r.data) ? r.data : [];
         this.renderRemitos();
+        var an = await this.api('anticipos_pendientes', { codcue: codcue });
+        this.antPend = (an.ok && an.data) ? an.data : [];
+        this.renderAnticipos();
     },
 
     recalc() {
@@ -128,12 +131,13 @@ const CP = {
     impSum() { return Math.round(this.imps.reduce(function (s, i) { return s + i.debmov; }, 0) * 100) / 100; },
     vtoSum() { return Math.round(this.vtos.reduce(function (s, v) { return s + v.cremov; }, 0) * 100) / 100; },
     refresh() {
-        var t = this.totales.total, is = this.impSum(), vs = this.vtoSum();
+        var t = this.totales.total, is = this.impSum(), vs = this.vtoSum(), as = this.antSum();
         this.el('impSum').textContent = this.n(is); this.el('vtoSum').textContent = this.n(vs);
+        if (this.el('antSum')) this.el('antSum').textContent = this.n(as);
         this.el('impOk').innerHTML = (Math.abs(is - t) < 0.01 && t > 0) ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-exclamation-circle text-warning"></i>';
-        this.el('vtoOk').innerHTML = (Math.abs(vs - t) < 0.01 && t > 0) ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-exclamation-circle text-warning"></i>';
+        this.el('vtoOk').innerHTML = (Math.abs(vs + as - t) < 0.01 && t > 0) ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-exclamation-circle text-warning"></i>';
         this.el('impDeb').value = Math.max(0, Math.round((t - is) * 100) / 100) || '';
-        this.el('vtoImp').value = Math.max(0, Math.round((t - vs) * 100) / 100) || '';
+        this.el('vtoImp').value = Math.max(0, Math.round((t - as - vs) * 100) / 100) || '';   // los anticipos reducen lo que va a vencimientos
     },
 
     // ---- Imputación ----
@@ -242,6 +246,30 @@ const CP = {
     },
     selectedRemitos() { return Array.prototype.slice.call(document.querySelectorAll('.rem-chk:checked')).map(function (c) { return parseInt(c.value, 10); }); },
 
+    // ---- Anticipos / Acreditaciones (saldo a favor del proveedor) ----
+    renderAnticipos() {
+        if (!this.antPend.length) { this.el('cardAnt').style.display = 'none'; this.el('antBody').innerHTML = ''; return; }
+        this.el('cardAnt').style.display = '';
+        this.el('antBody').innerHTML = this.antPend.map(function (a, k) {
+            return '<tr><td>' + CP.esc(a.COM) + '</td><td>' + CP.esc(a.NUMERO) + '</td><td>' + CP.esc(a.FECHA) + '</td>' +
+                '<td class="cp-num">' + CP.n(a.SALDO) + '</td>' +
+                '<td><input type="number" step="0.01" class="form-control form-control-sm cp-num ant-imp" data-k="' + k + '" data-max="' + a.SALDO + '" value="0"></td></tr>';
+        }).join('');
+        Array.prototype.forEach.call(this.el('antBody').querySelectorAll('.ant-imp'), function (inp) {
+            inp.addEventListener('input', function () {
+                var max = parseFloat(this.getAttribute('data-max')) || 0;
+                if ((parseFloat(this.value) || 0) > max) this.value = max;   // no más que el saldo disponible
+                CP.refresh();
+            });
+        });
+    },
+    antSum() { return Math.round(Array.prototype.slice.call(document.querySelectorAll('.ant-imp')).reduce(function (s, i) { return s + (parseFloat(i.value) || 0); }, 0) * 100) / 100; },
+    selectedAnticipos() {
+        return Array.prototype.slice.call(document.querySelectorAll('.ant-imp')).map(function (i) {
+            return { anttmov: CP.antPend[+i.getAttribute('data-k')].NUMMOV, imptmov: parseFloat(i.value) || 0 };
+        }).filter(function (a) { return a.imptmov > 0; });
+    },
+
     async grabar() {
         this.el('cpErr').textContent = '';
         if (this.grabado) { this.toast('El comprobante ya fue grabado.', 'info'); return; }
@@ -252,7 +280,7 @@ const CP = {
         if (!(parseInt(this.el('cen').value, 10) > 0)) { this.el('cpErr').textContent = 'Cargá el número del comprobante del proveedor.'; return; }
         if (t.total <= 0) { this.el('cpErr').textContent = 'Ingresá el neto / no gravado del comprobante.'; return; }
         if (Math.abs(this.impSum() - t.total) >= 0.01) { this.el('cpErr').textContent = 'La imputación (' + this.n(this.impSum()) + ') no coincide con el total (' + this.n(t.total) + ').'; return; }
-        if (Math.abs(this.vtoSum() - t.total) >= 0.01) { this.el('cpErr').textContent = 'Los vencimientos (' + this.n(this.vtoSum()) + ') no coinciden con el total (' + this.n(t.total) + ').'; return; }
+        if (Math.abs(this.vtoSum() + this.antSum() - t.total) >= 0.01) { this.el('cpErr').textContent = 'Vencimientos (' + this.n(this.vtoSum()) + ') + anticipos (' + this.n(this.antSum()) + ') no cubren el total (' + this.n(t.total) + ').'; return; }
         var ivas = [];
         if (t.neto1 > 0) ivas.push({ net: t.neto1, ali: t.ali1, iva: t.iva1 });
         if (t.neto2 > 0) ivas.push({ net: t.neto2, ali: t.ali2, iva: t.iva2 });
@@ -264,7 +292,7 @@ const CP = {
             imputaciones: this.imps.map(function (i) { return { codcue: i.codcue, codcdc: i.codcdc, debmov: i.debmov }; }),
             vencimientos: this.vtos.map(function (v) { return { fvxmov: v.fvxmov, detmov: '', cremov: v.cremov }; }),
             productos: conProd ? this.productos.map(function (p) { return { codpro: p.codpro, denmov: p.denpro, codmon: p.codmon, ingmov: p.cant, cosmov: p.cos, pulmov: p.lis, fctmov: p.fct, bonmov: p.bon, fltmov: p.flt, apvmov: CP.el('chkLDP').checked ? 1 : 0, stkmov: p.stk ? 1 : 0, codudm: p.codudm }; }) : [],
-            remitos: this.selectedRemitos()
+            remitos: this.selectedRemitos(), anticipos: this.selectedAnticipos()
         };
         this.el('btnGrabar').disabled = true; this.el('btnGrabar').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Grabando…';
         var fd = new FormData(); fd.append('action', 'guardar'); fd.append('data', JSON.stringify(data));

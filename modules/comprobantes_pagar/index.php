@@ -179,6 +179,15 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
     </div>
   </div>
 
+  <!-- Anticipos / Acreditaciones (saldo a favor del proveedor) -->
+  <div class="card fc-card mb-2" id="cardAnt" style="display:none">
+    <div class="card-header"><i class="bi bi-cash-coin me-1"></i>Anticipos / Acreditaciones <span class="small text-muted">— saldo a favor del proveedor; lo que debités acá baja de los vencimientos</span></div>
+    <div class="card-body">
+      <table class="table table-sm mb-0"><thead><tr><th>Com</th><th>Número</th><th>Fecha</th><th class="cp-num" style="width:150px">Saldo disponible</th><th class="cp-num" style="width:160px">A debitar</th></tr></thead><tbody id="antBody"></tbody></table>
+      <div class="small text-muted mt-1">Aplicado: <b id="antSum" class="cp-num">0.00</b></div>
+    </div>
+  </div>
+
   <!-- Vencimientos (a pagar) — multi-fila -->
   <div class="card fc-card mb-2">
     <div class="card-header d-flex align-items-center">
@@ -210,5 +219,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=11"></script>
+<script src="assets/js/cp.js?v=12"></script>
 '); ?>
