@@ -277,7 +277,7 @@ if (trim((string) nz($h['CAEMOV'], '')) !== '') {
   </div></div>
 </div>
 <?php if ($qrUrl): ?>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="<?= bu('/assets/js/qrcode.min.js') ?>"></script>
 <script>
   try { new QRCode(document.getElementById('qr'), { text: <?= json_encode($qrUrl) ?>, width: 256, height: 256, correctLevel: QRCode.CorrectLevel.M }); } catch (e) {}
 </script>
