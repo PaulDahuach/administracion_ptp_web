@@ -195,7 +195,7 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
             <div class="col-auto"><button type="button" id="btnAddProd" class="btn btn-sm btn-outline-primary mt-3"><i class="bi bi-plus-lg"></i></button></div>
           </div>
           <div class="table-responsive">
-          <table class="table table-sm mb-0" style="white-space:nowrap"><thead><tr><th>Producto</th><th>Cód.Prv.</th><th style="width:26px" title="Declara (DECPRO)">D</th><th>Unidad</th><th>Mon</th><th class="cp-num" style="width:62px">Flete</th><th class="cp-num" style="width:80px">Costo</th><th class="cp-num" style="width:84px">Costo $</th><th class="cp-num" style="width:74px">Lista</th><th class="cp-num" style="width:50px">Bon</th><th class="cp-num" style="width:64px">Cant</th><th style="width:24px" title="Act.P.Vta">P</th><th class="cp-num" style="width:96px">Neto</th><th style="width:34px">Stk</th><th style="width:28px"></th></tr></thead><tbody id="prodBody"></tbody></table>
+          <table class="table table-sm mb-0" style="white-space:nowrap"><thead><tr><th>Producto</th><th>Cód.Prv.</th><th style="width:26px" title="Declara (DECPRO)">D</th><th>Unidad</th><th>Mon</th><th class="cp-num" style="width:62px">Flete</th><th class="cp-num" style="width:80px">Costo</th><th class="cp-num" style="width:84px">Costo $</th><th class="cp-num" style="width:74px">Lista</th><th class="cp-num" style="width:54px">Bon %</th><th class="cp-num" style="width:64px">Cant</th><th style="width:24px" title="Act.P.Vta">P</th><th class="cp-num" style="width:96px">Neto</th><th style="width:34px">Stk</th><th style="width:28px"></th></tr></thead><tbody id="prodBody"></tbody></table>
           </div>
         </div>
       </div>
