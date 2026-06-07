@@ -261,7 +261,9 @@ function nd_afip_request($d) {
         $req['imp_neto'] = 0; $req['imp_iva'] = 0; $req['imp_tot_conc'] = $neto;
     }
     if ($pix > 0) $req['trib_array'] = array(array('Id' => 7, 'Desc' => 'Percepcion IIBB', 'BaseImp' => $neto, 'Alic' => round($perc['alipix'], 2), 'Importe' => $pix));
+    // AFIP (err 10197): la ND debe llevar CbtesAsoc (FV asociada) O PeriodoAsoc. Sin FV → período = fecha de emisión.
     if (count($cbtesAsoc)) $req['cbtes_asoc'] = $cbtesAsoc;
+    else $req['periodo_asoc'] = array('FchDesde' => $cbteFch, 'FchHasta' => $cbteFch);
     return $req;
 }
 
