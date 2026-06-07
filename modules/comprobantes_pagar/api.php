@@ -75,46 +75,68 @@ function listar() {
     ok($out);
 }
 
-/** Detalle completo de un CP (sólo lectura): cabecera, importes, asiento, vencimientos, anticipos, productos, remitos. */
+/** Serial Access → 'yyyy-mm-dd' (para los <input type=date>), reusando fecha_serial (dd/mm/yyyy). */
+function cp_fiso($s) { $f = fecha_serial($s); if (!$f || strpos($f, '/') === false) return ''; $p = explode('/', $f); return $p[2] . '-' . $p[1] . '-' . $p[0]; }
+
+/** Detalle de un CP para CARGARLO en el form en modo sólo-lectura: cabecera, importes y las 5 grillas (formato cp.js). */
 function cp_detalle() {
+    if (!function_exists('anular_es_anulable')) require_once __DIR__ . '/../../includes/comprobante_anular.php';
     $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
-    $h = db_row("SELECT CINMOV, FEXMOV, FIXMOV, CODCUE, DENMOV, CITMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV, CODAUX, DETMOV, COTMOV, NETMOV, IRIMOV, NOGMOV, IP1MOV, IP2MOV, AP1MOV, AP2MOV, TOTMOV, ANUMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=310;");
+    $h = db_row("SELECT CINMOV, CIPMOV, FEXMOV, FIXMOV, CODCUE, DENMOV, CITMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV, CODAUX, DETMOV, COTMOV, NETMOV, IRIMOV, NOGMOV, IP1MOV, IP2MOV, AP1MOV, AP2MOV, TOTMOV, ESTMOV, CAEMOV, ANUMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=310;");
     if (!$h) { fail('Comprobante a pagar no encontrado'); return; }
+    $cc = (int) $h['CODCUE'];
+    $pv = db_row("SELECT CODCAT, SANCUE, SOPCUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=$cc AND CODORI='A';");
+    $conprod = ((int) nz($h['CODAUX'], 312) === 311);
+    $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
     $r = array(
         'NUMMOV' => $num,
         'NUMERO' => str_pad((string) nz($h['CINMOV'], 0), 8, '0', STR_PAD_LEFT),
-        'FECHA' => fecha_serial($h['FEXMOV']),
-        'PROVEEDOR' => trim((string) nz($h['DENMOV'], '')) . ' (' . (int) $h['CODCUE'] . ')',
-        'CUIT' => trim((string) nz($h['CITMOV'], '')),
-        'COMP' => trim(trim((string) nz($h['CECMOV'], '')) . ' ' . trim((string) nz($h['CEIMOV'], '')) . ' ' . str_pad((string) (int) nz($h['CEPMOV'], 0), 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) (int) nz($h['CENMOV'], 0), 8, '0', STR_PAD_LEFT)),
-        'EMISION_COMP' => fecha_serial($h['CEFMOV']),
-        'IMPUT_IVA' => fecha_serial($h['FIXMOV']),
-        'FACTURACION' => ((int) nz($h['CODAUX'], 312) === 311) ? 'Con productos (stock)' : 'Servicios / sin productos',
-        'COTIZACION' => round((float) nz($h['COTMOV'], 1), 4),
-        'DETALLE' => trim((string) nz($h['DETMOV'], '')),
+        'CIPMOV' => str_pad((string) (int) nz($h['CIPMOV'], 0), 4, '0', STR_PAD_LEFT),
+        'FEXISO' => cp_fiso($h['FEXMOV']), 'CODCUE' => $cc,
+        'PROVEEDOR' => trim((string) nz($h['DENMOV'], '')),
+        'INFO' => trim((string) nz($h['CITMOV'], '')),
+        'SANCUE' => $pv ? round((float) nz($pv['SANCUE'], 0), 2) : 0,
+        'SOPCUE' => $pv ? round((float) nz($pv['SOPCUE'], 0), 2) : 0,
+        'COTMOV' => round((float) nz($h['COTMOV'], 1), 4),
+        'CEC' => trim((string) nz($h['CECMOV'], 'FC')), 'CEI' => trim((string) nz($h['CEIMOV'], 'A')),
+        'CEP' => (int) nz($h['CEPMOV'], 0), 'CEN' => (int) nz($h['CENMOV'], 0), 'CEFISO' => cp_fiso($h['CEFMOV']),
+        'FIXISO' => cp_fiso($h['FIXMOV']),
+        'CODCAT' => $conprod ? 1 : ($pv ? (int) nz($pv['CODCAT'], 2) : 2), 'CONPROD' => $conprod,
+        'DETMOV' => trim((string) nz($h['DETMOV'], '')),
+        'NOGRAV' => round((float) nz($h['NOGMOV'], 0), 2),
+        'AP1' => round((float) nz($h['AP1MOV'], 0), 2), 'IP1' => round((float) nz($h['IP1MOV'], 0), 2),
+        'AP2' => round((float) nz($h['AP2MOV'], 0), 2), 'IP2' => round((float) nz($h['IP2MOV'], 0), 2),
+        'TOTAL' => round((float) nz($h['TOTMOV'], 0), 2),
         'ANULADO' => ($h['ANUMOV'] === true || $h['ANUMOV'] == -1),
-        'NETO' => round((float) nz($h['NETMOV'], 0), 2), 'IVA' => round((float) nz($h['IRIMOV'], 0), 2),
-        'NOGRAV' => round((float) nz($h['NOGMOV'], 0), 2), 'PERC_IVA' => round((float) nz($h['IP1MOV'], 0), 2),
-        'PERC_IIBB' => round((float) nz($h['IP2MOV'], 0), 2), 'TOTAL' => round((float) nz($h['TOTMOV'], 0), 2),
-        'IVA_LINES' => array(), 'IMPUTACION' => array(), 'VENCIMIENTOS' => array(), 'ANTICIPOS' => array(), 'PRODUCTOS' => array(), 'REMITOS' => array(),
+        'ANULABLE' => anular_es_anulable($estTrue, nz($h['CAEMOV'], '')),
+        'NET1' => 0, 'ALI1' => 0, 'IRI1' => 0, 'NET2' => 0, 'ALI2' => 0, 'IRI2' => 0,
+        'imputacion' => array(), 'vencimientos' => array(), 'productos' => array(), 'anticipos' => array(), 'remitos' => array(),
     );
-    foreach (db_query("SELECT NETMOV, ALIMOV, IRIMOV FROM [Tbl Movimientos IVA] WHERE NUMMOV=$num;") as $iv)
-        $r['IVA_LINES'][] = array('net' => round((float) nz($iv['NETMOV'], 0), 2), 'ali' => round((float) nz($iv['ALIMOV'], 0), 2), 'iva' => round((float) nz($iv['IRIMOV'], 0), 2));
-    foreach (db_query("SELECT CODCUE, DEBMOV, CREMOV FROM [Tbl Movimientos Imputaciones] WHERE NUMMOV=$num ORDER BY ORDMOV;") as $i) {
-        $cc = trim((string) nz($i['CODCUE'], '')); $den = db_row("SELECT DENCUE FROM [Tbl Cuentas Contables] WHERE CODCUE='" . db_esc($cc) . "';");
-        $r['IMPUTACION'][] = array('cuenta' => $cc . ' ' . trim((string) nz($den ? $den['DENCUE'] : '', '')), 'debe' => round((float) nz($i['DEBMOV'], 0), 2), 'haber' => round((float) nz($i['CREMOV'], 0), 2));
+    // Importes por alícuota (Tbl Movimientos IVA → 1ª / 2ª fila). Sin líneas IVA → todo el neto en la 1ª.
+    $ivl = array();
+    foreach (db_query("SELECT NETMOV, ALIMOV, IRIMOV FROM [Tbl Movimientos IVA] WHERE NUMMOV=$num ORDER BY DECMOV;") as $iv)
+        $ivl[] = array('net' => round((float) nz($iv['NETMOV'], 0), 2), 'ali' => round((float) nz($iv['ALIMOV'], 0), 2), 'iva' => round((float) nz($iv['IRIMOV'], 0), 2));
+    if (count($ivl) >= 1) { $r['NET1'] = $ivl[0]['net']; $r['ALI1'] = $ivl[0]['ali']; $r['IRI1'] = $ivl[0]['iva']; }
+    else { $r['NET1'] = round((float) nz($h['NETMOV'], 0), 2); $r['IRI1'] = round((float) nz($h['IRIMOV'], 0), 2); }
+    if (count($ivl) >= 2) { $r['NET2'] = $ivl[1]['net']; $r['ALI2'] = $ivl[1]['ali']; $r['IRI2'] = $ivl[1]['iva']; }
+    // Imputación = filas del DEBE (lo que cargó el usuario; el HABER Proveedores es automático).
+    foreach (db_query("SELECT CODCUE, DEBMOV, CODCDC FROM [Tbl Movimientos Imputaciones] WHERE NUMMOV=$num AND DEBMOV>0 ORDER BY ORDMOV;") as $i) {
+        $cu = trim((string) nz($i['CODCUE'], '')); $den = db_row("SELECT DENCUE FROM [Tbl Cuentas Contables] WHERE CODCUE='" . db_esc($cu) . "';");
+        $r['imputacion'][] = array('codcue' => $cu, 'label' => $cu . ' · ' . trim((string) nz($den ? $den['DENCUE'] : '', '')), 'codcdc' => trim((string) nz($i['CODCDC'], '')), 'debmov' => round((float) nz($i['DEBMOV'], 0), 2));
     }
     foreach (db_query("SELECT FVXMOV, CREMOV FROM [Tbl Movimientos Vencimientos] WHERE NUMMOV=$num;") as $v)
-        $r['VENCIMIENTOS'][] = array('fecha' => fecha_serial($v['FVXMOV']), 'importe' => round((float) nz($v['CREMOV'], 0), 2));
+        $r['vencimientos'][] = array('fvxiso' => cp_fiso($v['FVXMOV']), 'cremov' => round((float) nz($v['CREMOV'], 0), 2));
     foreach (db_query("SELECT ANTMOV, IMPMOV FROM [Tbl Movimientos Anticipos] WHERE NUMMOV=$num;") as $a) {
         $o = db_row("SELECT CICMOV, CINMOV FROM [Tbl Movimientos] WHERE NUMMOV=" . (int) $a['ANTMOV'] . ";");
-        $r['ANTICIPOS'][] = array('comp' => $o ? (trim((string) nz($o['CICMOV'], '')) . ' ' . str_pad((string) nz($o['CINMOV'], 0), 8, '0', STR_PAD_LEFT)) : (string) $a['ANTMOV'], 'importe' => round((float) nz($a['IMPMOV'], 0), 2));
+        $r['anticipos'][] = array('comp' => $o ? (trim((string) nz($o['CICMOV'], '')) . ' ' . str_pad((string) nz($o['CINMOV'], 0), 8, '0', STR_PAD_LEFT)) : (string) $a['ANTMOV'], 'importe' => round((float) nz($a['IMPMOV'], 0), 2));
     }
-    foreach (db_query("SELECT CODPRO, DENMOV, INGMOV, SVCMOV, PUNMOV, CODMON FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num ORDER BY ORDMOV;") as $p)
-        $r['PRODUCTOS'][] = array('codpro' => trim((string) nz($p['CODPRO'], '')), 'denom' => trim((string) nz($p['DENMOV'], '')), 'cant' => round((float) nz($p['INGMOV'], nz($p['SVCMOV'], 0)), 2), 'costo' => round((float) nz($p['PUNMOV'], 0), 4), 'moneda' => trim((string) nz($p['CODMON'], 'P')));
+    foreach (db_query("SELECT CODPRO, DENMOV, INGMOV, SVCMOV, PUNMOV, COSMOV, CODMON, STKMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num ORDER BY ORDMOV;") as $p) {
+        $mon = trim((string) nz($p['CODMON'], 'P'));
+        $r['productos'][] = array('codpro' => trim((string) nz($p['CODPRO'], '')), 'denpro' => trim((string) nz($p['DENMOV'], '')), 'codmon' => $mon, 'cant' => round((float) nz($p['INGMOV'], nz($p['SVCMOV'], 0)), 2), 'cos' => round((float) ($mon === 'P' ? nz($p['PUNMOV'], 0) : nz($p['COSMOV'], 0)), 4), 'bon' => 0, 'stk' => ($p['STKMOV'] === true || $p['STKMOV'] == -1));
+    }
     foreach (db_query("SELECT REMMOV FROM [Tbl Movimientos Remitos] WHERE NUMMOV=$num;") as $rm) {
         $o = db_row("SELECT CINMOV FROM [Tbl Movimientos] WHERE NUMMOV=" . (int) $rm['REMMOV'] . ";");
-        $r['REMITOS'][] = $o ? str_pad((string) nz($o['CINMOV'], 0), 8, '0', STR_PAD_LEFT) : (string) $rm['REMMOV'];
+        $r['remitos'][] = $o ? str_pad((string) nz($o['CINMOV'], 0), 8, '0', STR_PAD_LEFT) : (string) $rm['REMMOV'];
     }
     ok($r);
 }

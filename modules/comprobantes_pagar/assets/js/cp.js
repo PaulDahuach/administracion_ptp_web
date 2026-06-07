@@ -263,7 +263,7 @@ const CP = {
             });
         });
     },
-    antSum() { return Math.round(Array.prototype.slice.call(document.querySelectorAll('.ant-imp')).reduce(function (s, i) { return s + (parseFloat(i.value) || 0); }, 0) * 100) / 100; },
+    antSum() { var inp = document.querySelectorAll('.ant-imp'); if (!inp.length && this.readonly) return this._antLoaded || 0; return Math.round(Array.prototype.slice.call(inp).reduce(function (s, i) { return s + (parseFloat(i.value) || 0); }, 0) * 100) / 100; },
     selectedAnticipos() {
         return Array.prototype.slice.call(document.querySelectorAll('.ant-imp')).map(function (i) {
             return { anttmov: CP.antPend[+i.getAttribute('data-k')].NUMMOV, imptmov: parseFloat(i.value) || 0 };
@@ -287,35 +287,56 @@ const CP = {
         this.el('bqBody').innerHTML = rows.length ? rows.map(function (r) {
             return '<tr class="bq-row" data-num="' + r.NUMMOV + '" style="cursor:pointer"><td>' + CP.esc(r.NUMERO) + (r.ANULADO ? ' <span class="badge bg-danger">ANULADO</span>' : '') + '</td><td>' + CP.esc(r.FECHA) + '</td><td>' + CP.esc(r.PROVEEDOR) + '</td><td class="small">' + CP.esc(r.COMP) + '</td><td class="text-end cp-num">' + CP.n(r.TOTAL) + '</td></tr>';
         }).join('') : '<tr><td colspan="5" class="text-muted py-3">Sin resultados.</td></tr>';
-        Array.prototype.forEach.call(this.el('bqBody').querySelectorAll('.bq-row'), function (tr) { tr.addEventListener('click', function () { CP.verDetalle(+this.getAttribute('data-num')); }); });
+        Array.prototype.forEach.call(this.el('bqBody').querySelectorAll('.bq-row'), function (tr) { tr.addEventListener('click', function () { CP.cargarCP(+this.getAttribute('data-num')); }); });
     },
-    async verDetalle(num) {
+    // Click en un resultado → cerrar modal + cargar el CP completo en el form, en modo SÓLO LECTURA (como el legacy / FV).
+    async cargarCP(num) {
         var j = await this.api('detalle', { nummov: num });
         if (!j.ok) { this.toast(j.error, 'danger'); return; }
         var d = j.data;
-        function tbl(rows) { return '<table class="table table-sm mb-2"><tbody>' + rows + '</tbody></table>'; }
-        var imp = d.IMPUTACION.map(function (i) { return '<tr><td class="small">' + CP.esc(i.cuenta) + '</td><td class="text-end cp-num">' + (i.debe ? CP.n(i.debe) : '·') + '</td><td class="text-end cp-num">' + (i.haber ? CP.n(i.haber) : '·') + '</td></tr>'; }).join('');
-        var html = '<div class="card"><div class="card-body py-2">' +
-            '<div class="d-flex justify-content-between align-items-center"><b>CP Nº ' + CP.esc(d.NUMERO) + (d.ANULADO ? ' <span class="badge bg-danger">ANULADO</span>' : '') + '</b><span class="small text-muted">' + CP.esc(d.FECHA) + '</span></div>' +
-            '<div class="small">' + CP.esc(d.PROVEEDOR) + ' · ' + CP.esc(d.CUIT) + ' · Comp: <b>' + CP.esc(d.COMP) + '</b> · Imp.IVA ' + CP.esc(d.IMPUT_IVA) + ' · ' + CP.esc(d.FACTURACION) + '</div>' +
-            (d.DETALLE ? '<div class="small text-muted">' + CP.esc(d.DETALLE) + '</div>' : '') +
-            '<div class="row mt-2"><div class="col-md-6">' +
-            '<div class="small fw-bold">Importes</div>' + tbl(
-                '<tr><td>Neto</td><td class="text-end cp-num">' + CP.n(d.NETO) + '</td></tr>' +
-                '<tr><td>I.V.A.</td><td class="text-end cp-num">' + CP.n(d.IVA) + '</td></tr>' +
-                (d.NOGRAV ? '<tr><td>No gravado</td><td class="text-end cp-num">' + CP.n(d.NOGRAV) + '</td></tr>' : '') +
-                (d.PERC_IVA ? '<tr><td>Perc. IVA</td><td class="text-end cp-num">' + CP.n(d.PERC_IVA) + '</td></tr>' : '') +
-                (d.PERC_IIBB ? '<tr><td>Perc. IIBB</td><td class="text-end cp-num">' + CP.n(d.PERC_IIBB) + '</td></tr>' : '') +
-                '<tr class="fw-bold"><td>Total</td><td class="text-end cp-num">' + CP.n(d.TOTAL) + '</td></tr>') +
-            (d.VENCIMIENTOS.length ? '<div class="small fw-bold">Vencimientos</div>' + tbl(d.VENCIMIENTOS.map(function (v) { return '<tr><td>' + CP.esc(v.fecha) + '</td><td class="text-end cp-num">' + CP.n(v.importe) + '</td></tr>'; }).join('')) : '') +
-            (d.ANTICIPOS.length ? '<div class="small fw-bold">Anticipos aplicados</div>' + tbl(d.ANTICIPOS.map(function (a) { return '<tr><td>' + CP.esc(a.comp) + '</td><td class="text-end cp-num">' + CP.n(a.importe) + '</td></tr>'; }).join('')) : '') +
-            '</div><div class="col-md-6">' +
-            '<div class="small fw-bold">Imputación (asiento)</div><table class="table table-sm mb-2"><thead><tr><th>Cuenta</th><th class="text-end">Debe</th><th class="text-end">Haber</th></tr></thead><tbody>' + imp + '</tbody></table>' +
-            (d.PRODUCTOS.length ? '<div class="small fw-bold">Productos</div>' + tbl(d.PRODUCTOS.map(function (p) { return '<tr><td class="small">' + CP.esc(p.codpro + ' ' + p.denom) + '</td><td class="text-end cp-num">' + CP.n(p.cant) + '</td></tr>'; }).join('')) : '') +
-            (d.REMITOS.length ? '<div class="small">Remitos facturados: ' + d.REMITOS.map(function (x) { return CP.esc(x); }).join(', ') + '</div>' : '') +
-            '</div></div></div></div>';
-        this.el('bqDetalle').innerHTML = html;
-        this.el('bqDetalle').scrollIntoView({ block: 'nearest' });
+        var bm = bootstrap.Modal.getInstance(this.el('modalBuscarCP')); if (bm) bm.hide();
+        this.prov = null;
+        this.el('codcue').value = d.CODCUE; this.el('provQ').value = d.PROVEEDOR; this.el('provInfo').textContent = d.INFO;
+        this.el('sancue').value = this.n(d.SANCUE); this.el('saldo').value = this.n(d.SOPCUE);
+        this.el('nummov').value = d.NUMERO; this.el('cinmov').value = d.NUMERO; this.el('cipmov').value = d.CIPMOV;
+        this.el('fexmov').value = d.FEXISO; this.el('cotmov').value = d.COTMOV;
+        this.el('cec').value = d.CEC; this.el('cei').value = d.CEI;
+        this.el('cep').value = d.CEP; this.el('cen').value = d.CEN; this.el('cef').value = d.CEFISO;
+        this.el('fixmov').value = d.FIXISO; this.el('detmov').value = d.DETMOV; this.el('codcat').value = String(d.CODCAT);
+        this.el('netmov').value = d.NET1; this.el('alimov').value = d.ALI1; this.el('irimov').value = d.IRI1;
+        this.el('nogmov').value = d.NOGRAV;
+        this.el('ap1mov').value = d.AP1; this.el('ip1mov').value = d.IP1; this.el('ap2mov').value = d.AP2; this.el('ip2mov').value = d.IP2;
+        if (d.NET2 > 0) { this.el('row493').style.display = 'flex'; this.el('net2mov').value = d.NET2; this.el('ali2mov').value = d.ALI2; this.el('iri2mov').value = d.IRI2; }
+        this.el('totmov').value = d.TOTAL;
+        this.el('cardProd').style.display = d.CONPROD ? '' : 'none';
+        this.productos = (d.productos || []).map(function (p) { return { codpro: p.codpro, denpro: p.denpro, codudm: 1, codmon: p.codmon, cant: p.cant, cos: p.cos, lis: 0, fct: 1, bon: p.bon, flt: 0, stk: p.stk }; });
+        this.renderProds();
+        this.imps = (d.imputacion || []).map(function (i) { return { codcue: i.codcue, label: i.label, codcdc: i.codcdc, cdcName: (CP.centros && CP.centros[i.codcdc]) || i.codcdc, debmov: i.debmov }; });
+        this.renderImps();
+        this.vtos = (d.vencimientos || []).map(function (v) { return { fvxmov: v.fvxiso, cremov: v.cremov }; });
+        this.renderVtos();
+        var ant = d.anticipos || [];
+        this.el('cardAnt').style.display = ant.length ? '' : 'none';
+        this.el('antBody').innerHTML = ant.map(function (a) { return '<tr><td>' + CP.esc(a.comp) + '</td><td colspan="2" class="text-muted small">aplicado</td><td class="cp-num">' + CP.n(a.importe) + '</td></tr>'; }).join('');
+        var antTot = ant.reduce(function (s, a) { return s + a.importe; }, 0);
+        this.totales = { total: this.r2(d.TOTAL), neto: this.r2(d.NET1) + this.r2(d.NET2), iva: this.r2(d.IRI1) + this.r2(d.IRI2), nograv: this.r2(d.NOGRAV) };
+        this._antLoaded = Math.round(antTot * 100) / 100;   // anticipos cargados (sin inputs editables en readonly)
+        this.refresh();
+        this.el('impTot').textContent = this.n(d.TOTAL); this.el('vtoTot').textContent = this.n(d.TOTAL);
+        this.lockForm(num, d.ANULABLE, d.ANULADO, d.remitos || []);
+    },
+    lockForm(num, anulable, anulado, remitos) {
+        Array.prototype.forEach.call(document.querySelectorAll('#cpForm input, #cpForm select, #cpForm textarea'), function (el) { el.disabled = true; });
+        Array.prototype.forEach.call(document.querySelectorAll('#cpForm button'), function (el) { el.style.display = 'none'; });
+        this.el('btnGrabar').style.display = 'none';
+        var b = this.el('roBanner'); b.style.display = '';
+        b.innerHTML = '<i class="bi bi-eye me-1"></i>Comprobante a Pagar <b>Nº ' + this.esc(num) + '</b> — modo <b>sólo lectura</b>' +
+            (anulado ? ' · <span class="badge bg-danger">ANULADO</span>' : '') +
+            ((remitos && remitos.length) ? ' · Remitos facturados: ' + remitos.map(function (x) { return CP.esc(x); }).join(', ') : '') +
+            ' · <a href="#" id="roNuevo">Cargar otro / Nuevo</a>';
+        var rn = this.el('roNuevo'); if (rn) rn.addEventListener('click', function (e) { e.preventDefault(); location.reload(); });
+        if (anulable && !anulado) { this.anulNum = num; this.el('btnAnularHdr').style.display = ''; }
+        this.readonly = true;
     },
 
     async grabar() {

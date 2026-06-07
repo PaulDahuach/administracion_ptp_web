@@ -53,6 +53,7 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
   @media (max-width:991px) { #cpSubforms > .cp-col-left, #cpSubforms > .cp-col-right { flex:1 1 100%; max-width:100%; } }
 </style>
 
+<div id="roBanner" class="alert alert-info py-1 px-2 small mb-2" style="display:none"></div>
 <div class="fc-form" id="cpForm" data-ivacta="<?= htmlspecialchars($ivaCta, ENT_QUOTES) ?>">
   <div class="card fc-card mb-2"><div class="card-body">
     <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> — se graba en el libro de capacitación.</div><?php endif; ?>
@@ -248,5 +249,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=14"></script>
+<script src="assets/js/cp.js?v=18"></script>
 '); ?>
