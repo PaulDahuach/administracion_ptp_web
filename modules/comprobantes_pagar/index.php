@@ -62,15 +62,43 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
       <div class="col-md-2"><label class="form-label mb-1">I.V.A.</label><input id="irimov" class="form-control cp-num" readonly value="0.00"></div>
       <div class="col-md-2"><label class="form-label mb-1">No gravado</label><input type="number" step="0.01" id="nogmov" class="form-control cp-num" value="0"></div>
     </div>
-    <div class="row g-2 mt-1 align-items-end">
-      <div class="col"><label class="form-label mb-1">Cuenta del gasto / bien (imputación del Debe)</label>
-        <div class="ac-box"><input type="text" id="ctaQ" class="form-control" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="ctaList"></div></div>
-        <input type="hidden" id="ctaGasto"></div>
-      <div class="col-md-3"><label class="form-label mb-1">Centro de costo</label><select id="codcdc" class="form-select"></select></div>
-      <div class="col-auto" style="width:160px"><label class="form-label mb-1">Vencimiento (a pagar)</label><input type="date" id="fvxmov" class="form-control"></div>
-    </div>
-    <div class="small text-muted mt-2">El IVA va automáticamente a <b>I.V.A. Crédito Fiscal</b> (<?= htmlspecialchars($ivaCta) ?>); el neto + no gravado, a la cuenta elegida. (v1: una sola cuenta de gasto y un vencimiento.)</div>
   </div></div>
+
+  <!-- Imputación contable (Debe) — multi-fila -->
+  <div class="card fc-card mb-2">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-diagram-3 me-1"></i>Imputación contable (Debe)</span>
+      <span class="small">Imputado <b id="impSum" class="cp-num">0.00</b> / Total <b id="impTot" class="cp-num">0.00</b> <span id="impOk"></span></span>
+    </div>
+    <div class="card-body">
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col"><label class="form-label mb-1 small">Cuenta</label>
+          <div class="ac-box"><input type="text" id="impCtaQ" class="form-control form-control-sm" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="impCtaList"></div></div>
+          <input type="hidden" id="impCta"></div>
+        <div class="col-md-3"><label class="form-label mb-1 small">Centro de costo</label><select id="impCdc" class="form-select form-select-sm"></select></div>
+        <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">Debe</label><input type="number" step="0.01" id="impDeb" class="form-control form-control-sm cp-num"></div>
+        <div class="col-auto"><button type="button" id="btnAddImp" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Agregar</button></div>
+        <div class="col-auto"><button type="button" id="btnSugIva" class="btn btn-sm btn-outline-secondary" title="Agrega la fila de IVA Crédito Fiscal por el IVA del comprobante">+ IVA Crédito</button></div>
+      </div>
+      <table class="table table-sm mb-0"><thead><tr><th>Cuenta</th><th>Centro de costo</th><th class="cp-num" style="width:160px">Debe</th><th style="width:36px"></th></tr></thead><tbody id="impBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- Vencimientos (a pagar) — multi-fila -->
+  <div class="card fc-card mb-2">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-calendar-event me-1"></i>Vencimientos (a pagar)</span>
+      <span class="small">Vencimientos <b id="vtoSum" class="cp-num">0.00</b> / Total <b id="vtoTot" class="cp-num">0.00</b> <span id="vtoOk"></span></span>
+    </div>
+    <div class="card-body">
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col-auto" style="width:180px"><label class="form-label mb-1 small">Fecha</label><input type="date" id="vtoFx" class="form-control form-control-sm"></div>
+        <div class="col-auto" style="width:160px"><label class="form-label mb-1 small">A pagar</label><input type="number" step="0.01" id="vtoImp" class="form-control form-control-sm cp-num"></div>
+        <div class="col-auto"><button type="button" id="btnAddVto" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Agregar</button></div>
+      </div>
+      <table class="table table-sm mb-0"><thead><tr><th>Fecha</th><th class="cp-num" style="width:160px">A pagar</th><th style="width:36px"></th></tr></thead><tbody id="vtoBody"></tbody></table>
+    </div>
+  </div>
 
   <div class="card fc-card"><div class="card-body tot-bar">
     <div class="t"><div class="lbl">Neto</div><div class="val" id="tNeto">0.00</div></div>
@@ -86,5 +114,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=2"></script>
+<script src="assets/js/cp.js?v=3"></script>
 '); ?>
