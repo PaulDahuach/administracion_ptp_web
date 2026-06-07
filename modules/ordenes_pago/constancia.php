@@ -16,7 +16,7 @@ $h = db_row("SELECT * FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=340;")
 if (!$h) { http_response_code(404); echo 'Orden de pago no encontrada'; exit; }
 $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
 $lib = auth_libro_unico();
-if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { http_response_code(403); echo 'No disponible en este libro'; exit; }
+if (($lib === 'blanco' && !$estTrue) || ($lib === 'capacitacion' && $estTrue)) { http_response_code(403); echo 'No disponible en este libro'; exit; }
 $rix = round((float) nz($h['RIXMOV'], 0), 2);
 if ($rix <= 0 || (int) nz($h['RINMOV'], 0) <= 0) { http_response_code(404); echo 'La orden de pago no practicó retención de Ingresos Brutos'; exit; }
 

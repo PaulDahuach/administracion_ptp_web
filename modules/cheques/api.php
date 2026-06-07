@@ -41,8 +41,8 @@ function buscar() {
     // Doble libro: el "libro" de un cheque = el ESTMOV de su movimiento de INGRESO a cartera.
     // Filtramos el ingreso por el modo activo y luego exigimos que el cheque tenga ingreso en ese
     // libro (Ent.CC IS NOT NULL) → un Operador no ve cheques de Capacitación.
-    $lib    = auth_libro_unico();   // 'blanco' | 'negro' | ''
-    $estIng = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'negro') ? ' AND M.ESTMOV=False' : '');
+    $lib    = auth_libro_unico();   // 'blanco' | 'capacitacion' | ''
+    $estIng = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'capacitacion') ? ' AND M.ESTMOV=False' : '');
     $rc     = db_row("SELECT CACC_2 FROM [Rec Control];");
     $cacc2  = "'" . db_esc(isset($rc['CACC_2']) ? (string) $rc['CACC_2'] : '') . "'";
     $entSub = "(SELECT MoC.CODCHQ AS CC, Min(M.FEXMOV) AS FE

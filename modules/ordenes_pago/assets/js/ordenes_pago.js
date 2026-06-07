@@ -232,7 +232,7 @@ const OP = {
         var p = {
             codcue: this.el('codcue').value, codaux: this.el('codaux').value, aia: parseFloat(this.el('aiamov').value) || 0,
             alirri: parseFloat(this.el('arb').value) || 0, mnrrri: this.mnrrri || 0, totmov: this.total,
-            fecha: this.el('fexmov').value, est: (this.modo === 'capacitacion') ? 'negro' : 'blanco', refs: JSON.stringify(refs)
+            fecha: this.el('fexmov').value, est: (this.modo === 'capacitacion') ? 'capacitacion' : 'blanco', refs: JSON.stringify(refs)
         };
         var j = await this.api('retencion', p);
         if (!j.ok) return;

@@ -54,7 +54,7 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 
 <div class="fc-form" id="cpForm" data-ivacta="<?= htmlspecialchars($ivaCta, ENT_QUOTES) ?>">
   <div class="card fc-card mb-2"><div class="card-body">
-    <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> (negro) — se graba en el libro de capacitación.</div><?php endif; ?>
+    <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> — se graba en el libro de capacitación.</div><?php endif; ?>
     <div class="row g-2">
       <div class="col-auto" style="width:105px"><label class="form-label mb-1">Movimiento Nº</label><input id="nummov" class="form-control cp-ro" placeholder="(auto)" readonly></div>
       <div class="col-auto" style="width:130px"><label class="form-label mb-1">Emisión</label><input type="date" id="fexmov" class="form-control"></div>

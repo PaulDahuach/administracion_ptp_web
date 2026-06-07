@@ -11,7 +11,7 @@
  * ni contado con cheque. Esos dos casos del VBA (anticipos por SDOMOV<0 / recibo RC vinculado) quedan TODO.
  *
  * nd_insert($d, $estTrue, $afip): SIN control de transacción (el caller envuelve). $afip = {cinmov, cae,
- * cae_vto, coddoc} (nº + CAE de AFIP) o null (negro/borrador, sin CAE).
+ * cae_vto, coddoc} (nº + CAE de AFIP) o null (capacitacion/borrador, sin CAE).
  */
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/helpers.php';
@@ -40,7 +40,7 @@ function nd_iso($s) { if ($s === null || $s === '') return null; if (is_numeric(
 function nd_ymd_serial($v) { $v = (string) $v; if (preg_match('/^\d{8}$/', $v)) { $dt = DateTime::createFromFormat('Ymd', $v); return $dt ? (int) (new DateTime('1899-12-30'))->diff($dt)->days : null; } return nd_iso($v); }
 function nd_txt($v) { $v = trim((string) $v); return ($v === '') ? 'Null' : "'" . db_esc($v) . "'"; }
 function nd_num($v) { return (string) round((float) $v, 2); }
-function nd_estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND M.ESTMOV=True'; if ($l === 'negro') return ' AND M.ESTMOV=False'; return ''; }
+function nd_estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND M.ESTMOV=True'; if ($l === 'capacitacion') return ' AND M.ESTMOV=False'; return ''; }
 
 /** Conceptos de ND (CODOPE=440): cada uno con su cuenta (CODCUE) y si lleva IVA (IVAAUX). */
 function listar_conceptos() {
@@ -149,7 +149,7 @@ function nd_insert($d, $estTrue, $afip) {
     // FV referenciada (opcional): para CbtesAsoc de AFIP + traza en Tbl Movimientos Referencias.
     $refs = isset($d['refs']) && is_array($d['refs']) ? $d['refs'] : array();
 
-    // Numeración: NUMMOV interno; CINMOV = nº de AFIP (electrónico) o contador local (negro).
+    // Numeración: NUMMOV interno; CINMOV = nº de AFIP (electrónico) o contador local.
     $nummov = next_number('ULTMOV');
     $cinmov = ($afip && isset($afip['cinmov']) && $afip['cinmov']) ? (int) $afip['cinmov'] : next_number_pdv('ULTND' . $ciimov, $cipmov);
     $coddoc = (int) nz(($afip && isset($afip['coddoc'])) ? $afip['coddoc'] : (isset($d['coddoc']) ? $d['coddoc'] : 80), 80);
@@ -300,7 +300,7 @@ function guardar() {
     if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
     $raw = isset($_POST['data']) ? json_decode($_POST['data'], true) : null;
     if (!is_array($raw)) { fail('Datos inválidos'); return; }
-    // BLANCO (operador/integral) = ND electrónica con CAE. NEGRO (capacitación) = sin CAE, pdv 9999.
+    // BLANCO (operador/integral) = ND electrónica con CAE. CAPACITACION (capacitación) = sin CAE, pdv 9999.
     $estTrue = (auth_modo() !== 'capacitacion');
     try {
         if ($estTrue) {

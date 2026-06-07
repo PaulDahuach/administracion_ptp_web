@@ -3,7 +3,7 @@
  * Percepción de IIBB (Ingresos Brutos) — lógica compartida entre Facturas y Notas de Crédito/Débito.
  * Replica fiel del legacy (Frm CD Facturas / Frm CD Creditos NF). NO define reglas de negocio nuevas.
  *
- * SPIMOV = SPICUE del cliente, anulado si CODCRI=5 (Consumidor Final), negro (ESTMOV=False) o el switch
+ * SPIMOV = SPICUE del cliente, anulado si CODCRI=5 (Consumidor Final), capacitacion (ESTMOV=False) o el switch
  * Rec Control PIXCDC=True (percep DESACTIVADA). ALIPIX del padrón ARBA (PADRONRS.APBPIB por CUIT) o el
  * default de Rec Control. pixmov = neto × ALIPIX/100 si neto > MNPPIX.
  */
@@ -35,7 +35,7 @@ function padron_percep_alicuota($cuit) {
  * @param string $cuit   CUIT del cliente
  * @param int    $codcri categoría IVA (5 = Consumidor Final → sin percep)
  * @param mixed  $spicue flag del cliente "sujeto a percepción"
- * @param bool   $estTrue blanco (true) / negro (false → sin percep)
+ * @param bool   $estTrue blanco (true) / capacitacion (false → sin percep)
  */
 function percep_calc($net, $cuit, $codcri, $spicue, $estTrue) {
     $net = round((float) $net, 2);

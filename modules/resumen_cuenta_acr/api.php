@@ -4,7 +4,7 @@
  * Espejo de resumen_cuenta (deudores) con CODORI='A'.
  * Ops que mueven cta cte: 310=CP (compra), 320=NC, 330=ND, 340=OP (pago), 350=Canc.Anticipos.
  * Saldo = Σ(DEBMOV − CREMOV) — igual que deudores; aquí el saldo NEGATIVO = le debemos
- * al proveedor (validado vs SOPCUE: 42/45). ESTMOV = dual-ledger blanco(-1)/negro(0).
+ * al proveedor (validado vs SOPCUE: 42/45). ESTMOV = dual-ledger blanco(-1)/capacitacion(0).
  */
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/helpers.php';
@@ -65,7 +65,7 @@ function resumen() {
 
     $base = "CODORI='A' AND CODCUE=$codcue AND CODOPE IN (" . OPS_CC . ")";
     if ($libro === 'blanco')     $base .= " AND ESTMOV=True";
-    elseif ($libro === 'negro')  $base .= " AND ESTMOV=False";
+    elseif ($libro === 'capacitacion')  $base .= " AND ESTMOV=False";
 
     $saldoAnterior = 0;
     if ($sDesde !== null) {

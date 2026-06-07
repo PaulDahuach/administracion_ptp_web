@@ -1,9 +1,9 @@
 <?php
 /**
  * Saldos Actuales (Deudores) — API solo-lectura.
- * Una fila por deudor con saldo BLANCO (ESTMOV=-1) / NEGRO (ESTMOV=0) / TOTAL.
+ * Una fila por deudor con saldo BLANCO (ESTMOV=-1) / CAPACITACION (ESTMOV=0) / TOTAL.
  * El saldo se lleva por libro separado (ver Frm CD Facturas/Recibos: SOCMOV se
- * calcula con DSum filtrado por ESTMOV). Total = blanco + negro = SOPCUE.
+ * calcula con DSum filtrado por ESTMOV). Total = blanco + capacitacion = SOPCUE.
  * Ops que mueven cta cte: 420=FV, 440=ND (debe), 460=NC, 480=RC (haber).
  */
 require_once __DIR__ . '/../../includes/db.php';
@@ -31,8 +31,8 @@ function listar() {
 
     // Visibilidad por categoría: supervisor/admin ven ambos libros; operador/capacitación, uno solo.
     $ve = auth_ve_ambos();
-    $unico = auth_libro_unico();   // '' | 'blanco' | 'negro'
-    $estW = ($unico === 'blanco') ? ' AND ESTMOV=True' : (($unico === 'negro') ? ' AND ESTMOV=False' : '');
+    $unico = auth_libro_unico();   // '' | 'blanco' | 'capacitacion'
+    $estW = ($unico === 'blanco') ? ' AND ESTMOV=True' : (($unico === 'capacitacion') ? ' AND ESTMOV=False' : '');
 
     // Saldo neto por cliente y por libro (ESTMOV). Para un solo libro, el filtro deja sólo ese.
     $rows = db_query("SELECT CODCUE, ESTMOV, SUM(DEBMOV) AS D, SUM(CREMOV) AS C
@@ -57,11 +57,11 @@ function listar() {
         $nm = isset($name[$cc]) ? $name[$cc] : array('den' => '(' . $cc . ')', 'cit' => '');
         if ($ve) {
             $out[] = array('codcue' => $cc, 'den' => $nm['den'], 'cit' => $nm['cit'],
-                           'blanco' => $b, 'negro' => $n, 'total' => $t);
+                           'blanco' => $b, 'capacitacion' => $n, 'total' => $t);
         } else {
             // un solo libro: enviamos sólo "saldo" (el otro NO viaja al navegador)
             $out[] = array('codcue' => $cc, 'den' => $nm['den'], 'cit' => $nm['cit'],
-                           'saldo' => ($unico === 'negro') ? $n : $b);
+                           'saldo' => ($unico === 'capacitacion') ? $n : $b);
         }
     }
 
@@ -74,9 +74,9 @@ function listar() {
 
     if ($ve) {
         ok(array('clientes' => $out, 'cantidad' => count($out), 've_ambos' => true,
-                 'totBlanco' => round($tb, 2), 'totNegro' => round($tn, 2), 'totTotal' => round($tb + $tn, 2)));
+                 'totBlanco' => round($tb, 2), 'totCapacitacion' => round($tn, 2), 'totTotal' => round($tb + $tn, 2)));
     } else {
-        $tot = ($unico === 'negro') ? $tn : $tb;
+        $tot = ($unico === 'capacitacion') ? $tn : $tb;
         ok(array('clientes' => $out, 'cantidad' => count($out), 've_ambos' => false,
                  'libro' => $unico, 'total' => round($tot, 2)));
     }

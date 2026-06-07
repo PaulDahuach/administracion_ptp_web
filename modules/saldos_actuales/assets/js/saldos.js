@@ -1,6 +1,6 @@
 /**
  * Saldos Actuales (Deudores) — Frontend. Solo lectura.
- * VE_AMBOS=true: columnas Blanco/Negro/Total. false: un solo "Saldo" (operador/capacitación).
+ * VE_AMBOS=true: columnas Blanco/Capacitacion/Total. false: un solo "Saldo" (operador/capacitación).
  * Click → Resumen de Cuenta del cliente.
  */
 const App = {
@@ -16,18 +16,18 @@ const App = {
 
         if (ve) {
             this.el('stBlanco').textContent = '$' + this.num(d.totBlanco);
-            this.el('stNegro').textContent = '$' + this.num(d.totNegro);
+            this.el('stCapacitacion').textContent = '$' + this.num(d.totCapacitacion);
             this.el('stTotal').textContent = '$' + this.num(d.totTotal);
             this.el('stCant').textContent = d.cantidad;
             this.el('ftBlanco').textContent = this.num(d.totBlanco);
-            this.el('ftNegro').textContent = this.num(d.totNegro);
+            this.el('ftCapacitacion').textContent = this.num(d.totCapacitacion);
             this.el('ftTotal').textContent = this.num(d.totTotal);
             tb.innerHTML = d.clientes.map(c => `<tr data-codcue="${c.codcue}">
                 <td class="text-muted">${c.codcue}</td>
                 <td>${this.esc(c.den)}</td>
                 <td class="text-muted">${this.esc(c.cit)}</td>
                 <td class="text-end ${cls(c.blanco)}" data-order="${c.blanco}">${c.blanco ? this.num(c.blanco) : '—'}</td>
-                <td class="text-end ${cls(c.negro)}" data-order="${c.negro}">${c.negro ? this.num(c.negro) : '—'}</td>
+                <td class="text-end ${cls(c.capacitacion)}" data-order="${c.capacitacion}">${c.capacitacion ? this.num(c.capacitacion) : '—'}</td>
                 <td class="text-end fw-bold ${cls(c.total)}" data-order="${c.total}">${this.num(c.total)}</td>
             </tr>`).join('');
         } else {

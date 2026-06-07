@@ -33,8 +33,8 @@ if (!defined('FV_LIB')) {
 
 // ───────────────────────── Lookups ─────────────────────────
 function fac_serial_iso($s) { if ($s === null || $s === '') return ''; return (new DateTime('1899-12-30'))->modify('+' . (int) $s . ' days')->format('Y-m-d'); }
-/** Filtro de visibilidad por libro (doble libro): blanco→ESTMOV=True, negro→False, integral→sin filtro. */
-function fv_estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND ESTMOV=True'; if ($l === 'negro') return ' AND ESTMOV=False'; return ''; }
+/** Filtro de visibilidad por libro (doble libro): blanco→ESTMOV=True, capacitacion→False, integral→sin filtro. */
+function fv_estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND ESTMOV=True'; if ($l === 'capacitacion') return ' AND ESTMOV=False'; return ''; }
 
 function buscar_clientes() {
     $q = isset($_GET['q']) ? trim($_GET['q']) : '';
@@ -101,7 +101,7 @@ function listar() {
     $q = isset($_GET['q']) ? trim($_GET['q']) : '';
     $sd = isset($_GET['desde']) && $_GET['desde'] ? (int) (new DateTime('1899-12-30'))->diff(new DateTime($_GET['desde']))->days : null;
     $sh = isset($_GET['hasta']) && $_GET['hasta'] ? (int) (new DateTime('1899-12-30'))->diff(new DateTime($_GET['hasta']))->days : null;
-    $w = 'CODOPE=420' . fv_estmov_w();   // visibilidad por libro (blanco/negro/integral)
+    $w = 'CODOPE=420' . fv_estmov_w();   // visibilidad por libro (blanco/capacitacion/integral)
     if ($q !== '') { $qs = db_esc($q); $cond = "(DENMOV Like '%$qs%' OR CITMOV Like '%$qs%' OR CAEMOV Like '%$qs%'"; if (is_numeric($q)) $cond .= ' OR CINMOV=' . (int) $q; $w .= " AND $cond)"; }
     if ($sd !== null) $w .= " AND FEXMOV >= $sd";
     if ($sh !== null) $w .= " AND FEXMOV <= $sh";
@@ -120,7 +120,7 @@ function detalle() {
     $h = db_row("SELECT * FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=420;");
     if (!$h) { fail('Factura no encontrada'); return; }
     $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1); $lib = auth_libro_unico();
-    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Factura no disponible en este libro'); return; }
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'capacitacion' && $estTrue)) { fail('Factura no disponible en este libro'); return; }
     require_once __DIR__ . '/../../includes/comprobante_anular.php';
     $anu = ($h['ANUMOV'] === true || $h['ANUMOV'] == -1);
     $anulable = (!$anu && anular_es_anulable($estTrue, nz($h['CAEMOV'], ''))) ? 1 : 0;
@@ -183,7 +183,7 @@ function fv_recibo_insert($recNum, $d, $estTrue, $fvNum, $ciimov, $cipmov, $debm
     $rc = db_row("SELECT CACC_A, CACC_1, CACC_2, CACC_Z FROM [Rec Control];");
     $caccA = trim((string) $rc['CACC_A']); $cacc1 = trim((string) $rc['CACC_1']); $cacc2 = trim((string) $rc['CACC_2']); $caccZ = trim((string) $rc['CACC_Z']);
     $fex = fv_iso($d['fexmov']); $estSql = $estTrue ? 'True' : 'False';
-    $cipSql = ($cipmov === null) ? 'Null' : (string) $cipmov;   // negro = Null (contador 9999)
+    $cipSql = ($cipmov === null) ? 'Null' : (string) $cipmov;   // capacitacion = Null (contador 9999)
     $cinmov = next_number_pdv('ULTREC', $cipmov);
     $det = 'FC-' . $ciimov . '-' . str_pad((string) (int) $cipmov, 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) $fvNum, 8, '0', STR_PAD_LEFT);
     $sdomov = ($impcaj > $debmov) ? round(($impcaj - $debmov) * -1, 2) : 0;
@@ -235,7 +235,7 @@ function fv_insert($d, $estTrue, $afip) {
     $fex = fv_iso($d['fexmov']);
     if ($fex === null) throw new Exception('Falta la fecha de emisión');
     $ciimov = strtoupper(trim((string) nz($d['ciimov'], 'A')));
-    // PDV: blanco = pto venta real (AFIP); negro/capacitación = Null (el contador usa 9999 vía next_number_pdv).
+    // PDV: blanco = pto venta real (AFIP); capacitacion/capacitación = Null (el contador usa 9999 vía next_number_pdv).
     $cipmov = (isset($d['cipmov']) && (int) $d['cipmov'] > 0) ? (int) $d['cipmov'] : null;
     $cipSql = ($cipmov === null) ? 'Null' : (string) $cipmov;
     $codcdv = (int) nz($d['codcdv'], 2);
@@ -475,13 +475,13 @@ function guardar() {
     $raw = isset($_POST['data']) ? json_decode($_POST['data'], true) : null;
     if (!is_array($raw)) { fail('Datos inválidos'); return; }
     // BLANCO (operador/integral) = factura electrónica con CAE de AFIP.
-    // NEGRO (capacitación, ESTMOV=False) = factura NO electrónica: sin CAE, pdv 9999, numeración local.
+    // CAPACITACION (capacitación, ESTMOV=False) = factura NO electrónica: sin CAE, pdv 9999, numeración local.
     $estTrue = (auth_modo() !== 'capacitacion');
     try {
         if ($estTrue) {
             $res = fv_emitir($raw, true);
         } else {
-            unset($raw['cipmov']);   // negro: CIPMOV=Null (el contador usa 9999), como el legacy y remitos/recibos
+            unset($raw['cipmov']);   // capacitacion: CIPMOV=Null (el contador usa 9999), como el legacy y remitos/recibos
             db_begin();
             try { $res = fv_insert($raw, false, null); db_commit(); }
             catch (Exception $e) { db_rollback(); throw $e; }

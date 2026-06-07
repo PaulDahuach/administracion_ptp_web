@@ -38,7 +38,7 @@ module_head('Notas de Crédito — Deudores', 'bi-file-earmark-minus', $toolbar)
 
 <div class="fc-form" id="ncForm">
   <div class="card fc-card mb-2"><div class="card-body">
-    <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> (negro) — la NC se graba <b>sin CAE</b> (no fiscal).</div>
+    <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> — la NC se graba <b>sin CAE</b> (no fiscal).</div>
     <?php elseif ($modoAfip !== 'produccion'): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-cone-striped me-1"></i>AFIP en <b>homologación</b> (testing) — los CAE no son fiscales.</div><?php endif; ?>
     <div class="row g-2">
       <div class="col-auto" style="width:115px"><label class="form-label mb-1">Movimiento Nº</label><input id="nummov" class="form-control nc-ro" placeholder="(auto)" readonly></div>

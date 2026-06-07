@@ -7,7 +7,7 @@
  * FV(s) que acredita (Tbl Movimientos Referencias) reduciendo su SDOMOV. CREMOV=total; SOPCUE -= total.
  *
  * nc_insert($d, $estTrue, $afip): SIN control de transacción (el caller envuelve). $afip = {cinmov, cae,
- * cae_vto, coddoc} (nº + CAE de AFIP) o null (negro/borrador, sin CAE).
+ * cae_vto, coddoc} (nº + CAE de AFIP) o null (capacitacion/borrador, sin CAE).
  */
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/helpers.php';
@@ -97,7 +97,7 @@ function pendientes() {
 }
 
 /** Filtro de visibilidad por libro (doble libro). */
-function nc_estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND M.ESTMOV=True'; if ($l === 'negro') return ' AND M.ESTMOV=False'; return ''; }
+function nc_estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND M.ESTMOV=True'; if ($l === 'capacitacion') return ' AND M.ESTMOV=False'; return ''; }
 
 // Percepción IIBB: lógica compartida en includes/percep.php (percep_calc / padron_percep_alicuota).
 function nc_padron_percep($cuit) { return padron_percep_alicuota($cuit); }
@@ -172,7 +172,7 @@ function nc_insert($d, $estTrue, $afip) {
 
     $netmov = round((float) nz($d['netmov'], 0), 2);                  // neto gravado (si IVAAUX) o no gravado
     $irimov = $tieneIva ? round((float) nz($d['irimov'], 0), 2) : 0;  // IVA débito
-    // Percepción IIBB: se computa SERVER-SIDE replicando el legacy (gateada por PIXCDC/CF/negro/MNPPIX + padrón).
+    // Percepción IIBB: se computa SERVER-SIDE replicando el legacy (gateada por PIXCDC/CF/capacitacion/MNPPIX + padrón).
     $perc   = nc_percep_calc($netmov, nz($d['citmov'], $cli['CITCUE']), (int) nz($d['codcri'], 0), $cli['SPICUE'], $estTrue);
     $pixmov = $perc['pixmov'];
     $spimov = $perc['spimov'] ? 'True' : 'False';
@@ -185,7 +185,7 @@ function nc_insert($d, $estTrue, $afip) {
     $productos = isset($d['productos']) && is_array($d['productos']) ? $d['productos'] : array();
     $esDevolucion = ($codaux == 462 && count($productos) > 0);
 
-    // Numeración: NUMMOV interno; CINMOV = nº de AFIP (electrónico) o contador local (negro).
+    // Numeración: NUMMOV interno; CINMOV = nº de AFIP (electrónico) o contador local.
     $nummov = next_number('ULTMOV');
     $cinmov = ($afip && isset($afip['cinmov']) && $afip['cinmov']) ? (int) $afip['cinmov'] : next_number_pdv('ULTNC' . $ciimov, $cipmov);
     $coddoc = (int) nz(($afip && isset($afip['coddoc'])) ? $afip['coddoc'] : (isset($d['coddoc']) ? $d['coddoc'] : 80), 80);
@@ -374,7 +374,7 @@ function guardar() {
     if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
     $raw = isset($_POST['data']) ? json_decode($_POST['data'], true) : null;
     if (!is_array($raw)) { fail('Datos inválidos'); return; }
-    // BLANCO (operador/integral) = NC electrónica con CAE. NEGRO (capacitación) = sin CAE, pdv 9999.
+    // BLANCO (operador/integral) = NC electrónica con CAE. CAPACITACION (capacitación) = sin CAE, pdv 9999.
     $estTrue = (auth_modo() !== 'capacitacion');
     try {
         if ($estTrue) {

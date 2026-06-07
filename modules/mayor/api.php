@@ -67,10 +67,10 @@ function mayor() {
 
     // Doble libro: filtra por el ESTMOV del movimiento padre según el modo activo (Operador/Capacitación).
     // El INICUE (saldo inicial, oficial) se atribuye al libro blanco: se incluye en Operador, no en
-    // Capacitación → así blanco+negro reconstruye el combinado cacheado.
-    $lib  = auth_libro_unico();   // 'blanco' | 'negro' | '' (sistemas sin doble libro)
-    $estM = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'negro') ? ' AND M.ESTMOV=False' : '');
-    $incluyeIni = ($lib !== 'negro');
+    // Capacitación → así blanco+capacitacion reconstruye el combinado cacheado.
+    $lib  = auth_libro_unico();   // 'blanco' | 'capacitacion' | '' (sistemas sin doble libro)
+    $estM = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'capacitacion') ? ' AND M.ESTMOV=False' : '');
+    $incluyeIni = ($lib !== 'capacitacion');
 
     // Centros de costo (map)
     $cdc = array();

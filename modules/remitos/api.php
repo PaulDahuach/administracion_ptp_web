@@ -75,7 +75,7 @@ function get_cliente() {
     $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
     $d = cliente_datos($cc);
     if (!$d) { fail('Cliente no encontrado'); return; }
-    $estTrue = (auth_modo() !== 'capacitacion');   // operador/integral → blanco; capacitación → negro
+    $estTrue = (auth_modo() !== 'capacitacion');   // operador/integral → blanco; capacitación → capacitacion
     $d['SALDO'] = cliente_saldo($cc, $estTrue);
     $d['DOMICILIO'] = trim(nz($d['DCXCUE'], '') . ' ' . nz($d['DNXCUE'], ''));
     $d['LOCALIDAD'] = trim(nz($d['DENLOC'], '') . ' - ' . nz($d['DENPRO'], ''));
@@ -283,7 +283,7 @@ function guardar() {
 function estmov_w() {
     $l = auth_libro_unico();
     if ($l === 'blanco') return ' AND ESTMOV=True';
-    if ($l === 'negro')  return ' AND ESTMOV=False';
+    if ($l === 'capacitacion')  return ' AND ESTMOV=False';
     return '';
 }
 
@@ -336,7 +336,7 @@ function detalle() {
     if (!$h) { fail('Remito no encontrado'); return; }
     $lib = auth_libro_unico();
     $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
-    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Remito no disponible en este libro'); return; }
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'capacitacion' && $estTrue)) { fail('Remito no disponible en este libro'); return; }
 
     $udm = array();
     foreach (db_query("SELECT CODUDM, DENUDM FROM [Tbl Unidades de Medida]") as $u)

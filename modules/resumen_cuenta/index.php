@@ -65,7 +65,7 @@ module_head('Resumen de Cuenta', 'bi-journal-text',
                 <select id="cboLibro" class="form-select">
                     <option value="todos" selected>Todos</option>
                     <option value="blanco">Blanco</option>
-                    <option value="negro">Negro</option>
+                    <option value="capacitacion">Capacitación</option>
                 </select>
             </div>
             <?php endif; ?>

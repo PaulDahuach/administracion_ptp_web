@@ -101,7 +101,7 @@ function op_insert($d, $estTrue, $cipmov) {
     elseif ($codaux == 343) $sdomov = round($total - $maxRef, 2); // canc + anticipo
     else $sdomov = 0;                                            // cancelación (342)
 
-    // OP: el header guarda CIPMOV=0 en blanco (acreedores no tienen PDV de venta) y Null en negro
+    // OP: el header guarda CIPMOV=0 en blanco (acreedores no tienen PDV de venta) y Null en capacitacion
     // (como el legacy: 11127 blancas con 0, 5772 negras con Null). El nº ODP sale del contador por-PDV
     // (ULTODP) del PDV del operador ($cipmov), o 9999 en capacitación.
     $nummov = next_number('ULTMOV');
@@ -312,7 +312,7 @@ function anular() {
     if (!$h) { fail('Orden de pago no encontrada'); return; }
     $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
     $lib = auth_libro_unico();
-    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Orden de pago no disponible en este libro'); return; }
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'capacitacion' && $estTrue)) { fail('Orden de pago no disponible en este libro'); return; }
     db_begin();
     try { op_anular($num); db_commit(); ok(array('nummov' => $num)); }
     catch (Exception $e) { db_rollback(); fail('No se pudo anular la orden de pago: ' . $e->getMessage(), 500); }
@@ -320,7 +320,7 @@ function anular() {
 
 // ───────────────────────── Lookups / búsqueda ─────────────────────────
 function op_serial_iso($s) { if ($s === null || $s === '') return ''; return (new DateTime('1899-12-30'))->modify('+' . (int) $s . ' days')->format('Y-m-d'); }
-function estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND ESTMOV=True'; if ($l === 'negro') return ' AND ESTMOV=False'; return ''; }
+function estmov_w() { $l = auth_libro_unico(); if ($l === 'blanco') return ' AND ESTMOV=True'; if ($l === 'capacitacion') return ' AND ESTMOV=False'; return ''; }
 function comp_str($cic, $cii, $cip, $cin) {
     $pdv = str_pad((string) (int) nz($cip, 0), 4, '0', STR_PAD_LEFT);
     $nro = str_pad((string) (int) nz($cin, 0), 8, '0', STR_PAD_LEFT);
@@ -376,7 +376,7 @@ function op_net_pago($codaux, $total, $aia, $refs) {
  * Retención IIBB con ACUMULADO DIARIO (rutRetenciones): la base es el neto acumulado de TODOS los pagos del
  * día al proveedor (esta OP + las ya grabadas), y la retención = base × ALIRRI − lo ya retenido en el día,
  * sólo si la base supera el mínimo no imponible (MNRRRI). Bloquea evadir el mínimo fraccionando pagos.
- * Params: codcue, fecha (iso), codaux, aia, alirri, mnrrri, totmov, refs(json), est(blanco/negro).
+ * Params: codcue, fecha (iso), codaux, aia, alirri, mnrrri, totmov, refs(json), est(blanco/capacitacion).
  */
 function calcular_retencion() {
     $codcue = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
@@ -388,7 +388,7 @@ function calcular_retencion() {
     $refs   = isset($_GET['refs']) ? json_decode($_GET['refs'], true) : array();
     if (!is_array($refs)) $refs = array();
     $fexSerial = op_iso(isset($_GET['fecha']) ? $_GET['fecha'] : '');
-    $estTrue = !(isset($_GET['est']) && $_GET['est'] === 'negro');
+    $estTrue = !(isset($_GET['est']) && $_GET['est'] === 'capacitacion');
     $estSql = $estTrue ? 'True' : 'False';
 
     // Neto de ESTA OP (la que se está armando)
@@ -559,7 +559,7 @@ function detalle() {
     $h = db_row("SELECT * FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=340;");
     if (!$h) { fail('Orden de pago no encontrada'); return; }
     $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1); $lib = auth_libro_unico();
-    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('OP no disponible en este libro'); return; }
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'capacitacion' && $estTrue)) { fail('OP no disponible en este libro'); return; }
 
     $refs = array();
     foreach (db_query("SELECT R.REFMOV, R.FVXMOV, R.IMPMOV, M.CICMOV, M.CINMOV, M.FEXMOV, M.CECMOV, M.CEIMOV, M.CEPMOV, M.CENMOV, M.CEFMOV, M.DETMOV

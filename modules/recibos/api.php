@@ -222,7 +222,7 @@ function guardar() {
 function estmov_w() {
     $l = auth_libro_unico();
     if ($l === 'blanco') return ' AND ESTMOV=True';
-    if ($l === 'negro')  return ' AND ESTMOV=False';
+    if ($l === 'capacitacion')  return ' AND ESTMOV=False';
     return '';
 }
 function comp_str($cic, $cii, $cip, $cin) {
@@ -318,7 +318,7 @@ function detalle() {
     if (!$h) { fail('Recibo no encontrado'); return; }
     $lib = auth_libro_unico();
     $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
-    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Recibo no disponible en este libro'); return; }
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'capacitacion' && $estTrue)) { fail('Recibo no disponible en este libro'); return; }
     $iso = function ($s) { if ($s === null || $s === '') return ''; return (new DateTime('1899-12-30'))->modify('+' . (int) $s . ' days')->format('Y-m-d'); };
 
     $refs = array();
@@ -445,7 +445,7 @@ function anular() {
     if (!$h) { fail('Recibo no encontrado'); return; }
     $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
     $lib = auth_libro_unico();
-    if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { fail('Recibo no disponible en este libro'); return; }
+    if (($lib === 'blanco' && !$estTrue) || ($lib === 'capacitacion' && $estTrue)) { fail('Recibo no disponible en este libro'); return; }
     db_begin();
     try {
         recibo_anular($num);

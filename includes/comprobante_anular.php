@@ -7,7 +7,7 @@
  * (saldos cacheados DEBCUE/CRECUE), stock, vencimientos e IVA — y marca el comprobante ANUMOV=True
  * (lo deja como rastro, montos en 0). SIN transacción (el caller envuelve). No valida permisos.
  *
- * anular_check(): gate del endpoint — admin + (capacitación/negro · sin CAE · CAE de homologación no fiscal).
+ * anular_check(): gate del endpoint — admin + (capacitación · sin CAE · CAE de homologación no fiscal).
  * Un comprobante electrónico con CAE FISCAL (blanco + producción) NO se anula: se emite una NC/ND.
  */
 require_once __DIR__ . '/db.php';
@@ -15,13 +15,13 @@ require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/auth.php';
 
 /**
- * ¿El comprobante es anulable? Solo admin + (capacitación/negro O sin CAE). Un comprobante CON CAE
+ * ¿El comprobante es anulable? Solo admin + (capacitación O sin CAE). Un comprobante CON CAE
  * (real o de homologación) NO se anula desde la UI — se protege el dato real (las FV históricas tienen CAE).
- * Para anular un comprobante de prueba, emitirlo en modo Capacitación (negro, sin CAE).
+ * Para anular un comprobante de prueba, emitirlo en modo Capacitación (sin CAE).
  */
 function anular_es_anulable($estTrue, $cae) {
     if (!auth_is_admin()) return false;
-    if (!$estTrue) return true;                    // capacitación (negro)
+    if (!$estTrue) return true;                    // capacitación
     return (trim((string) $cae) === '');           // sin CAE
 }
 

@@ -1,7 +1,7 @@
 <?php
 /**
  * Saldos Actuales (Deudores) — Vista. Solo lectura.
- * Supervisor/Admin: columnas Blanco / Negro / Total. Operador/Capacitación: un solo "Saldo".
+ * Supervisor/Admin: columnas Blanco / Capacitacion / Total. Operador/Capacitación: un solo "Saldo".
  * Click en una fila → Resumen de Cuenta de ese cliente.
  */
 require_once __DIR__ . '/../../includes/auth.php';
@@ -36,7 +36,7 @@ module_head('Saldos Actuales — Deudores', 'bi-cash-stack',
 <div class="row g-2 mb-2 stats-row">
     <?php if ($ve): ?>
     <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-icon bg-light text-dark border"><i class="bi bi-circle"></i></div><div><div class="stat-value" id="stBlanco">$0,00</div><div class="stat-label">Total en Blanco</div></div></div></div>
-    <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-icon bg-dark text-light"><i class="bi bi-circle-fill"></i></div><div><div class="stat-value" id="stNegro">$0,00</div><div class="stat-label">Total en Negro</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-icon bg-dark text-light"><i class="bi bi-circle-fill"></i></div><div><div class="stat-value" id="stCapacitacion">$0,00</div><div class="stat-label">Total en Capacitación</div></div></div></div>
     <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-icon bg-danger-subtle text-danger"><i class="bi bi-cash-stack"></i></div><div><div class="stat-value" id="stTotal">$0,00</div><div class="stat-label">Total a Cobrar</div></div></div></div>
     <div class="col-6 col-md-3"><div class="card stat-card"><div class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-people"></i></div><div><div class="stat-value" id="stCant">0</div><div class="stat-label">Deudores</div></div></div></div>
     <?php else: ?>
@@ -57,7 +57,7 @@ module_head('Saldos Actuales — Deudores', 'bi-cash-stack',
                     <th style="width:130px">CUIT</th>
                     <?php if ($ve): ?>
                     <th class="text-end" style="width:140px">Blanco</th>
-                    <th class="text-end" style="width:140px">Negro</th>
+                    <th class="text-end" style="width:140px">Capacitación</th>
                     <th class="text-end" style="width:150px">Total</th>
                     <?php else: ?>
                     <th class="text-end" style="width:160px">Saldo</th>
@@ -70,7 +70,7 @@ module_head('Saldos Actuales — Deudores', 'bi-cash-stack',
                     <th colspan="3" class="text-end">Totales:</th>
                     <?php if ($ve): ?>
                     <th class="text-end" id="ftBlanco"></th>
-                    <th class="text-end" id="ftNegro"></th>
+                    <th class="text-end" id="ftCapacitacion"></th>
                     <th class="text-end" id="ftTotal"></th>
                     <?php else: ?>
                     <th class="text-end" id="ftTotal"></th>

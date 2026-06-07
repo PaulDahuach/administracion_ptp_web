@@ -124,14 +124,14 @@ function auth_login($id, $name, $pass) {
 
 /**
  * MODO de trabajo (doble libro). El sistema opera en UN libro a la vez (como el legacy):
- *  - Operador     → libro BLANCO (ESTMOV=True), oficial (fisco/contador).
- *  - Capacitación → libro NEGRO  (ESTMOV=False), informal.
+ *  - Operador     → libro operativo (ESTMOV=True).
+ *  - Capacitación → libro de capacitación (ESTMOV=False).
  * Por categoría (col 'col_cat' en 'auth' → sesión 'ucat'):
  *  - Operador (O)     → fijo en modo Operador.
  *  - Capacitación (C) → fijo en modo Capacitación.
  *  - Supervisor (S) / Administrador / Auditor (A) → pueden ALTERNAR (arrancan en Operador).
  *    El Auditor ve ambos pero es READONLY (no crea/edita; relevante al portar transaccional).
- * La parte de Capacitación debe poder ocultarse por completo (modo Operador) ante inspección.
+ * El modo Operador muestra únicamente el libro operativo (el de capacitación queda oculto).
  */
 
 /** ¿La categoría del usuario permite alternar de modo? (S/A) */
@@ -170,26 +170,26 @@ function auth_set_modo($m) {
 /**
  * Libro a filtrar SEGÚN EL MODO ACTIVO:
  *  - operador     → 'blanco' (ESTMOV=True)
- *  - capacitacion → 'negro'  (ESTMOV=False)
+ *  - capacitacion → 'capacitacion'  (ESTMOV=False)
  *  - integral     → ''       (sin filtro: ambos libros, como el legacy con chkEst Null)
  * Sistemas sin col_cat (otros del kit) → '' = sin filtro.
  */
-function auth_libro_unico() {       // 'blanco' | 'negro' | '' (integral o sistemas sin doble libro)
+function auth_libro_unico() {       // 'blanco' | 'capacitacion' | '' (integral o sistemas sin doble libro)
     $a = sys('auth');
     if (empty($a['col_cat'])) return '';
     $modo = auth_modo();
     if ($modo === 'integral') return '';
-    return ($modo === 'capacitacion') ? 'negro' : 'blanco';
+    return ($modo === 'capacitacion') ? 'capacitacion' : 'blanco';
 }
 
-/** True en modo INTEGRAL: las vistas muestran ambos libros (columnas Blanco/Negro/Total, selector). */
+/** True en modo INTEGRAL: las vistas muestran ambos libros (columnas Blanco/Capacitacion/Total, selector). */
 function auth_ve_ambos() { return auth_modo() === 'integral'; }
 
 /** Condición SQL de ESTMOV según el modo activo ('' = sin filtro, solo sistemas sin doble libro). */
 function auth_estmov_filter() {
     $l = auth_libro_unico();
     if ($l === 'blanco') return 'ESTMOV=True';
-    if ($l === 'negro')  return 'ESTMOV=False';
+    if ($l === 'capacitacion')  return 'ESTMOV=False';
     return '';
 }
 
@@ -202,7 +202,7 @@ function _modo_estilo($modo) {
 
 /**
  * Badge de modo (doble libro) para la topbar. Verde=Operador, ámbar=Capacitación, rojo=Integral.
- * Para S/A es un dropdown con los 3 modos (acceso directo a Operador para inspección). O/C: solo el badge.
+ * Para S/A es un dropdown con los 3 modos (acceso directo al modo Operador). O/C: solo el badge.
  * Vacío en sistemas sin doble libro (sin col_cat).
  */
 function mode_badge_html() {

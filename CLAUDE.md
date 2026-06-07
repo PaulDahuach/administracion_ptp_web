@@ -48,17 +48,17 @@ sub-encabezado que queda sin opciones (p.ej. tras filtrar admin) no se renderiza
 
 **Módulos HECHOS (solo lectura):**
 - `modules/resumen_cuenta/` + `modules/resumen_cuenta_acr/` — Resumen de cta cte (deudor /
-  acreedor). Autocomplete + desde/hasta + selector **Libro (Todos/Blanco/Negro)** + stats + saldo
+  acreedor). Autocomplete + desde/hasta + selector **Libro (Todos/Blanco/Capacitación)** + stats + saldo
   corrido + imprimir. Validado vs SOPCUE. Ref: `RDN/resumen`+`RDN/cuentas/api.php`.
 - `modules/saldos_actuales/` + `modules/saldos_actuales_acr/` — "Quién me debe / a quién le debo":
-  fila por cuenta con **Blanco/Negro/Total** (DataTable, click → resumen). Deudores: 166, Total
-  Blanco $27.9M/Negro $81.4M. Acreedores: 42, Total a Pagar $27.1M.
+  fila por cuenta con **Blanco/Capacitación/Total** (DataTable, click → resumen). Deudores: 166, Total
+  Blanco $27.9M/Capacitación $81.4M. Acreedores: 42, Total a Pagar $27.1M.
 - **Acreedores = espejo de deudores** con `CODORI='A'` + codopes **310 CP,320 NC,330 ND,340 OP,
   350 CancAntic** (300 Remito no mueve). Misma fórmula saldo=Σ(DEBMOV−CREMOV); aquí **negativo =
   le debemos** (color invertido). Validado vs SOPCUE 42/45.
 - **OJO DataTables:** las columnas numéricas con formato es-AR necesitan `columnDefs:[{targets,
   type:'num'}]` o el orden sale mal (no respeta data-order). Aplicado en ambos saldos.
-- `modules/iva_ventas/` — Libro **I.V.A. Ventas** por período + libro blanco/negro/todos. Porta
+- `modules/iva_ventas/` — Libro **I.V.A. Ventas** por período + libro blanco/capacitación/todos. Porta
   `Rpt CD IVA`. Inclusión por **`Tbl Operaciones Auxiliares.IVAAUX=True`** (JOIN por CODAUX, NO por
   codope). Columnas (NC=460 negado): Neto=NETMOV, IVA=IRIMOV, NoGrav=NOGMOV, Ajuste=ABIMOV+ARDMOV,
   Percep.IIBB=PIXMOV, Total=TOTMOV. Cond.IVA=INICRI (Tbl Categorias Resp. IVA por CODCRI). Resumen
@@ -81,22 +81,23 @@ sub-encabezado que queda sin opciones (p.ej. tras filtrar admin) no se renderiza
   `CICMOV`(cod RV/FV/NC/ND/RC)+`CIIMOV`(letra)+`CIPMOV`(pdv)+`CINMOV`(nº), `FEXMOV` (**serial
   Access entero**, comparar numérico: `iso_to_serial`), `DEBMOV`/`CREMOV`, `DETMOV`, `DENMOV`,
   `CAEMOV`. Saldo cta cte = Σ(DEBMOV−CREMOV) sobre codopes 420/440/460/480.
-- **`ESTMOV` = dual-ledger BLANCO (−1/True) / NEGRO (0/False)** — NO es capacitación como en
-  inside. CONFIRMADO en el VBA (`Frm CD Facturas/Recibos`): `SOCMOV = DSum(DEBMOV) − DSum(CREMOV)`
+- **`ESTMOV` = dual-ledger: True (−1, operativo) / False (0, capacitación)**. CONFIRMADO en el VBA
+  (`Frm CD Facturas/Recibos`): `SOCMOV = DSum(DEBMOV) − DSum(CREMOV)`
   **filtrado por `[ESTMOV]=IIf(Me.ESTMOV,-1,0)`** → el saldo se lleva por libro SEPARADO. El
-  `chkEst` del Menú elige en cuál se opera. SOPCUE (cacheado) = blanco + negro = total.
+  `chkEst` del Menú elige en cuál se opera. SOPCUE (cacheado) = blanco + capacitación = total.
   ⇒ **MODO global doble-libro** (`includes/auth.php`): el sistema opera en UN libro a la vez según el
   modo en sesión, gateado por categoría (`ucat`/CATUSR): **Operador** (O, fijo)=blanco · **Capacitación**
-  (C, fijo)=negro · **Supervisor/Admin/Auditor** (S/A) eligen entre operador/capacitación/**integral**.
-  `auth_modo()`/`auth_libro_unico()` (''=integral, 'blanco', 'negro')/`auth_ve_ambos()` (true solo en
+  (C, fijo)=capacitación · **Supervisor/Admin/Auditor** (S/A) eligen entre operador/capacitación/**integral**.
+  `auth_modo()`/`auth_libro_unico()` (''=integral, 'blanco', 'capacitacion')/`auth_ve_ambos()` (true solo en
   integral)/`mode_badge_html()`. Badge en topbar (verde/ámbar/rojo); para S/A es un dropdown de 3 modos
-  (default Operador = **inspección-seguro**: Capacitación oculta). Endpoint `api/auth.php` action=set_modo.
+  (default Operador: muestra sólo el libro operativo). Endpoint `api/auth.php` action=set_modo.
   TODOS los módulos filtran por el modo: cta cte/IVA/comprobantes vía `auth_libro_unico` (override del
   `?libro=`); contables (mayor/balance/plan_cuentas/bancos) y cheques por el `ESTMOV` del movimiento
   padre (INICUE oficial→blanco; plan_cuentas recomputa porque el cache es combinado; cheques por el
   ESTMOV del mov. de ingreso). **Integral** = sin filtro (combinado, como chkEst Null) + reactiva las
-  columnas Blanco/Negro/Total y el selector Todos/Blanco/Negro (gateados por `auth_ve_ambos`). Ver
+  columnas Blanco/Capacitación/Total y el selector Todos/Blanco/Capacitación (gateados por `auth_ve_ambos`). Ver
   memoria `dual-ledger-visibility` + `dual-ledger-audit-status`. (OJO: tocar auth requiere re-login.)
+  **Terminología fija: el segundo libro se llama siempre "capacitación" — no usar ningún otro nombre.**
 - `SOPCUE` (en `Tbl Cuentas Corrientes`, CODORI='D') = saldo operativo cacheado. ~7% de cuentas
   (alto volumen o especiales como cc=127 "Pendientes de Facturación") tienen drift vs el ledger
   calculado; el ledger de comprobantes es la fuente de verdad.

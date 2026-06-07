@@ -8,7 +8,7 @@
  *   - Inclusión = A.IVAAUX=True OR O.IVAOPE=True (join a Operaciones y Op. Auxiliares).
  *   - Negación cuando CODAUX=139 (devoluciones gravadas) o CODOPE=330 (ND compras).
  *   - Dos percepciones: IP1MOV (Percep. IVA) e IP2MOV (Percep. IIBB).
- * Filtra por ESTMOV (libro blanco/negro/todos).
+ * Filtra por ESTMOV (libro blanco/capacitacion/todos).
  */
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/helpers.php';
@@ -39,14 +39,14 @@ function listar() {
     $hasta = isset($_GET['hasta']) ? $_GET['hasta'] : '';
     $libro = isset($_GET['libro']) ? $_GET['libro'] : 'blanco';
     $forz = auth_libro_unico();
-    if ($forz !== '') $libro = $forz;  // operador→blanco, capacitación→negro
+    if ($forz !== '') $libro = $forz;  // operador→blanco, capacitación→capacitacion
     $sd = iso_to_serial($desde);
     $sh = iso_to_serial($hasta);
     if ($sd === null || $sh === null) { fail('Indicá el período (desde / hasta)'); return; }
 
     $w = "M.FIXMOV BETWEEN $sd AND $sh AND (M.CODORI='A' OR M.CODORI='I') AND (A.IVAAUX=True OR O.IVAOPE=True)";
     if ($libro === 'blanco')    $w .= " AND M.ESTMOV=True";
-    elseif ($libro === 'negro') $w .= " AND M.ESTMOV=False";
+    elseif ($libro === 'capacitacion') $w .= " AND M.ESTMOV=False";
 
     $rows = db_query("SELECT M.FIXMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.CINMOV, M.DENMOV, M.CITMOV,
         M.CODOPE, M.CODAUX, C.INICRI, M.NETMOV, M.IRIMOV, M.NOGMOV, M.IP1MOV, M.IP2MOV, M.TOTMOV

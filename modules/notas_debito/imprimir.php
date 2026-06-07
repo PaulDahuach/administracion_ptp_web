@@ -15,7 +15,7 @@ $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
 $h = db_row("SELECT * FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=440;");
 if (!$h) { http_response_code(404); echo 'Nota de débito no encontrada'; exit; }
 $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1); $lib = auth_libro_unico();
-if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { http_response_code(403); echo 'ND no disponible en este libro'; exit; }
+if (($lib === 'blanco' && !$estTrue) || ($lib === 'capacitacion' && $estTrue)) { http_response_code(403); echo 'ND no disponible en este libro'; exit; }
 
 $loc = db_row("SELECT L.CPXLOC, L.DENLOC, P.DENPRO FROM [Tbl Localidades] AS L LEFT JOIN [Tbl Provincias] AS P ON L.CODPRO=P.CODPRO WHERE L.CODLOC=" . (int) nz($h['CODLOC'], 0) . ";");
 $cri = db_row("SELECT DENCRI FROM [Tbl Categorias Responsabilidad IVA] WHERE CODCRI=" . (int) nz($h['CODCRI'], 0) . ";");

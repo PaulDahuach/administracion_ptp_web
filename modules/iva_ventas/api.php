@@ -7,7 +7,7 @@
  *   Neto Gravado = NETMOV · IVA = IRIMOV · No Gravado = NOGMOV
  *   Ajustes = ABIMOV+ARDMOV · Percep. IIBB = PIXMOV · Total = TOTMOV
  * Cond. IVA = INICRI (Tbl Categorias Responsabilidad IVA por CODCRI).
- * Filtra por ESTMOV (libro blanco/negro/todos). Validado vs PDF Ago-2023.
+ * Filtra por ESTMOV (libro blanco/capacitacion/todos). Validado vs PDF Ago-2023.
  */
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/helpers.php';
@@ -38,14 +38,14 @@ function listar() {
     $hasta = isset($_GET['hasta']) ? $_GET['hasta'] : '';
     $libro = isset($_GET['libro']) ? $_GET['libro'] : 'blanco'; // IVA: por defecto el libro declarado
     $forz = auth_libro_unico();
-    if ($forz !== '') $libro = $forz;  // operador→blanco, capacitación→negro
+    if ($forz !== '') $libro = $forz;  // operador→blanco, capacitación→capacitacion
     $sd = iso_to_serial($desde);
     $sh = iso_to_serial($hasta);
     if ($sd === null || $sh === null) { fail('Indicá el período (desde / hasta)'); return; }
 
     $w = "M.CODORI='D' AND O.IVAAUX=True AND M.FEXMOV BETWEEN $sd AND $sh";
     if ($libro === 'blanco')    $w .= " AND M.ESTMOV=True";
-    elseif ($libro === 'negro') $w .= " AND M.ESTMOV=False";
+    elseif ($libro === 'capacitacion') $w .= " AND M.ESTMOV=False";
 
     $rows = db_query("SELECT M.NUMMOV, M.FEXMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.CINMOV, M.DENMOV,
         M.CITMOV, M.CODOPE, C.INICRI, M.NETMOV, M.IRIMOV, M.NOGMOV, M.ABIMOV, M.ARDMOV, M.PIXMOV, M.TOTMOV

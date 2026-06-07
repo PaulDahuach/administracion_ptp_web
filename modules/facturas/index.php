@@ -12,7 +12,7 @@ if (db_readonly()) {
 }
 
 $modoAfip = AFIP_MODO;
-$capa = (auth_modo() === 'capacitacion');   // negro (ESTMOV=False): factura NO electrónica, sin CAE
+$capa = (auth_modo() === 'capacitacion');   // capacitacion (ESTMOV=False): factura NO electrónica, sin CAE
 $btnEmitirLbl = $capa ? '<i class="bi bi-mortarboard me-1"></i>Grabar factura (capacitación)' : '<i class="bi bi-cloud-arrow-up me-1"></i>Emitir factura (AFIP)';
 $toolbar = '<button id="btnEmitir" class="btn btn-success btn-sm">' . $btnEmitirLbl . '</button>'
          . ' <button id="btnImprimirHdr" class="btn btn-primary btn-sm" style="display:none"><i class="bi bi-printer me-1"></i>Imprimir</button>'
@@ -40,7 +40,7 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
 
 <div class="fc-form" id="fvForm">
   <div class="card fc-card mb-2"><div class="card-body">
-    <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> (negro) — la factura se graba <b>sin CAE</b> (no electrónica, no fiscal).</div>
+    <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> — la factura se graba <b>sin CAE</b> (no electrónica, no fiscal).</div>
     <?php elseif ($modoAfip !== 'produccion'): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-cone-striped me-1"></i>AFIP en <b>homologación</b> (testing) — los CAE no son fiscales.</div><?php endif; ?>
     <div class="row g-2">
       <div class="col-auto" style="width:115px"><label class="form-label mb-1">Movimiento Nº</label><input id="nummov" class="form-control fv-ro" placeholder="(auto)" readonly></div>

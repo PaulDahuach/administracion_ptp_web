@@ -16,7 +16,7 @@ $h = db_row("SELECT * FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=480;")
 if (!$h) { http_response_code(404); echo 'Recibo no encontrado'; exit; }
 $estTrue = ($h['ESTMOV'] === true || $h['ESTMOV'] == -1);
 $lib = auth_libro_unico();
-if (($lib === 'blanco' && !$estTrue) || ($lib === 'negro' && $estTrue)) { http_response_code(403); echo 'Recibo no disponible en este libro'; exit; }
+if (($lib === 'blanco' && !$estTrue) || ($lib === 'capacitacion' && $estTrue)) { http_response_code(403); echo 'Recibo no disponible en este libro'; exit; }
 
 // ── Lookups ──
 $loc = db_row("SELECT L.CPXLOC, L.DENLOC, P.DENPRO FROM [Tbl Localidades] AS L LEFT JOIN [Tbl Provincias] AS P ON L.CODPRO=P.CODPRO WHERE L.CODLOC=" . (int) nz($h['CODLOC'], 0) . ";");

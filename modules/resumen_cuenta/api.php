@@ -57,8 +57,8 @@ function resumen() {
     $codcue = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
     $desde  = isset($_GET['desde']) ? $_GET['desde'] : '';
     $hasta  = isset($_GET['hasta']) ? $_GET['hasta'] : '';
-    $libro  = isset($_GET['libro']) ? $_GET['libro'] : 'todos';  // todos|blanco|negro
-    // Visibilidad por categoría: operador→blanco, capacitación→negro (ignora el param).
+    $libro  = isset($_GET['libro']) ? $_GET['libro'] : 'todos';  // todos|blanco|capacitacion
+    // Visibilidad por categoría: operador→blanco, capacitación→capacitacion (ignora el param).
     $forz = auth_libro_unico();
     if ($forz !== '') $libro = $forz;
     if (!$codcue) { fail('codcue requerido'); return; }
@@ -66,10 +66,10 @@ function resumen() {
     $sDesde = iso_to_serial($desde);
     $sHasta = iso_to_serial($hasta);
 
-    // ESTMOV = dual-ledger BLANCO (-1) / NEGRO (0). 'todos' = ambos (= SOPCUE).
+    // ESTMOV = dual-ledger BLANCO (-1) / CAPACITACION (0). 'todos' = ambos (= SOPCUE).
     $base = "CODORI='D' AND CODCUE=$codcue AND CODOPE IN (" . OPS_CC . ")";
     if ($libro === 'blanco')     $base .= " AND ESTMOV=True";
-    elseif ($libro === 'negro')  $base .= " AND ESTMOV=False";
+    elseif ($libro === 'capacitacion')  $base .= " AND ESTMOV=False";
 
     // ── Saldo anterior (movimientos con FEXMOV < desde) ──
     $saldoAnterior = 0;

@@ -61,7 +61,7 @@ const App = {
         const r = await this.api('resumen', params);
         if (!r.ok) { this.el('tbodyResumen').innerHTML = `<tr><td colspan="7" class="text-danger text-center py-3">${this.esc(r.error)}</td></tr>`; return; }
 
-        const libroTxt = libro === 'blanco' ? ' · Libro Blanco' : (libro === 'negro' ? ' · Libro Negro' : '');
+        const libroTxt = libro === 'blanco' ? ' · Libro Blanco' : (libro === 'capacitacion' ? ' · Libro de Capacitación' : '');
         this.el('lblCliente').textContent = (this.cli.DENCUE || '').trim();
         this.el('lblCuit').textContent = this.cli.CITCUE ? 'CUIT: ' + this.cli.CITCUE : '';
         this.el('lblPeriodo').textContent = (desde ? this.dmy(desde) : 'Inicio') + ' – ' + (hasta ? this.dmy(hasta) : 'Hoy') + libroTxt;

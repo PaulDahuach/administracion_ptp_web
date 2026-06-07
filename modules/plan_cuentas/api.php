@@ -24,14 +24,14 @@ function listar() {
     $rows = db_query("SELECT CODCUE, CN1CUE, CN2CUE, CN3CUE, CN4CUE, CN5CUE, DENCUE, IMPCUE,
         INICUE, DEBCUE, CRECUE FROM [Tbl Cuentas Contables] ORDER BY CODCUE");
 
-    // Doble libro: el saldo cacheado (DEBCUE/CRECUE) es COMBINADO (blanco+negro). En modo libro único
+    // Doble libro: el saldo cacheado (DEBCUE/CRECUE) es COMBINADO (blanco+capacitacion). En modo libro único
     // hay que recomputar Σ(DEB−CRE) por cuenta filtrando por el ESTMOV del movimiento padre (más lento,
     // escanea las imputaciones del libro). INICUE (oficial) se atribuye al blanco.
-    $lib = auth_libro_unico();   // 'blanco' | 'negro' | ''
+    $lib = auth_libro_unico();   // 'blanco' | 'capacitacion' | ''
     $movMap = null; $incluyeIni = true;
     if ($lib !== '') {
-        $estW = ($lib === 'negro') ? 'M.ESTMOV=False' : 'M.ESTMOV=True';
-        $incluyeIni = ($lib !== 'negro');
+        $estW = ($lib === 'capacitacion') ? 'M.ESTMOV=False' : 'M.ESTMOV=True';
+        $incluyeIni = ($lib !== 'capacitacion');
         $movMap = array();
         foreach (db_query("SELECT MI.CODCUE AS CC, SUM(MI.DEBMOV) AS D, SUM(MI.CREMOV) AS C
             FROM [Tbl Movimientos Imputaciones] AS MI INNER JOIN [Tbl Movimientos] AS M ON M.NUMMOV = MI.NUMMOV

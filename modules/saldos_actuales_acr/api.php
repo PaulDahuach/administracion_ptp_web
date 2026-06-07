@@ -1,7 +1,7 @@
 <?php
 /**
  * Saldos Actuales (Acreedores / Proveedores) — API solo-lectura.
- * Una fila por proveedor con saldo BLANCO/NEGRO/TOTAL. Saldo NEGATIVO = le debemos.
+ * Una fila por proveedor con saldo BLANCO/CAPACITACION/TOTAL. Saldo NEGATIVO = le debemos.
  * Ops cta cte: 310=CP, 320=NC, 330=ND, 340=OP, 350=Canc.Anticipos.
  */
 require_once __DIR__ . '/../../includes/db.php';
@@ -27,8 +27,8 @@ function listar() {
     }
 
     $ve = auth_ve_ambos();
-    $unico = auth_libro_unico();   // '' | 'blanco' | 'negro'
-    $estW = ($unico === 'blanco') ? ' AND ESTMOV=True' : (($unico === 'negro') ? ' AND ESTMOV=False' : '');
+    $unico = auth_libro_unico();   // '' | 'blanco' | 'capacitacion'
+    $estW = ($unico === 'blanco') ? ' AND ESTMOV=True' : (($unico === 'capacitacion') ? ' AND ESTMOV=False' : '');
 
     $rows = db_query("SELECT CODCUE, ESTMOV, SUM(DEBMOV) AS D, SUM(CREMOV) AS C
         FROM [Tbl Movimientos] WHERE CODORI='A' AND CODOPE IN (310,320,330,340,350)$estW
@@ -49,12 +49,12 @@ function listar() {
         $b = round($v['b'], 2); $n = round($v['n'], 2); $t = round($b + $n, 2);
         if (abs($b) < 0.005 && abs($n) < 0.005) continue;
         $tb += $b; $tn += $n;
-        $sal = $ve ? $t : (($unico === 'negro') ? $n : $b);
+        $sal = $ve ? $t : (($unico === 'capacitacion') ? $n : $b);
         if ($sal < 0) $aPagar += -$sal;
         $nm = isset($name[$cc]) ? $name[$cc] : array('den' => '(' . $cc . ')', 'cit' => '');
         if ($ve) {
             $out[] = array('codcue' => $cc, 'den' => $nm['den'], 'cit' => $nm['cit'],
-                           'blanco' => $b, 'negro' => $n, 'total' => $t);
+                           'blanco' => $b, 'capacitacion' => $n, 'total' => $t);
         } else {
             $out[] = array('codcue' => $cc, 'den' => $nm['den'], 'cit' => $nm['cit'], 'saldo' => round($sal, 2));
         }
@@ -70,7 +70,7 @@ function listar() {
 
     if ($ve) {
         ok(array('clientes' => $out, 'cantidad' => count($out), 've_ambos' => true,
-                 'totBlanco' => round($tb, 2), 'totNegro' => round($tn, 2), 'totTotal' => round($tb + $tn, 2),
+                 'totBlanco' => round($tb, 2), 'totCapacitacion' => round($tn, 2), 'totTotal' => round($tb + $tn, 2),
                  'totPagar' => round($aPagar, 2)));
     } else {
         ok(array('clientes' => $out, 'cantidad' => count($out), 've_ambos' => false,

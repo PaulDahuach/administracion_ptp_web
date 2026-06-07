@@ -45,7 +45,7 @@ module_head('I.V.A. Compras', 'bi-percent',
                 <label class="form-label mb-1">Libro</label>
                 <select id="cboLibro" class="form-select">
                     <option value="blanco" selected>Blanco</option>
-                    <option value="negro">Negro</option>
+                    <option value="capacitacion">Capacitación</option>
                     <option value="todos">Todos</option>
                 </select>
             </div>

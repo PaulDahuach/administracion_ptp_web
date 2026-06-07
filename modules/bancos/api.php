@@ -47,8 +47,8 @@ function listar() {
     // Doble libro: filtra por el ESTMOV del movimiento padre según el modo activo. INICUE (oficial)
     // se atribuye al libro blanco (Operador lo incluye, Capacitación no).
     $lib  = auth_libro_unico();
-    $estM = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'negro') ? ' AND M.ESTMOV=False' : '');
-    $incluyeIni = ($lib !== 'negro');
+    $estM = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'capacitacion') ? ' AND M.ESTMOV=False' : '');
+    $incluyeIni = ($lib !== 'capacitacion');
 
     // Campo de fecha: FEXMOV vive en M; FAXMOV vive en MI (fecha de acreditación)
     $dateExpr = ($df === 'FAXMOV_REF') ? 'MI.FAXMOV' : 'M.FEXMOV';

@@ -34,7 +34,7 @@ function buscar() {
     $imp   = isset($_GET['importe']) ? (float) $_GET['importe'] : 0;
     $libro = isset($_GET['libro']) ? $_GET['libro'] : 'todos';
     $forz = auth_libro_unico();
-    if ($forz !== '') $libro = $forz;  // operador→blanco, capacitación→negro
+    if ($forz !== '') $libro = $forz;  // operador→blanco, capacitación→capacitacion
     $sd = iso_to_serial(isset($_GET['desde']) ? $_GET['desde'] : '');
     $sh = iso_to_serial(isset($_GET['hasta']) ? $_GET['hasta'] : '');
 
@@ -54,7 +54,7 @@ function buscar() {
     if ($sd !== null) $where[] = "M.FEXMOV >= $sd";
     if ($sh !== null) $where[] = "M.FEXMOV <= $sh";
     if ($libro === 'blanco')    $where[] = "M.ESTMOV=True";
-    elseif ($libro === 'negro') $where[] = "M.ESTMOV=False";
+    elseif ($libro === 'capacitacion') $where[] = "M.ESTMOV=False";
 
     // Operaciones (codope -> denope)
     $op = array();

@@ -41,7 +41,7 @@ function listar() {
 
     // Doble libro: filtra por el ESTMOV del movimiento padre según el modo activo.
     $lib  = auth_libro_unico();
-    $estM = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'negro') ? ' AND M.ESTMOV=False' : '');
+    $estM = ($lib === 'blanco') ? ' AND M.ESTMOV=True' : (($lib === 'capacitacion') ? ' AND M.ESTMOV=False' : '');
 
     // Plan de cuentas: estructura (todas las cuentas)
     $plan = array();   // codcue => row
