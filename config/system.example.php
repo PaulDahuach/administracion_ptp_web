@@ -41,6 +41,13 @@ return [
     // alta/edición/baja pantalla por pantalla.
     'mode'        => 'readonly',                 // 'readonly' | 'readwrite'
 
+    // ── Puntos de venta predeterminados ──────────────────────────────────
+    // Codifican el talonario/PDV que usa cada tipo de comprobante (Tbl Puntos
+    // de Venta). Suelen DIFERIR: el electrónico es el habilitado en AFIP
+    // (FELPDV=1), los remitos van por un talonario PREIMPRESO aparte.
+    'pto_vta_electronico' => 3,                  // FV/NC/ND con CAE (AFIP, producción)
+    'pto_vta_remitos'     => 1,                  // remitos preimpresos (default del combo)
+
     // ── Autenticación ────────────────────────────────────────────────────
     // Tabla de usuarios del legacy y sus columnas. En RDN: [Tbl Usuarios]
     // con CODUSR (id), DENUSR (nombre), ACCUSR (clave en texto plano).

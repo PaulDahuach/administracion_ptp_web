@@ -46,7 +46,7 @@ module_head('Remitos — Deudores', 'bi-truck', $toolbar);
       </div>
       <div class="col-md-2" id="boxPdv">
         <label class="form-label mb-1">Punto de venta</label>
-        <select id="cipmov" class="form-select"></select>
+        <select id="cipmov" class="form-select" data-default="<?= (int) sys('pto_vta_remitos', 1) ?>"></select>
       </div>
       <div class="col-md-2">
         <label class="form-label mb-1">Emisión</label>
@@ -119,5 +119,5 @@ module_head('Remitos — Deudores', 'bi-truck', $toolbar);
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/remitos.js?v=6"></script>
+<script src="assets/js/remitos.js?v=7"></script>
 '); ?>

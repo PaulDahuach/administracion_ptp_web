@@ -23,9 +23,14 @@ const R = {
         if (this.modo === 'capacitacion') { this.el('boxPdv').style.display = 'none'; }
         else {
             var j = await this.api('pdvs');
-            if (j.ok) this.el('cipmov').innerHTML = j.data.map(function (p) {
-                return '<option value="' + p.CODPDV + '">' + (p.NOMPDV ? R.esc(p.NOMPDV) + ' (' + p.CODPDV + ')' : p.CODPDV) + '</option>';
-            }).join('');
+            if (j.ok) {
+                this.el('cipmov').innerHTML = j.data.map(function (p) {
+                    return '<option value="' + p.CODPDV + '">' + (p.NOMPDV ? R.esc(p.NOMPDV) + ' (' + p.CODPDV + ')' : p.CODPDV) + '</option>';
+                }).join('');
+                // Default por config (pto_vta_remitos): pre-seleccionar el talonario de remitos si está en la lista.
+                var def = this.el('cipmov').getAttribute('data-default');
+                if (def && this.el('cipmov').querySelector('option[value="' + def + '"]')) this.el('cipmov').value = def;
+            }
         }
         this.autocomplete(this.el('cliQ'), this.el('cliList'), 'buscar_clientes', function (o) { return o.CODCUE + ' · ' + o.DENCUE + (o.CITCUE ? ' · ' + o.CITCUE : ''); }, function (o) { R.pickCliente(o.CODCUE); });
         this.el('btnAddLn').addEventListener('click', function () { R.addLine(); });
