@@ -3,7 +3,7 @@
    Productos con costo en pesos o u$s (cotización), factor, lista, flete, "act. precio venta"; remitos del proveedor. */
 const CP = {
     prov: null, grabado: false, totales: { neto: 0, iva: 0, nog: 0, ali: 21, total: 0 },
-    imps: [], vtos: [], productos: [], remPend: [], centros: {}, impSel: null, prodSel: null,
+    imps: [], vtos: [], productos: [], remPend: [], centros: {}, impSel: null, prodSel: null, totManual: false,
     ivaCta() { return document.getElementById('cpForm').getAttribute('data-ivacta') || ''; },
     cotmov() { return parseFloat(this.el('cotmov').value) || 1; },
 
@@ -20,7 +20,7 @@ const CP = {
 
     async init() {
         var hoy = new Date().toISOString().slice(0, 10);
-        this.el('fexmov').value = hoy; this.el('cef').value = hoy; this.el('vtoFx').value = this.addDays(hoy, 30);
+        this.el('fexmov').value = hoy; this.el('cef').value = hoy; this.el('fixmov').value = hoy; this.el('vtoFx').value = this.addDays(hoy, 30);
         var cc = await this.api('centros_costo');
         if (cc.ok) { this.el('impCdc').innerHTML = cc.data.map(function (o) { CP.centros[o.CODCDC] = (o.DENCDC || '').trim(); return '<option value="' + o.CODCDC + '">' + CP.esc(o.DENCDC) + '</option>'; }).join(''); }
         this.autocomplete(this.el('provQ'), this.el('provList'), 'buscar_proveedores', function (o) { return o.CODCUE + ' · ' + o.DENCUE + (o.CITCUE ? ' · ' + o.CITCUE : ''); }, function (o) { CP.pickProv(o.CODCUE); });
@@ -34,6 +34,9 @@ const CP = {
         });
         ['netmov', 'alimov', 'net2mov', 'ali2mov', 'nogmov', 'ip1mov', 'ip2mov'].forEach(function (id) { CP.el(id).addEventListener('input', function () { CP.recalc(); }); });
         this.el('cotmov').addEventListener('input', function () { CP.recalc(); });
+        this.el('totmov').addEventListener('input', function () { CP.totManual = true; CP.recalc(); });
+        this.el('totReset').addEventListener('click', function (e) { e.preventDefault(); CP.totManual = false; CP.recalc(); });
+        this.el('cei').addEventListener('change', function () { CP.aplicarResponsabilidad(); });
         this.el('ap1mov').addEventListener('input', function () { CP.percepFromPct(); });
         this.el('ap2mov').addEventListener('input', function () { CP.percepFromPct(); });
         this.el('toggle493').addEventListener('click', function (e) {
@@ -47,12 +50,24 @@ const CP = {
         this.el('btnAddImp').addEventListener('click', function () { CP.addImp(); });
         this.el('btnSugIva').addEventListener('click', function () { CP.sugerirIva(); });
         this.el('btnAddVto').addEventListener('click', function () { CP.addVto(); });
-        this.el('conProd').addEventListener('change', function () { CP.toggleProd(); });
+        this.el('codcat').addEventListener('change', function () { CP.facturacionChange(); });
         this.el('btnAddProd').addEventListener('click', function () { CP.addProd(); });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.el('btnGrabar').addEventListener('click', function () { CP.grabar(); });
         this.el('btnAnularHdr').addEventListener('click', function () { if (CP.anulNum) CP.anular(CP.anulNum); });
+        this.setupCollapsibles();
         this.recalc();
+    },
+    // Click en el header de un card → colapsa/expande su cuerpo (chevron por CSS .collapsed)
+    setupCollapsibles() {
+        Array.prototype.forEach.call(document.querySelectorAll('#cpForm .fc-card > .card-header'), function (h) {
+            h.addEventListener('click', function () {
+                var body = h.parentNode.querySelector('.card-body'); if (!body) return;
+                var collapse = body.style.display !== 'none';
+                body.style.display = collapse ? 'none' : '';
+                h.classList.toggle('collapsed', collapse);
+            });
+        });
     },
     monLabels() {
         var m = this.el('prodMon').value;
@@ -68,13 +83,19 @@ const CP = {
         this.el('saldo').value = this.n(d.SALDO);
         this.el('sancue').value = this.n(d.SALDO_ANTIC);
         this.el('provInfo').textContent = [d.CITCUE, d.DENCRI, d.DOMICILIO, d.LOCALIDAD].filter(Boolean).join(' · ');
+        // FACTURACIÓN: default = la categoría del proveedor (bloqueada si la tiene, como el legacy)
+        var cat = (d.CODCAT !== null && d.CODCAT !== '' && typeof d.CODCAT !== 'undefined') ? String(parseInt(d.CODCAT, 10)) : '';
+        this.el('codcat').value = cat; this.el('codcat').disabled = (cat !== '');
+        this.el('cei').value = d.ES_RI ? 'A' : 'C';   // letra según responsabilidad IVA (A=discrimina IVA, C=no)
+        this.totManual = false;
+        this.facturacionChange();                      // → aplicarResponsabilidad → recalc
         var r = await this.api('remitos_pendientes', { codcue: codcue });
         this.remPend = (r.ok && r.data) ? r.data : [];
         this.renderRemitos();
     },
 
     recalc() {
-        var conProd = this.el('conProd').checked;
+        var conProd = this.esProductos();
         var ali1 = parseFloat(this.el('alimov').value) || 0, ali2 = parseFloat(this.el('ali2mov').value) || 0;
         var neto1 = conProd ? this.prodSum() : this.r2(this.el('netmov').value);
         if (conProd) this.el('netmov').value = neto1;
@@ -82,9 +103,16 @@ const CP = {
         var iva1 = Math.round(neto1 * ali1) / 100, iva2 = Math.round(neto2 * ali2) / 100;
         var ip1 = this.r2(this.el('ip1mov').value), ip2 = this.r2(this.el('ip2mov').value);
         var neto = Math.round((neto1 + neto2) * 100) / 100, iva = Math.round((iva1 + iva2) * 100) / 100, perc = Math.round((ip1 + ip2) * 100) / 100;
-        var total = Math.round((neto + iva + nog + perc) * 100) / 100;
+        // Total del comprobante: suma de subtotales por default (editable). Si el usuario lo override, se respeta
+        // (permite cargar el total real del proveedor aunque difiera de la discriminación). Aviso si difiere.
+        var compTotal = Math.round((neto + iva + nog + perc) * 100) / 100;
+        if (!this.totManual) this.el('totmov').value = compTotal.toFixed(2);
+        var total = Math.round((parseFloat(this.el('totmov').value) || 0) * 100) / 100;
+        var dif = Math.round((total - compTotal) * 100) / 100, discrim = (this.el('cei').value !== 'C');
+        this.el('totWarn').textContent = (discrim && Math.abs(dif) >= 0.01) ? ('⚠ subtotales ' + this.n(compTotal) + ' · dif ' + (dif > 0 ? '+' : '') + this.n(dif)) : '';
+        this.el('totReset').classList.toggle('d-none', !this.totManual);
         this.el('irimov').value = this.n(iva1); this.el('iri2mov').value = this.n(iva2);
-        this.totales = { neto1: neto1, ali1: ali1, iva1: iva1, neto2: neto2, ali2: ali2, iva2: iva2, neto: neto, iva: iva, nog: nog, ip1: ip1, ip2: ip2, ap1: this.r2(this.el('ap1mov').value), ap2: this.r2(this.el('ap2mov').value), perc: perc, total: total };
+        this.totales = { neto1: neto1, ali1: ali1, iva1: iva1, neto2: neto2, ali2: ali2, iva2: iva2, neto: neto, iva: iva, nog: nog, ip1: ip1, ip2: ip2, ap1: this.r2(this.el('ap1mov').value), ap2: this.r2(this.el('ap2mov').value), perc: perc, compTotal: compTotal, total: total };
         this.el('tNeto').textContent = this.n(neto); this.el('tIva').textContent = this.n(iva); this.el('tNog').textContent = this.n(nog); this.el('tPerc').textContent = this.n(perc); this.el('tTotal').textContent = this.n(total);
         this.el('impTot').textContent = this.n(total); this.el('vtoTot').textContent = this.n(total);
         if (conProd) this.renderProds();
@@ -149,14 +177,32 @@ const CP = {
         Array.prototype.forEach.call(this.el('vtoBody').querySelectorAll('.v-del'), function (b) { b.addEventListener('click', function () { CP.vtos.splice(+this.getAttribute('data-k'), 1); CP.renderVtos(); CP.refresh(); }); });
     },
 
-    // ---- Productos (entra a stock) ----
-    toggleProd() {
-        var on = this.el('conProd').checked;
-        this.el('cardProd').style.display = on ? '' : 'none';
-        this.el('netmov').readOnly = on;
-        if (!on) { this.productos = []; this.renderProds(); }
+    // ---- Productos (entra a stock) — gobernado por FACTURACIÓN (cboCODCAT=1=PRODUCTOS) ----
+    esProductos() { return parseInt(this.el('codcat').value, 10) === 1; },
+    facturacionChange() {
+        var prod = this.esProductos();
+        this.el('cardProd').style.display = prod ? '' : 'none';
+        this.el('chkLDP').disabled = !prod;           // "Actualizar Precios de Venta": habilitado/tildado sólo con PRODUCTOS
+        this.el('chkLDP').checked = prod;
+        if (!prod) { this.productos = []; this.renderProds(); }
+        this.aplicarResponsabilidad();
+    },
+    // Letra C (no Resp. Inscripto) = sin discriminación de IVA → sólo el total editable. Percepciones según APICUE/APBCUE.
+    aplicarResponsabilidad() {
+        var discrim = (this.el('cei').value !== 'C');
+        var prod = this.esProductos();
+        var piva = discrim && this.prov && this.prov.APLICA_PIVA;
+        var piibb = discrim && this.prov && this.prov.APLICA_PIIBB;
+        this.lockField('alimov', !discrim); this.lockField('net2mov', !discrim); this.lockField('ali2mov', !discrim); this.lockField('nogmov', !discrim);
+        this.el('netmov').readOnly = prod;
+        this.lockField('netmov', !discrim && !prod);
+        this.lockField('ap1mov', !piva); this.lockField('ip1mov', !piva);
+        this.lockField('ap2mov', !piibb); this.lockField('ip2mov', !piibb);
+        if (!discrim) { this.el('row493').style.display = 'none'; this.el('net2mov').value = '0'; this.el('toggle493').innerHTML = '<i class="bi bi-plus-square me-1"></i>Neto D.493/01 (2ª alícuota)'; }
+        this.el('toggle493').style.display = discrim ? '' : 'none';
         this.recalc();
     },
+    lockField(id, locked) { var e = this.el(id); e.disabled = locked; if (locked) e.value = '0'; },
     costoPesos(p) { return (p.codmon === 'P') ? p.cos : Math.round(p.cos * this.cotmov() * 10000) / 10000; },   // costo unitario en $
     prodNet(p) { return Math.round(p.cant * this.costoPesos(p) * (1 - p.bon / 100) * 100) / 100; },
     prodSum() { return Math.round(this.productos.reduce(function (s, p) { return s + CP.prodNet(p); }, 0) * 100) / 100; },
@@ -169,7 +215,7 @@ const CP = {
             codmon: this.el('prodMon').value, cant: cant, cos: cos,
             lis: parseFloat(this.el('prodLis').value) || 0, fct: parseFloat(this.el('prodFct').value) || 1,
             bon: this.r2(this.el('prodBon').value), flt: parseFloat(this.el('prodFlt').value) || 0,
-            stk: this.el('prodStk').checked, apv: this.el('prodApv').checked
+            stk: this.el('prodStk').checked
         });
         this.prodSel = null; this.el('prodCod').value = ''; this.el('prodQ').value = '';
         this.el('prodCant').value = ''; this.el('prodCos').value = ''; this.el('prodLis').value = '0'; this.el('prodFct').value = '1'; this.el('prodBon').value = '0'; this.el('prodFlt').value = '0';
@@ -199,8 +245,8 @@ const CP = {
     async grabar() {
         this.el('cpErr').textContent = '';
         if (this.grabado) { this.toast('El comprobante ya fue grabado.', 'info'); return; }
-        var conProd = this.el('conProd').checked;
-        if (conProd && !this.productos.length) { this.el('cpErr').textContent = 'Agregá al menos un producto (o destildá "Con productos").'; return; }
+        var conProd = this.esProductos();
+        if (conProd && !this.productos.length) { this.el('cpErr').textContent = 'Facturación = PRODUCTOS: agregá al menos un producto (o cambiá la facturación a Servicios).'; return; }
         var t = this.totales, p = this.prov;
         if (!this.el('codcue').value) { this.el('cpErr').textContent = 'Elegí un proveedor.'; return; }
         if (!(parseInt(this.el('cen').value, 10) > 0)) { this.el('cpErr').textContent = 'Cargá el número del comprobante del proveedor.'; return; }
@@ -211,13 +257,13 @@ const CP = {
         if (t.neto1 > 0) ivas.push({ net: t.neto1, ali: t.ali1, iva: t.iva1 });
         if (t.neto2 > 0) ivas.push({ net: t.neto2, ali: t.ali2, iva: t.iva2 });
         var data = {
-            codcue: this.el('codcue').value, fexmov: this.el('fexmov').value, codcat: conProd ? 1 : 2, detmov: this.el('detmov').value,
+            codcue: this.el('codcue').value, fexmov: this.el('fexmov').value, fixmov: this.el('fixmov').value, codcat: parseInt(this.el('codcat').value, 10) || 2, detmov: this.el('detmov').value,
             cec: this.el('cec').value, cei: this.el('cei').value, cep: this.el('cep').value, cen: this.el('cen').value, cef: this.el('cef').value,
             citmov: p.CITCUE, codcri: p.CODCRI, cotmov: this.cotmov(), nogmov: t.nog, ip1mov: t.ip1, ip2mov: t.ip2, ap1mov: t.ap1, ap2mov: t.ap2, total: t.total,
             ivas: ivas,
             imputaciones: this.imps.map(function (i) { return { codcue: i.codcue, codcdc: i.codcdc, debmov: i.debmov }; }),
             vencimientos: this.vtos.map(function (v) { return { fvxmov: v.fvxmov, detmov: '', cremov: v.cremov }; }),
-            productos: conProd ? this.productos.map(function (p) { return { codpro: p.codpro, denmov: p.denpro, codmon: p.codmon, ingmov: p.cant, cosmov: p.cos, pulmov: p.lis, fctmov: p.fct, bonmov: p.bon, fltmov: p.flt, apvmov: p.apv ? 1 : 0, stkmov: p.stk ? 1 : 0, codudm: p.codudm }; }) : [],
+            productos: conProd ? this.productos.map(function (p) { return { codpro: p.codpro, denmov: p.denpro, codmon: p.codmon, ingmov: p.cant, cosmov: p.cos, pulmov: p.lis, fctmov: p.fct, bonmov: p.bon, fltmov: p.flt, apvmov: CP.el('chkLDP').checked ? 1 : 0, stkmov: p.stk ? 1 : 0, codudm: p.codudm }; }) : [],
             remitos: this.selectedRemitos()
         };
         this.el('btnGrabar').disabled = true; this.el('btnGrabar').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Grabando…';

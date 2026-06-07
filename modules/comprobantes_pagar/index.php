@@ -11,6 +11,11 @@ if (db_readonly()) {
 }
 
 $ivaCta = trim((string) nz(db_row("SELECT CACC_D FROM [Rec Control];")['CACC_D'], ''));   // cuenta IVA Crédito Fiscal
+// FACTURACIÓN (cboCODCAT): categorías de cuenta corriente acreedora (CODCAT<4). 1=PRODUCTOS → con stock.
+$facturacionOpts = '';
+foreach (db_query("SELECT CODCAT, DENCAT FROM [Tbl Categorias Cuentas Corrientes] WHERE CODCAT<4 AND CODORI='A' ORDER BY DENCAT;") as $cat) {
+    $facturacionOpts .= '<option value="' . (int) $cat['CODCAT'] . '">' . htmlspecialchars(trim((string) nz($cat['DENCAT'], ''))) . '</option>';
+}
 $capa = (auth_modo() === 'capacitacion');
 $btnLbl = $capa ? '<i class="bi bi-mortarboard me-1"></i>Grabar CP (capacitación)' : '<i class="bi bi-save me-1"></i>Grabar comprobante';
 $toolbar = '<button id="btnGrabar" class="btn btn-success btn-sm">' . $btnLbl . '</button>'
@@ -30,6 +35,17 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
   .tot-bar .t .lbl { font-size:.66rem; text-transform:uppercase; color:var(--bs-secondary-color); }
   .tot-bar .t .val { font-weight:700; font-variant-numeric:tabular-nums; }
   .cp-ro { font-variant-numeric:tabular-nums; font-weight:600; }
+  /* compresión vertical + cards colapsables */
+  #cpForm .card { margin-bottom:.45rem !important; }
+  #cpForm .card-body { padding:.5rem .7rem; }
+  #cpForm .card-header { padding:.3rem .7rem; cursor:pointer; user-select:none; }
+  #cpForm .card-header::before { content:"\25BE"; display:inline-block; margin-right:.45rem; transition:transform .15s; color:var(--bs-secondary-color); }
+  #cpForm .card-header.collapsed::before { transform:rotate(-90deg); }
+  #cpForm .form-label { margin-bottom:.05rem; font-size:.72rem; }
+  #cpForm .form-control, #cpForm .form-select { padding-top:.15rem; padding-bottom:.15rem; min-height:calc(1.3em + .3rem); height:auto; font-size:.82rem; }
+  #cpForm .imp-grp { padding:.3rem .55rem .4rem; }
+  #cpForm .imp-grp-h { margin-bottom:.2rem; }
+  #cpForm .table-sm > :not(caption) > * > * { padding:.2rem .4rem; }
 </style>
 
 <div class="fc-form" id="cpForm" data-ivacta="<?= htmlspecialchars($ivaCta, ENT_QUOTES) ?>">
@@ -49,14 +65,17 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
       <div class="col-auto" style="width:140px"><label class="form-label mb-1">Saldo Operativo</label><input id="saldo" class="form-control cp-num" readonly></div>
       <div class="col-auto" style="width:90px"><label class="form-label mb-1">Cotización</label><input type="number" step="0.0001" id="cotmov" class="form-control cp-num" value="1" title="Cotización u$s (para productos en dólares)"></div>
     </div>
-    <div class="row g-2 mt-1">
-      <div class="col-12"><label class="form-label mb-1 text-muted small">Comprobante del proveedor</label></div>
-      <div class="col-auto" style="width:90px"><select id="cec" class="form-select"><option value="FC">FC</option><option value="NC">NC</option><option value="ND">ND</option></select></div>
-      <div class="col-auto" style="width:70px"><select id="cei" class="form-select"><option>A</option><option>B</option><option>C</option><option>M</option></select></div>
-      <div class="col-auto" style="width:90px"><input type="number" id="cep" class="form-control cp-num" placeholder="PDV" value="0"></div>
-      <div class="col-auto" style="width:130px"><input type="number" id="cen" class="form-control cp-num" placeholder="Número"></div>
-      <div class="col-auto" style="width:150px"><input type="date" id="cef" class="form-control" title="Fecha del comprobante"></div>
-      <div class="col"><input id="detmov" class="form-control" placeholder="Detalle (opcional)"></div>
+    <div class="row g-2 mt-2 align-items-end">
+      <div class="col-12"><div class="imp-grp-h" style="margin-bottom:.15rem">Comprobante del proveedor</div></div>
+      <div class="col-auto" style="width:78px"><label class="form-label mb-1 small">Código</label><select id="cec" class="form-select form-select-sm"><option value="FC">FC</option><option value="NC">NC</option><option value="ND">ND</option></select></div>
+      <div class="col-auto" style="width:62px"><label class="form-label mb-1 small">Letra</label><select id="cei" class="form-select form-select-sm"><option>A</option><option>B</option><option>C</option><option>M</option></select></div>
+      <div class="col-auto" style="width:80px"><label class="form-label mb-1 small">PDV</label><input type="number" id="cep" class="form-control form-control-sm cp-num" placeholder="PDV" value="0"></div>
+      <div class="col-auto" style="width:120px"><label class="form-label mb-1 small">Número</label><input type="number" id="cen" class="form-control form-control-sm cp-num" placeholder="Número"></div>
+      <div class="col-auto" style="width:140px"><label class="form-label mb-1 small">Emisión</label><input type="date" id="cef" class="form-control form-control-sm" title="Fecha del comprobante del proveedor"></div>
+      <div class="col-auto" style="width:140px"><label class="form-label mb-1 small">Imputación I.V.A.</label><input type="date" id="fixmov" class="form-control form-control-sm" title="Fecha de imputación del I.V.A."></div>
+      <div class="col-auto" style="width:170px"><label class="form-label mb-1 small">Facturación</label><select id="codcat" class="form-select form-select-sm"><option value="">—</option><?= $facturacionOpts ?></select></div>
+      <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="chkLDP" disabled><label class="form-check-label small" for="chkLDP" title="Actualizar los precios de venta de los productos con el nuevo costo">Act. P. Venta</label></div></div>
+      <div class="col"><label class="form-label mb-1 small">Detalle</label><input id="detmov" class="form-control form-control-sm" placeholder="(opcional)"></div>
     </div>
   </div></div>
 
@@ -103,7 +122,12 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
           <div style="width:120px"><label class="form-label mb-1 small">$</label><input type="number" step="0.01" id="ip2mov" class="form-control form-control-sm cp-num" value="0"></div>
         </div>
       </div>
-      <div class="ms-auto align-self-center"><div class="form-check"><input class="form-check-input" type="checkbox" id="conProd"><label class="form-check-label small" for="conProd">Con productos (entra a stock)</label></div></div>
+      <!-- TOTAL del comprobante (editable: permite cargar el total real del proveedor aunque difiera de la discriminación) -->
+      <div class="imp-grp ms-auto" style="border-color:var(--fc-primary)">
+        <div class="imp-grp-h" style="color:var(--fc-primary)">Total comprobante</div>
+        <div style="width:150px"><input type="number" step="0.01" id="totmov" class="form-control form-control-sm cp-num" style="font-weight:700" value="0"></div>
+        <div class="small mt-1" style="min-height:1.1em"><span class="text-warning" id="totWarn"></span> <a href="#" id="totReset" class="d-none" title="Recalcular como suma de subtotales">↻ recalcular</a></div>
+      </div>
     </div>
   </div></div>
 
@@ -123,7 +147,6 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
         <div class="col-auto" style="width:72px"><label class="form-label mb-1 small">Bonif %</label><input type="number" step="0.01" id="prodBon" class="form-control form-control-sm cp-num" value="0"></div>
         <div class="col-auto" style="width:88px"><label class="form-label mb-1 small">Flete</label><input type="number" step="0.0001" id="prodFlt" class="form-control form-control-sm cp-num" value="0"></div>
         <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="prodStk" checked><label class="form-check-label small" for="prodStk">Stock</label></div></div>
-        <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="prodApv"><label class="form-check-label small" for="prodApv" title="Actualizar el precio de venta manteniendo el margen">Act.P.Vta</label></div></div>
         <div class="col-auto"><button type="button" id="btnAddProd" class="btn btn-sm btn-outline-primary mt-3"><i class="bi bi-plus-lg"></i></button></div>
       </div>
       <table class="table table-sm mb-0"><thead><tr><th>Producto</th><th>Mon</th><th class="cp-num" style="width:78px">Cant</th><th class="cp-num" style="width:95px">Costo</th><th class="cp-num" style="width:100px">Costo $</th><th class="cp-num" style="width:65px">Bonif</th><th style="width:46px">Stk</th><th class="cp-num" style="width:115px">Neto</th><th style="width:32px"></th></tr></thead><tbody id="prodBody"></tbody></table>
@@ -138,9 +161,9 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 
   <!-- Imputación contable (Debe) — multi-fila -->
   <div class="card fc-card mb-2">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header d-flex align-items-center">
       <span><i class="bi bi-diagram-3 me-1"></i>Imputación contable (Debe)</span>
-      <span class="small">Imputado <b id="impSum" class="cp-num">0.00</b> / Total <b id="impTot" class="cp-num">0.00</b> <span id="impOk"></span></span>
+      <span class="small ms-auto">Imputado <b id="impSum" class="cp-num">0.00</b> / Total <b id="impTot" class="cp-num">0.00</b> <span id="impOk"></span></span>
     </div>
     <div class="card-body">
       <div class="row g-2 align-items-end mb-2">
@@ -158,9 +181,9 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 
   <!-- Vencimientos (a pagar) — multi-fila -->
   <div class="card fc-card mb-2">
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header d-flex align-items-center">
       <span><i class="bi bi-calendar-event me-1"></i>Vencimientos (a pagar)</span>
-      <span class="small">Vencimientos <b id="vtoSum" class="cp-num">0.00</b> / Total <b id="vtoTot" class="cp-num">0.00</b> <span id="vtoOk"></span></span>
+      <span class="small ms-auto">Vencimientos <b id="vtoSum" class="cp-num">0.00</b> / Total <b id="vtoTot" class="cp-num">0.00</b> <span id="vtoOk"></span></span>
     </div>
     <div class="card-body">
       <div class="row g-2 align-items-end mb-2">
@@ -187,5 +210,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=8"></script>
+<script src="assets/js/cp.js?v=11"></script>
 '); ?>

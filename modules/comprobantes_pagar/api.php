@@ -50,7 +50,7 @@ function buscar_proveedores() {
 
 function get_proveedor() {
     $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
-    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.SANCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI
+    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.SANCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI, C.CODCAT, C.APICUE, C.APBCUE
         FROM ([Tbl Provincias] AS P RIGHT JOIN ([Tbl Localidades] AS L INNER JOIN [Tbl Cuentas Corrientes] AS C ON L.CODLOC=C.CODLOC) ON P.CODPRO=L.CODPRO)
         WHERE C.CODORI='A' AND C.CODCUE=$cc;");
     if (!$c) { fail('Proveedor no encontrado'); return; }
@@ -58,6 +58,9 @@ function get_proveedor() {
     $c['DENCRI'] = $cri ? trim((string) nz($cri['DENCRI'], '')) : '';
     $c['SALDO'] = round((float) nz($c['SOPCUE'], 0), 2);   // negativo = le debemos
     $c['SALDO_ANTIC'] = round((float) nz($c['SANCUE'], 0), 2);
+    $c['ES_RI'] = ((string) nz($c['CODCRI'], '') === '1');                      // Resp. Inscripto → discrimina IVA (letra A); si no, letra C sin discriminar
+    $c['APLICA_PIVA'] = ($c['APICUE'] === true || $c['APICUE'] == -1);          // habilita percep. IVA
+    $c['APLICA_PIIBB'] = ($c['APBCUE'] === true || $c['APBCUE'] == -1);         // habilita percep. Ingresos Brutos
     $c['DOMICILIO'] = trim(nz($c['DCXCUE'], '') . ' ' . nz($c['DNXCUE'], ''));
     $c['LOCALIDAD'] = trim(nz($c['DENLOC'], '') . (nz($c['DENPRO'], '') ? ' - ' . nz($c['DENPRO'], '') : ''));
     ok($c);
