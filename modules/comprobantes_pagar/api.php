@@ -146,8 +146,10 @@ function cp_insert($d, $estTrue) {
     foreach ($ivas as $iv) { $netmov += (float) nz($iv['net'], 0); $irimov += (float) nz($iv['iva'], 0); }
     $netmov = round($netmov, 2); $irimov = round($irimov, 2);
     $nogmov = isset($d['nogmov']) ? round((float) nz($d['nogmov'], 0), 2) : 0;
-    $ip1 = isset($d['ip1mov']) ? round((float) nz($d['ip1mov'], 0), 2) : 0;
-    $ip2 = isset($d['ip2mov']) ? round((float) nz($d['ip2mov'], 0), 2) : 0;
+    $ip1 = isset($d['ip1mov']) ? round((float) nz($d['ip1mov'], 0), 2) : 0;   // percepción IVA (importe $)
+    $ip2 = isset($d['ip2mov']) ? round((float) nz($d['ip2mov'], 0), 2) : 0;   // percepción Ingresos Brutos (importe $)
+    $ap1 = isset($d['ap1mov']) ? round((float) nz($d['ap1mov'], 0), 2) : 0;   // alícuota percep. IVA (%)
+    $ap2 = isset($d['ap2mov']) ? round((float) nz($d['ap2mov'], 0), 2) : 0;   // alícuota percep. IIBB (%)
     $total = round((float) nz($d['total'], $netmov + $irimov + $nogmov + $ip1 + $ip2), 2);
     $cotmov = round((float) nz(isset($d['cotmov']) ? $d['cotmov'] : 1, 1), 4);
 
@@ -179,10 +181,10 @@ function cp_insert($d, $estTrue) {
 
     db_exec("INSERT INTO [Tbl Movimientos]
         (NUMMOV, CODORI, FEXMOV, FIXMOV, CODOPE, CODAUX, CICMOV, CIPMOV, CINMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV,
-         CODCUE, SOCMOV, SACMOV, DENMOV, DCXMOV, DNXMOV, CODLOC, CODCRI, CITMOV, DETMOV, COTMOV, NETMOV, IRIMOV, NOGMOV, IP1MOV, IP2MOV,
+         CODCUE, SOCMOV, SACMOV, DENMOV, DCXMOV, DNXMOV, CODLOC, CODCRI, CITMOV, DETMOV, COTMOV, NETMOV, IRIMOV, NOGMOV, IP1MOV, IP2MOV, AP1MOV, AP2MOV,
          CREMOV, TOTMOV, SDOMOV, ESTMOV, NUIMOV, NMIMOV, NOWMOV)
         VALUES ($nummov, 'A', $fex, $fix, 310, $codaux, 'CP', 0, $cinmov, '$cec', '$cei', $cep, $cen, $cef,
-         $codcue, " . cp_num($soc) . ", " . cp_num($sac) . ", $den, $dcx, $dnx, $codloc, $codcri, $cit, $det, $cotmov, " . ($netmov != 0 ? cp_num($netmov) : 'Null') . ", " . ($irimov != 0 ? cp_num($irimov) : 'Null') . ", " . ($nogmov != 0 ? cp_num($nogmov) : 'Null') . ", " . ($ip1 != 0 ? cp_num($ip1) : 'Null') . ", " . ($ip2 != 0 ? cp_num($ip2) : 'Null') . ",
+         $codcue, " . cp_num($soc) . ", " . cp_num($sac) . ", $den, $dcx, $dnx, $codloc, $codcri, $cit, $det, $cotmov, " . ($netmov != 0 ? cp_num($netmov) : 'Null') . ", " . ($irimov != 0 ? cp_num($irimov) : 'Null') . ", " . ($nogmov != 0 ? cp_num($nogmov) : 'Null') . ", " . ($ip1 != 0 ? cp_num($ip1) : 'Null') . ", " . ($ip2 != 0 ? cp_num($ip2) : 'Null') . ", " . ($ap1 != 0 ? cp_num($ap1) : 'Null') . ", " . ($ap2 != 0 ? cp_num($ap2) : 'Null') . ",
          " . cp_num($total) . ", " . cp_num($total) . ", " . cp_num($sdomov) . ", $estSql, 0, 0, Now());");
 
     // ── IVA (hasta 2 alícuotas) ──

@@ -58,11 +58,22 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 
   <div class="card fc-card mb-2"><div class="card-body">
     <div class="row g-2 align-items-end">
-      <div class="col-md-3"><label class="form-label mb-1">Neto gravado</label><input type="number" step="0.01" id="netmov" class="form-control cp-num" value="0"></div>
-      <div class="col-auto" style="width:110px"><label class="form-label mb-1">Alícuota %</label><input type="number" step="0.01" id="alimov" class="form-control cp-num" value="21"></div>
-      <div class="col-md-2"><label class="form-label mb-1">I.V.A.</label><input id="irimov" class="form-control cp-num" readonly value="0.00"></div>
-      <div class="col-md-2"><label class="form-label mb-1">No gravado</label><input type="number" step="0.01" id="nogmov" class="form-control cp-num" value="0"></div>
-      <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="conProd"><label class="form-check-label small" for="conProd">Con productos (entra a stock)</label></div></div>
+      <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">Neto gravado</label><input type="number" step="0.01" id="netmov" class="form-control cp-num" value="0"></div>
+      <div class="col-auto" style="width:80px"><label class="form-label mb-1 small">Alíc. %</label><input type="number" step="0.01" id="alimov" class="form-control cp-num" value="21"></div>
+      <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">I.V.A.</label><input id="irimov" class="form-control cp-num" readonly value="0.00"></div>
+      <div class="col-auto px-2 text-muted" style="align-self:center">+</div>
+      <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">Neto gravado 2</label><input type="number" step="0.01" id="net2mov" class="form-control cp-num" value="0"></div>
+      <div class="col-auto" style="width:80px"><label class="form-label mb-1 small">Alíc. %</label><input type="number" step="0.01" id="ali2mov" class="form-control cp-num" value="10.5"></div>
+      <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">I.V.A.</label><input id="iri2mov" class="form-control cp-num" readonly value="0.00"></div>
+      <div class="col-auto" style="width:140px"><label class="form-label mb-1 small">No gravado</label><input type="number" step="0.01" id="nogmov" class="form-control cp-num" value="0"></div>
+    </div>
+    <div class="row g-2 align-items-end mt-1">
+      <div class="col-auto" style="width:110px"><label class="form-label mb-1 small">Perc. IVA %</label><input type="number" step="0.01" id="ap1mov" class="form-control cp-num" value="0"></div>
+      <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">Perc. IVA $</label><input type="number" step="0.01" id="ip1mov" class="form-control cp-num" value="0"></div>
+      <div class="col-auto px-2"></div>
+      <div class="col-auto" style="width:110px"><label class="form-label mb-1 small">Perc. IIBB %</label><input type="number" step="0.01" id="ap2mov" class="form-control cp-num" value="0"></div>
+      <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">Perc. IIBB $</label><input type="number" step="0.01" id="ip2mov" class="form-control cp-num" value="0"></div>
+      <div class="col-auto ms-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="conProd"><label class="form-check-label small" for="conProd">Con productos (entra a stock)</label></div></div>
     </div>
   </div></div>
 
@@ -135,6 +146,7 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
     <div class="t"><div class="lbl">Neto</div><div class="val" id="tNeto">0.00</div></div>
     <div class="t"><div class="lbl">I.V.A.</div><div class="val" id="tIva">0.00</div></div>
     <div class="t"><div class="lbl">No gravado</div><div class="val" id="tNog">0.00</div></div>
+    <div class="t"><div class="lbl">Percepciones</div><div class="val" id="tPerc">0.00</div></div>
     <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Total a Pagar</div><div class="val" id="tTotal">0.00</div></div>
   </div></div>
   <div class="text-danger small mt-2" id="cpErr"></div>
@@ -145,5 +157,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=5"></script>
+<script src="assets/js/cp.js?v=6"></script>
 '); ?>

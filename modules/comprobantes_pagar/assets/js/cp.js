@@ -32,8 +32,10 @@ const CP = {
             if (CP.prodSel.codmon === 'D' && o.COTPRO > 0 && CP.cotmov() <= 1) CP.el('cotmov').value = o.COTPRO;
             CP.monLabels();
         });
-        ['netmov', 'alimov', 'nogmov'].forEach(function (id) { CP.el(id).addEventListener('input', function () { CP.recalc(); }); });
+        ['netmov', 'alimov', 'net2mov', 'ali2mov', 'nogmov', 'ip1mov', 'ip2mov'].forEach(function (id) { CP.el(id).addEventListener('input', function () { CP.recalc(); }); });
         this.el('cotmov').addEventListener('input', function () { CP.recalc(); });
+        this.el('ap1mov').addEventListener('input', function () { CP.percepFromPct(); });
+        this.el('ap2mov').addEventListener('input', function () { CP.percepFromPct(); });
         this.el('prodMon').addEventListener('change', function () { CP.monLabels(); });
         this.el('btnAddImp').addEventListener('click', function () { CP.addImp(); });
         this.el('btnSugIva').addEventListener('click', function () { CP.sugerirIva(); });
@@ -64,17 +66,28 @@ const CP = {
     },
 
     recalc() {
-        var ali = parseFloat(this.el('alimov').value) || 0, nog = this.r2(this.el('nogmov').value);
         var conProd = this.el('conProd').checked;
-        var neto = conProd ? this.prodSum() : this.r2(this.el('netmov').value);
-        if (conProd) this.el('netmov').value = neto;
-        var iva = Math.round(neto * ali) / 100, total = Math.round((neto + iva + nog) * 100) / 100;
-        this.el('irimov').value = this.n(iva);
-        this.totales = { neto: neto, iva: iva, nog: nog, ali: ali, total: total };
-        this.el('tNeto').textContent = this.n(neto); this.el('tIva').textContent = this.n(iva); this.el('tNog').textContent = this.n(nog); this.el('tTotal').textContent = this.n(total);
+        var ali1 = parseFloat(this.el('alimov').value) || 0, ali2 = parseFloat(this.el('ali2mov').value) || 0;
+        var neto1 = conProd ? this.prodSum() : this.r2(this.el('netmov').value);
+        if (conProd) this.el('netmov').value = neto1;
+        var neto2 = this.r2(this.el('net2mov').value), nog = this.r2(this.el('nogmov').value);
+        var iva1 = Math.round(neto1 * ali1) / 100, iva2 = Math.round(neto2 * ali2) / 100;
+        var ip1 = this.r2(this.el('ip1mov').value), ip2 = this.r2(this.el('ip2mov').value);
+        var neto = Math.round((neto1 + neto2) * 100) / 100, iva = Math.round((iva1 + iva2) * 100) / 100, perc = Math.round((ip1 + ip2) * 100) / 100;
+        var total = Math.round((neto + iva + nog + perc) * 100) / 100;
+        this.el('irimov').value = this.n(iva1); this.el('iri2mov').value = this.n(iva2);
+        this.totales = { neto1: neto1, ali1: ali1, iva1: iva1, neto2: neto2, ali2: ali2, iva2: iva2, neto: neto, iva: iva, nog: nog, ip1: ip1, ip2: ip2, ap1: this.r2(this.el('ap1mov').value), ap2: this.r2(this.el('ap2mov').value), perc: perc, total: total };
+        this.el('tNeto').textContent = this.n(neto); this.el('tIva').textContent = this.n(iva); this.el('tNog').textContent = this.n(nog); this.el('tPerc').textContent = this.n(perc); this.el('tTotal').textContent = this.n(total);
         this.el('impTot').textContent = this.n(total); this.el('vtoTot').textContent = this.n(total);
         if (conProd) this.renderProds();
         this.refresh();
+    },
+    percepFromPct() {
+        var neto1 = this.r2(this.el('netmov').value), neto2 = this.r2(this.el('net2mov').value), nog = this.r2(this.el('nogmov').value);
+        var ap1 = parseFloat(this.el('ap1mov').value) || 0, ap2 = parseFloat(this.el('ap2mov').value) || 0;
+        if (ap1 > 0) this.el('ip1mov').value = (Math.round((neto1 + neto2) * ap1) / 100).toFixed(2);          // Perc. IVA s/ neto gravado
+        if (ap2 > 0) this.el('ip2mov').value = (Math.round((neto1 + neto2 + nog) * ap2) / 100).toFixed(2);    // Perc. IIBB s/ neto + no gravado
+        this.recalc();
     },
     impSum() { return Math.round(this.imps.reduce(function (s, i) { return s + i.debmov; }, 0) * 100) / 100; },
     vtoSum() { return Math.round(this.vtos.reduce(function (s, v) { return s + v.cremov; }, 0) * 100) / 100; },
@@ -186,11 +199,14 @@ const CP = {
         if (t.total <= 0) { this.el('cpErr').textContent = 'Ingresá el neto / no gravado del comprobante.'; return; }
         if (Math.abs(this.impSum() - t.total) >= 0.01) { this.el('cpErr').textContent = 'La imputación (' + this.n(this.impSum()) + ') no coincide con el total (' + this.n(t.total) + ').'; return; }
         if (Math.abs(this.vtoSum() - t.total) >= 0.01) { this.el('cpErr').textContent = 'Los vencimientos (' + this.n(this.vtoSum()) + ') no coinciden con el total (' + this.n(t.total) + ').'; return; }
+        var ivas = [];
+        if (t.neto1 > 0) ivas.push({ net: t.neto1, ali: t.ali1, iva: t.iva1 });
+        if (t.neto2 > 0) ivas.push({ net: t.neto2, ali: t.ali2, iva: t.iva2 });
         var data = {
             codcue: this.el('codcue').value, fexmov: this.el('fexmov').value, codcat: conProd ? 1 : 2, detmov: this.el('detmov').value,
             cec: this.el('cec').value, cei: this.el('cei').value, cep: this.el('cep').value, cen: this.el('cen').value, cef: this.el('cef').value,
-            citmov: p.CITCUE, codcri: p.CODCRI, cotmov: this.cotmov(), nogmov: t.nog, total: t.total,
-            ivas: t.neto > 0 ? [{ net: t.neto, ali: t.ali, iva: t.iva }] : [],
+            citmov: p.CITCUE, codcri: p.CODCRI, cotmov: this.cotmov(), nogmov: t.nog, ip1mov: t.ip1, ip2mov: t.ip2, ap1mov: t.ap1, ap2mov: t.ap2, total: t.total,
+            ivas: ivas,
             imputaciones: this.imps.map(function (i) { return { codcue: i.codcue, codcdc: i.codcdc, debmov: i.debmov }; }),
             vencimientos: this.vtos.map(function (v) { return { fvxmov: v.fvxmov, detmov: '', cremov: v.cremov }; }),
             productos: conProd ? this.productos.map(function (p) { return { codpro: p.codpro, denmov: p.denpro, codmon: p.codmon, ingmov: p.cant, cosmov: p.cos, pulmov: p.lis, fctmov: p.fct, bonmov: p.bon, fltmov: p.flt, apvmov: p.apv ? 1 : 0, stkmov: p.stk ? 1 : 0, codudm: p.codudm }; }) : [],
