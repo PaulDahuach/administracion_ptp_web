@@ -180,20 +180,23 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
         <div class="card-header"><i class="bi bi-box-seam me-1"></i>Productos (entra a stock) <span class="small text-muted">— el neto gravado sale de estas líneas</span></div>
         <div class="card-body">
           <div class="row g-2 align-items-end mb-2">
-            <div class="col" style="min-width:190px"><label class="form-label mb-1 small">Producto</label>
+            <div class="col" style="min-width:160px"><label class="form-label mb-1 small">Producto</label>
               <div class="ac-box"><input type="text" id="prodQ" class="form-control form-control-sm" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="prodList"></div></div>
-              <input type="hidden" id="prodCod"></div>
-            <div class="col-auto" style="width:76px"><label class="form-label mb-1 small">Moneda</label><select id="prodMon" class="form-select form-select-sm"><option value="P">$</option><option value="D">u$s</option></select></div>
-            <div class="col-auto" style="width:90px"><label class="form-label mb-1 small">Cantidad</label><input type="number" step="0.01" id="prodCant" class="form-control form-control-sm cp-num"></div>
-            <div class="col-auto" style="width:105px"><label class="form-label mb-1 small" id="lblCos">Costo $</label><input type="number" step="0.0001" id="prodCos" class="form-control form-control-sm cp-num"></div>
-            <div class="col-auto" style="width:100px"><label class="form-label mb-1 small" id="lblLis">Lista $</label><input type="number" step="0.0001" id="prodLis" class="form-control form-control-sm cp-num" value="0"></div>
-            <div class="col-auto" style="width:72px"><label class="form-label mb-1 small">Factor</label><input type="number" step="0.0001" id="prodFct" class="form-control form-control-sm cp-num" value="1"></div>
-            <div class="col-auto" style="width:72px"><label class="form-label mb-1 small">Bonif %</label><input type="number" step="0.01" id="prodBon" class="form-control form-control-sm cp-num" value="0"></div>
-            <div class="col-auto" style="width:88px"><label class="form-label mb-1 small">Flete</label><input type="number" step="0.0001" id="prodFlt" class="form-control form-control-sm cp-num" value="0"></div>
-            <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="prodStk" checked><label class="form-check-label small" for="prodStk">Stock</label></div></div>
+              <input type="hidden" id="prodCod"><input type="hidden" id="prodFct" value="1"></div>
+            <div class="col-auto" style="width:96px"><label class="form-label mb-1 small">Cód.Prv.</label><input type="text" id="prodExt" class="form-control form-control-sm" autocomplete="off" title="Código del proveedor para este producto (EXTPRO)"></div>
+            <div class="col-auto" style="width:62px"><label class="form-label mb-1 small">Mon</label><select id="prodMon" class="form-select form-select-sm"><option value="P">$</option><option value="D">u$s</option></select></div>
+            <div class="col-auto" style="width:78px"><label class="form-label mb-1 small">Flete</label><input type="number" step="0.0001" id="prodFlt" class="form-control form-control-sm cp-num" value="0"></div>
+            <div class="col-auto" style="width:90px"><label class="form-label mb-1 small" id="lblCos">Costo</label><input type="number" step="0.0001" id="prodCos" class="form-control form-control-sm cp-num"></div>
+            <div class="col-auto" style="width:88px"><label class="form-label mb-1 small" id="lblLis">Lista</label><input type="number" step="0.0001" id="prodLis" class="form-control form-control-sm cp-num" value="0"></div>
+            <div class="col-auto" style="width:60px"><label class="form-label mb-1 small">Bon %</label><input type="number" step="0.01" id="prodBon" class="form-control form-control-sm cp-num" value="0"></div>
+            <div class="col-auto" style="width:78px"><label class="form-label mb-1 small">Cantidad</label><input type="number" step="0.01" id="prodCant" class="form-control form-control-sm cp-num"></div>
+            <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="prodApv"><label class="form-check-label small" for="prodApv" title="Actualizar Precio de Venta">P</label></div></div>
+            <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="prodStk" checked><label class="form-check-label small" for="prodStk">Stk</label></div></div>
             <div class="col-auto"><button type="button" id="btnAddProd" class="btn btn-sm btn-outline-primary mt-3"><i class="bi bi-plus-lg"></i></button></div>
           </div>
-          <table class="table table-sm mb-0"><thead><tr><th>Producto</th><th>Mon</th><th class="cp-num" style="width:78px">Cant</th><th class="cp-num" style="width:95px">Costo</th><th class="cp-num" style="width:100px">Costo $</th><th class="cp-num" style="width:65px">Bonif</th><th style="width:46px">Stk</th><th class="cp-num" style="width:115px">Neto</th><th style="width:32px"></th></tr></thead><tbody id="prodBody"></tbody></table>
+          <div class="table-responsive">
+          <table class="table table-sm mb-0" style="white-space:nowrap"><thead><tr><th>Producto</th><th>Cód.Prv.</th><th style="width:26px" title="Declara (DECPRO)">D</th><th>Unidad</th><th>Mon</th><th class="cp-num" style="width:62px">Flete</th><th class="cp-num" style="width:80px">Costo</th><th class="cp-num" style="width:84px">Costo $</th><th class="cp-num" style="width:74px">Lista</th><th class="cp-num" style="width:50px">Bon</th><th class="cp-num" style="width:64px">Cant</th><th style="width:24px" title="Act.P.Vta">P</th><th class="cp-num" style="width:96px">Neto</th><th style="width:34px">Stk</th><th style="width:28px"></th></tr></thead><tbody id="prodBody"></tbody></table>
+          </div>
         </div>
       </div>
 
@@ -249,5 +252,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=18"></script>
+<script src="assets/js/cp.js?v=19"></script>
 '); ?>

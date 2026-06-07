@@ -28,6 +28,7 @@ if (!defined('CP_LIB')) {
             case 'cuentas':            cuentas_imputables(); break;
             case 'centros_costo':      centros_costo(); break;
             case 'productos':          buscar_productos(); break;
+            case 'producto_por_ext':   producto_por_ext(); break;
             case 'remitos_pendientes': remitos_pendientes(); break;
             case 'anticipos_pendientes': anticipos_pendientes(); break;
             case 'guardar':            guardar(); break;
@@ -130,9 +131,18 @@ function cp_detalle() {
         $o = db_row("SELECT CICMOV, CINMOV FROM [Tbl Movimientos] WHERE NUMMOV=" . (int) $a['ANTMOV'] . ";");
         $r['anticipos'][] = array('comp' => $o ? (trim((string) nz($o['CICMOV'], '')) . ' ' . str_pad((string) nz($o['CINMOV'], 0), 8, '0', STR_PAD_LEFT)) : (string) $a['ANTMOV'], 'importe' => round((float) nz($a['IMPMOV'], 0), 2));
     }
-    foreach (db_query("SELECT CODPRO, DENMOV, INGMOV, SVCMOV, PUNMOV, COSMOV, CODMON, STKMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num ORDER BY ORDMOV;") as $p) {
-        $mon = trim((string) nz($p['CODMON'], 'P'));
-        $r['productos'][] = array('codpro' => trim((string) nz($p['CODPRO'], '')), 'denpro' => trim((string) nz($p['DENMOV'], '')), 'codmon' => $mon, 'cant' => round((float) nz($p['INGMOV'], nz($p['SVCMOV'], 0)), 2), 'cos' => round((float) ($mon === 'P' ? nz($p['PUNMOV'], 0) : nz($p['COSMOV'], 0)), 4), 'bon' => 0, 'stk' => ($p['STKMOV'] === true || $p['STKMOV'] == -1));
+    foreach (db_query("SELECT CODPRO, DENMOV, INGMOV, SVCMOV, PUNMOV, COSMOV, PULMOV, FLTMOV, BONMOV, EXTMOV, APVMOV, DECMOV, CODUDM, CODMON, FCTMOV, STKMOV FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num ORDER BY ORDMOV;") as $p) {
+        $mon = trim((string) nz($p['CODMON'], 'P')); $udm = (int) nz($p['CODUDM'], 1);
+        $ud = db_row("SELECT DENUDM FROM [Tbl Unidades de Medida] WHERE CODUDM=$udm;");
+        $r['productos'][] = array(
+            'codpro' => trim((string) nz($p['CODPRO'], '')), 'denpro' => trim((string) nz($p['DENMOV'], '')), 'codmon' => $mon,
+            'cant' => round((float) nz($p['INGMOV'], nz($p['SVCMOV'], 0)), 2),
+            'cos' => round((float) ($mon === 'P' ? nz($p['PUNMOV'], 0) : nz($p['COSMOV'], 0)), 4),
+            'lis' => round((float) nz($p['PULMOV'], 0), 4), 'flt' => round((float) nz($p['FLTMOV'], 0), 4),
+            'bon' => round((float) nz($p['BONMOV'], 0), 2), 'fct' => round((float) nz($p['FCTMOV'], 1), 4),
+            'ext' => trim((string) nz($p['EXTMOV'], '')), 'apv' => ($p['APVMOV'] === true || $p['APVMOV'] == -1),
+            'dec' => ($p['DECMOV'] === true || $p['DECMOV'] == -1), 'codudm' => $udm, 'unidad' => $ud ? trim((string) nz($ud['DENUDM'], '')) : '',
+            'stk' => ($p['STKMOV'] === true || $p['STKMOV'] == -1));
     }
     foreach (db_query("SELECT REMMOV FROM [Tbl Movimientos Remitos] WHERE NUMMOV=$num;") as $rm) {
         $o = db_row("SELECT CINMOV FROM [Tbl Movimientos] WHERE NUMMOV=" . (int) $rm['REMMOV'] . ";");
@@ -180,7 +190,29 @@ function buscar_productos() {
     $q = isset($_GET['q']) ? trim($_GET['q']) : '';
     if (strlen($q) < 1) { ok(array()); return; }
     $s = db_esc($q);
-    ok(db_query("SELECT TOP 20 CODPRO, DENPRO, COSPRO, PLCPRO, COTPRO, CODUDM, CODMON FROM [Tbl Productos] WHERE DENPRO Is Not Null AND ((DENPRO Like '%$s%') OR (CODPRO Like '$s%')) ORDER BY DENPRO;"));
+    $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    $rows = db_query("SELECT TOP 20 P.CODPRO, P.DENPRO, P.COSPRO, P.PLCPRO, P.COTPRO, P.FLTPRO, P.DECPRO, P.CODUDM, U.DENUDM, P.CODMON FROM [Tbl Productos] AS P LEFT JOIN [Tbl Unidades de Medida] AS U ON P.CODUDM=U.CODUDM WHERE P.DENPRO Is Not Null AND ((P.DENPRO Like '%$s%') OR (P.CODPRO Like '$s%')) ORDER BY P.DENPRO;");
+    $out = array();
+    foreach ($rows as $r) { $r['EXTPRO'] = $cc > 0 ? prod_extpro(trim((string) nz($r['CODPRO'], '')), $cc) : ''; $out[] = $r; }
+    ok($out);
+}
+/** Código del proveedor (EXTPRO en Tbl Productos Proveedores) para un producto+cuenta. */
+function prod_extpro($codpro, $cc) {
+    if ($codpro === '') return '';
+    $pp = db_row("SELECT EXTPRO FROM [Tbl Productos Proveedores] WHERE CODPRO='" . db_esc($codpro) . "' AND CODCUE=" . (int) $cc . ";");
+    return $pp ? trim((string) nz($pp['EXTPRO'], '')) : '';
+}
+/** Buscar un producto por el CÓDIGO DEL PROVEEDOR (EXTPRO) + cuenta — como el EXTTMP del legacy. */
+function producto_por_ext() {
+    $ext = isset($_GET['ext']) ? trim($_GET['ext']) : '';
+    $cc  = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
+    if ($ext === '' || $cc <= 0) { ok(null); return; }
+    $pp = db_row("SELECT CODPRO FROM [Tbl Productos Proveedores] WHERE EXTPRO='" . db_esc($ext) . "' AND CODCUE=$cc;");
+    if (!$pp) { ok(null); return; }
+    $cp = db_esc(trim((string) nz($pp['CODPRO'], '')));
+    $p = db_row("SELECT P.CODPRO, P.DENPRO, P.COSPRO, P.PLCPRO, P.COTPRO, P.FLTPRO, P.DECPRO, P.CODUDM, U.DENUDM, P.CODMON FROM [Tbl Productos] AS P LEFT JOIN [Tbl Unidades de Medida] AS U ON P.CODUDM=U.CODUDM WHERE P.CODPRO='$cp';");
+    if ($p) $p['EXTPRO'] = $ext;
+    ok($p);
 }
 
 /** Anticipos del proveedor: movimientos acreedores con saldo a favor (SDOMOV>0) para aplicar (debitar) a este comprobante. */
