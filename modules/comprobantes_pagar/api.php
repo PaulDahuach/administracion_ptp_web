@@ -32,6 +32,8 @@ if (!defined('CP_LIB')) {
             case 'anticipos_pendientes': anticipos_pendientes(); break;
             case 'guardar':            guardar(); break;
             case 'anular':             anular(); break;
+            case 'listar':             listar(); break;
+            case 'detalle':            cp_detalle(); break;
             default: fail('Acción inválida: ' . $action);
         }
     } catch (Exception $e) { fail($e->getMessage(), 500); }
@@ -41,6 +43,81 @@ if (!defined('CP_LIB')) {
 function cp_iso($s) { if ($s === null || $s === '') return null; if (is_numeric($s)) return (int) $s; return (int) (new DateTime('1899-12-30'))->diff(new DateTime($s))->days; }
 function cp_txt($v) { $v = trim((string) $v); return ($v === '') ? 'Null' : "'" . db_esc($v) . "'"; }
 function cp_num($v) { return (string) round((float) $v, 2); }
+
+/** Buscar Comprobantes a Pagar emitidos (CODOPE=310) por proveedor / nº / texto / fecha — filtrado por el libro del modo. */
+function listar() {
+    $w = array("M.CODORI='A'", "M.CODOPE=310");
+    $unico = auth_libro_unico();
+    if ($unico === 'blanco') $w[] = "M.ESTMOV=True";
+    elseif ($unico === 'capacitacion') $w[] = "M.ESTMOV=False";
+    $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+    if ($q !== '') {
+        $s = db_esc($q);
+        $num = is_numeric($q) ? (" OR M.CINMOV=" . (int) $q . " OR M.CENMOV=" . (int) $q . " OR M.NUMMOV=" . (int) $q) : '';
+        $w[] = "((M.DENMOV Like '%$s%') OR (M.CITMOV Like '%$s%')$num)";
+    }
+    if (isset($_GET['codcue']) && (int) $_GET['codcue'] > 0) $w[] = "M.CODCUE=" . (int) $_GET['codcue'];
+    $de = cp_iso(isset($_GET['desde']) ? $_GET['desde'] : null); if ($de !== null) $w[] = "M.FEXMOV>=$de";
+    $ha = cp_iso(isset($_GET['hasta']) ? $_GET['hasta'] : null); if ($ha !== null) $w[] = "M.FEXMOV<=$ha";
+    $where = implode(' AND ', $w);
+    $out = array();
+    foreach (db_query("SELECT TOP 200 NUMMOV, CINMOV, FEXMOV, CODCUE, DENMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, TOTMOV, ANUMOV FROM [Tbl Movimientos] AS M WHERE $where ORDER BY FEXMOV DESC, NUMMOV DESC;") as $r) {
+        $out[] = array(
+            'NUMMOV' => (int) $r['NUMMOV'],
+            'NUMERO' => str_pad((string) nz($r['CINMOV'], 0), 8, '0', STR_PAD_LEFT),
+            'FECHA' => fecha_serial($r['FEXMOV']),
+            'PROVEEDOR' => trim((string) nz($r['DENMOV'], '')),
+            'COMP' => trim(trim((string) nz($r['CECMOV'], '')) . ' ' . trim((string) nz($r['CEIMOV'], '')) . ' ' . str_pad((string) (int) nz($r['CEPMOV'], 0), 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) (int) nz($r['CENMOV'], 0), 8, '0', STR_PAD_LEFT)),
+            'TOTAL' => round((float) nz($r['TOTMOV'], 0), 2),
+            'ANULADO' => ($r['ANUMOV'] === true || $r['ANUMOV'] == -1),
+        );
+    }
+    ok($out);
+}
+
+/** Detalle completo de un CP (sólo lectura): cabecera, importes, asiento, vencimientos, anticipos, productos, remitos. */
+function cp_detalle() {
+    $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
+    $h = db_row("SELECT CINMOV, FEXMOV, FIXMOV, CODCUE, DENMOV, CITMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV, CODAUX, DETMOV, COTMOV, NETMOV, IRIMOV, NOGMOV, IP1MOV, IP2MOV, AP1MOV, AP2MOV, TOTMOV, ANUMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=310;");
+    if (!$h) { fail('Comprobante a pagar no encontrado'); return; }
+    $r = array(
+        'NUMMOV' => $num,
+        'NUMERO' => str_pad((string) nz($h['CINMOV'], 0), 8, '0', STR_PAD_LEFT),
+        'FECHA' => fecha_serial($h['FEXMOV']),
+        'PROVEEDOR' => trim((string) nz($h['DENMOV'], '')) . ' (' . (int) $h['CODCUE'] . ')',
+        'CUIT' => trim((string) nz($h['CITMOV'], '')),
+        'COMP' => trim(trim((string) nz($h['CECMOV'], '')) . ' ' . trim((string) nz($h['CEIMOV'], '')) . ' ' . str_pad((string) (int) nz($h['CEPMOV'], 0), 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) (int) nz($h['CENMOV'], 0), 8, '0', STR_PAD_LEFT)),
+        'EMISION_COMP' => fecha_serial($h['CEFMOV']),
+        'IMPUT_IVA' => fecha_serial($h['FIXMOV']),
+        'FACTURACION' => ((int) nz($h['CODAUX'], 312) === 311) ? 'Con productos (stock)' : 'Servicios / sin productos',
+        'COTIZACION' => round((float) nz($h['COTMOV'], 1), 4),
+        'DETALLE' => trim((string) nz($h['DETMOV'], '')),
+        'ANULADO' => ($h['ANUMOV'] === true || $h['ANUMOV'] == -1),
+        'NETO' => round((float) nz($h['NETMOV'], 0), 2), 'IVA' => round((float) nz($h['IRIMOV'], 0), 2),
+        'NOGRAV' => round((float) nz($h['NOGMOV'], 0), 2), 'PERC_IVA' => round((float) nz($h['IP1MOV'], 0), 2),
+        'PERC_IIBB' => round((float) nz($h['IP2MOV'], 0), 2), 'TOTAL' => round((float) nz($h['TOTMOV'], 0), 2),
+        'IVA_LINES' => array(), 'IMPUTACION' => array(), 'VENCIMIENTOS' => array(), 'ANTICIPOS' => array(), 'PRODUCTOS' => array(), 'REMITOS' => array(),
+    );
+    foreach (db_query("SELECT NETMOV, ALIMOV, IRIMOV FROM [Tbl Movimientos IVA] WHERE NUMMOV=$num;") as $iv)
+        $r['IVA_LINES'][] = array('net' => round((float) nz($iv['NETMOV'], 0), 2), 'ali' => round((float) nz($iv['ALIMOV'], 0), 2), 'iva' => round((float) nz($iv['IRIMOV'], 0), 2));
+    foreach (db_query("SELECT CODCUE, DEBMOV, CREMOV FROM [Tbl Movimientos Imputaciones] WHERE NUMMOV=$num ORDER BY ORDMOV;") as $i) {
+        $cc = trim((string) nz($i['CODCUE'], '')); $den = db_row("SELECT DENCUE FROM [Tbl Cuentas Contables] WHERE CODCUE='" . db_esc($cc) . "';");
+        $r['IMPUTACION'][] = array('cuenta' => $cc . ' ' . trim((string) nz($den ? $den['DENCUE'] : '', '')), 'debe' => round((float) nz($i['DEBMOV'], 0), 2), 'haber' => round((float) nz($i['CREMOV'], 0), 2));
+    }
+    foreach (db_query("SELECT FVXMOV, CREMOV FROM [Tbl Movimientos Vencimientos] WHERE NUMMOV=$num;") as $v)
+        $r['VENCIMIENTOS'][] = array('fecha' => fecha_serial($v['FVXMOV']), 'importe' => round((float) nz($v['CREMOV'], 0), 2));
+    foreach (db_query("SELECT ANTMOV, IMPMOV FROM [Tbl Movimientos Anticipos] WHERE NUMMOV=$num;") as $a) {
+        $o = db_row("SELECT CICMOV, CINMOV FROM [Tbl Movimientos] WHERE NUMMOV=" . (int) $a['ANTMOV'] . ";");
+        $r['ANTICIPOS'][] = array('comp' => $o ? (trim((string) nz($o['CICMOV'], '')) . ' ' . str_pad((string) nz($o['CINMOV'], 0), 8, '0', STR_PAD_LEFT)) : (string) $a['ANTMOV'], 'importe' => round((float) nz($a['IMPMOV'], 0), 2));
+    }
+    foreach (db_query("SELECT CODPRO, DENMOV, INGMOV, SVCMOV, PUNMOV, CODMON FROM [Tbl Movimientos Stock] WHERE NUMMOV=$num ORDER BY ORDMOV;") as $p)
+        $r['PRODUCTOS'][] = array('codpro' => trim((string) nz($p['CODPRO'], '')), 'denom' => trim((string) nz($p['DENMOV'], '')), 'cant' => round((float) nz($p['INGMOV'], nz($p['SVCMOV'], 0)), 2), 'costo' => round((float) nz($p['PUNMOV'], 0), 4), 'moneda' => trim((string) nz($p['CODMON'], 'P')));
+    foreach (db_query("SELECT REMMOV FROM [Tbl Movimientos Remitos] WHERE NUMMOV=$num;") as $rm) {
+        $o = db_row("SELECT CINMOV FROM [Tbl Movimientos] WHERE NUMMOV=" . (int) $rm['REMMOV'] . ";");
+        $r['REMITOS'][] = $o ? str_pad((string) nz($o['CINMOV'], 0), 8, '0', STR_PAD_LEFT) : (string) $rm['REMMOV'];
+    }
+    ok($r);
+}
 
 function buscar_proveedores() {
     $q = isset($_GET['q']) ? trim($_GET['q']) : '';

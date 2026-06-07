@@ -20,6 +20,7 @@ $capa = (auth_modo() === 'capacitacion');
 $btnLbl = $capa ? '<i class="bi bi-mortarboard me-1"></i>Grabar CP (capacitación)' : '<i class="bi bi-save me-1"></i>Grabar comprobante';
 $toolbar = '<button id="btnGrabar" class="btn btn-success btn-sm">' . $btnLbl . '</button>'
          . ' <button id="btnAnularHdr" class="btn btn-danger btn-sm" style="display:none"><i class="bi bi-x-octagon me-1"></i>Anular</button>'
+         . ' <button id="btnBuscarCP" class="btn btn-outline-light btn-sm"><i class="bi bi-search me-1"></i>Buscar</button>'
          . ' <button id="btnNuevo" class="btn btn-outline-light btn-sm"><i class="bi bi-file-earmark-plus me-1"></i>Nuevo</button>';
 module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar);
 ?>
@@ -223,8 +224,29 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 
 <div class="fc-toast-container"><div id="toastMsg" class="toast align-items-center border-0"><div class="d-flex"><div class="toast-body" id="toastBody"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
 
+<!-- Modal: buscar / ver Comprobantes a Pagar emitidos -->
+<div class="modal fade" id="modalBuscarCP" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2"><h6 class="modal-title mb-0"><i class="bi bi-search me-2"></i>Comprobantes a Pagar emitidos</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-2 align-items-end mb-2">
+          <div class="col"><label class="form-label mb-1 small">Buscar (proveedor · CUIT · número)</label><input id="bqQ" class="form-control form-control-sm" placeholder="Texto o número…" autocomplete="off"></div>
+          <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">Desde</label><input type="date" id="bqDesde" class="form-control form-control-sm"></div>
+          <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">Hasta</label><input type="date" id="bqHasta" class="form-control form-control-sm"></div>
+          <div class="col-auto"><button type="button" id="btnBQ" class="btn btn-primary btn-sm"><i class="bi bi-search"></i> Buscar</button></div>
+        </div>
+        <div class="table-responsive" style="max-height:280px; overflow:auto">
+          <table class="table table-sm table-hover mb-0"><thead><tr><th>Número</th><th>Fecha</th><th>Proveedor</th><th>Comp. proveedor</th><th class="text-end">Total</th></tr></thead><tbody id="bqBody"></tbody></table>
+        </div>
+        <div id="bqDetalle" class="mt-2"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=13"></script>
+<script src="assets/js/cp.js?v=14"></script>
 '); ?>

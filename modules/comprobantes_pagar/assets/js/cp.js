@@ -53,6 +53,7 @@ const CP = {
         this.el('codcat').addEventListener('change', function () { CP.facturacionChange(); });
         this.el('btnAddProd').addEventListener('click', function () { CP.addProd(); });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
+        this.el('btnBuscarCP').addEventListener('click', function () { CP.openBuscar(); });
         this.el('btnGrabar').addEventListener('click', function () { CP.grabar(); });
         this.el('btnAnularHdr').addEventListener('click', function () { if (CP.anulNum) CP.anular(CP.anulNum); });
         this.setupCollapsibles();
@@ -267,6 +268,54 @@ const CP = {
         return Array.prototype.slice.call(document.querySelectorAll('.ant-imp')).map(function (i) {
             return { anttmov: CP.antPend[+i.getAttribute('data-k')].NUMMOV, imptmov: parseFloat(i.value) || 0 };
         }).filter(function (a) { return a.imptmov > 0; });
+    },
+
+    // ---- Buscar / ver CPs emitidos ----
+    openBuscar() {
+        if (!this._bqInit) {
+            this._bqInit = true;
+            this.el('btnBQ').addEventListener('click', function () { CP.buscar(); });
+            this.el('bqQ').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); CP.buscar(); } });
+        }
+        bootstrap.Modal.getOrCreateInstance(this.el('modalBuscarCP')).show();
+        this.buscar();
+    },
+    async buscar() {
+        this.el('bqDetalle').innerHTML = '';
+        var j = await this.api('listar', { q: this.el('bqQ').value, desde: this.el('bqDesde').value, hasta: this.el('bqHasta').value });
+        var rows = (j.ok && j.data) ? j.data : [];
+        this.el('bqBody').innerHTML = rows.length ? rows.map(function (r) {
+            return '<tr class="bq-row" data-num="' + r.NUMMOV + '" style="cursor:pointer"><td>' + CP.esc(r.NUMERO) + (r.ANULADO ? ' <span class="badge bg-danger">ANULADO</span>' : '') + '</td><td>' + CP.esc(r.FECHA) + '</td><td>' + CP.esc(r.PROVEEDOR) + '</td><td class="small">' + CP.esc(r.COMP) + '</td><td class="text-end cp-num">' + CP.n(r.TOTAL) + '</td></tr>';
+        }).join('') : '<tr><td colspan="5" class="text-muted py-3">Sin resultados.</td></tr>';
+        Array.prototype.forEach.call(this.el('bqBody').querySelectorAll('.bq-row'), function (tr) { tr.addEventListener('click', function () { CP.verDetalle(+this.getAttribute('data-num')); }); });
+    },
+    async verDetalle(num) {
+        var j = await this.api('detalle', { nummov: num });
+        if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        var d = j.data;
+        function tbl(rows) { return '<table class="table table-sm mb-2"><tbody>' + rows + '</tbody></table>'; }
+        var imp = d.IMPUTACION.map(function (i) { return '<tr><td class="small">' + CP.esc(i.cuenta) + '</td><td class="text-end cp-num">' + (i.debe ? CP.n(i.debe) : '·') + '</td><td class="text-end cp-num">' + (i.haber ? CP.n(i.haber) : '·') + '</td></tr>'; }).join('');
+        var html = '<div class="card"><div class="card-body py-2">' +
+            '<div class="d-flex justify-content-between align-items-center"><b>CP Nº ' + CP.esc(d.NUMERO) + (d.ANULADO ? ' <span class="badge bg-danger">ANULADO</span>' : '') + '</b><span class="small text-muted">' + CP.esc(d.FECHA) + '</span></div>' +
+            '<div class="small">' + CP.esc(d.PROVEEDOR) + ' · ' + CP.esc(d.CUIT) + ' · Comp: <b>' + CP.esc(d.COMP) + '</b> · Imp.IVA ' + CP.esc(d.IMPUT_IVA) + ' · ' + CP.esc(d.FACTURACION) + '</div>' +
+            (d.DETALLE ? '<div class="small text-muted">' + CP.esc(d.DETALLE) + '</div>' : '') +
+            '<div class="row mt-2"><div class="col-md-6">' +
+            '<div class="small fw-bold">Importes</div>' + tbl(
+                '<tr><td>Neto</td><td class="text-end cp-num">' + CP.n(d.NETO) + '</td></tr>' +
+                '<tr><td>I.V.A.</td><td class="text-end cp-num">' + CP.n(d.IVA) + '</td></tr>' +
+                (d.NOGRAV ? '<tr><td>No gravado</td><td class="text-end cp-num">' + CP.n(d.NOGRAV) + '</td></tr>' : '') +
+                (d.PERC_IVA ? '<tr><td>Perc. IVA</td><td class="text-end cp-num">' + CP.n(d.PERC_IVA) + '</td></tr>' : '') +
+                (d.PERC_IIBB ? '<tr><td>Perc. IIBB</td><td class="text-end cp-num">' + CP.n(d.PERC_IIBB) + '</td></tr>' : '') +
+                '<tr class="fw-bold"><td>Total</td><td class="text-end cp-num">' + CP.n(d.TOTAL) + '</td></tr>') +
+            (d.VENCIMIENTOS.length ? '<div class="small fw-bold">Vencimientos</div>' + tbl(d.VENCIMIENTOS.map(function (v) { return '<tr><td>' + CP.esc(v.fecha) + '</td><td class="text-end cp-num">' + CP.n(v.importe) + '</td></tr>'; }).join('')) : '') +
+            (d.ANTICIPOS.length ? '<div class="small fw-bold">Anticipos aplicados</div>' + tbl(d.ANTICIPOS.map(function (a) { return '<tr><td>' + CP.esc(a.comp) + '</td><td class="text-end cp-num">' + CP.n(a.importe) + '</td></tr>'; }).join('')) : '') +
+            '</div><div class="col-md-6">' +
+            '<div class="small fw-bold">Imputación (asiento)</div><table class="table table-sm mb-2"><thead><tr><th>Cuenta</th><th class="text-end">Debe</th><th class="text-end">Haber</th></tr></thead><tbody>' + imp + '</tbody></table>' +
+            (d.PRODUCTOS.length ? '<div class="small fw-bold">Productos</div>' + tbl(d.PRODUCTOS.map(function (p) { return '<tr><td class="small">' + CP.esc(p.codpro + ' ' + p.denom) + '</td><td class="text-end cp-num">' + CP.n(p.cant) + '</td></tr>'; }).join('')) : '') +
+            (d.REMITOS.length ? '<div class="small">Remitos facturados: ' + d.REMITOS.map(function (x) { return CP.esc(x); }).join(', ') + '</div>' : '') +
+            '</div></div></div></div>';
+        this.el('bqDetalle').innerHTML = html;
+        this.el('bqDetalle').scrollIntoView({ block: 'nearest' });
     },
 
     async grabar() {
