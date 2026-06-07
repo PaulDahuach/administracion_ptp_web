@@ -42,9 +42,10 @@ function anular_check($num, $codope, $nombre) {
 
 function anular_comprobante($num, $codope) {
     $num = (int) $num; $codope = (int) $codope;
-    $h = db_row("SELECT NUMMOV, CODOPE, CODCUE, DEBMOV, CREMOV, NRCMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=$codope;");
+    $h = db_row("SELECT NUMMOV, CODORI, CODOPE, CODCUE, DEBMOV, CREMOV, NRCMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=$codope;");
     if (!$h) throw new Exception('Comprobante no encontrado');
     $codcue = (int) $h['CODCUE'];
+    $codori = strtoupper(trim((string) nz($h['CODORI'], 'D')));   // D=deudores / A=acreedores (signo de anticipos/SANCUE)
     $deb = round((float) nz($h['DEBMOV'], 0), 2);
     $cre = round((float) nz($h['CREMOV'], 0), 2);
     $nrc = (int) nz($h['NRCMOV'], 0);
@@ -57,13 +58,17 @@ function anular_comprobante($num, $codope) {
         if ($rc && !($rc['ANUMOV'] === true || $rc['ANUMOV'] == -1) && function_exists('recibo_anular')) recibo_anular($nrc);
     }
 
-    // 2) Anticipos (saldo a favor aplicado): restaurar el SDOMOV del movimiento origen + borrar.
+    // 2) Anticipos (saldo a favor aplicado): restaurar el SDOMOV del origen + (acreedores) el SANCUE.
+    // Deudores (FV): el alta hizo origen += imp → revertir -= imp. Acreedores (CP): hizo origen -= imp → += imp.
+    $sumAnt = 0;
     foreach (db_query("SELECT ANTMOV, IMPMOV FROM [Tbl Movimientos Anticipos] WHERE NUMMOV=$num;") as $a) {
-        $ant = (int) $a['ANTMOV']; $imp = round((float) nz($a['IMPMOV'], 0), 2);
+        $ant = (int) $a['ANTMOV']; $imp = round((float) nz($a['IMPMOV'], 0), 2); $sumAnt += $imp;
         $s = db_row("SELECT SDOMOV FROM [Tbl Movimientos] WHERE NUMMOV=$ant;");
-        db_exec("UPDATE [Tbl Movimientos] SET SDOMOV=" . round((float) nz($s ? $s['SDOMOV'] : 0, 0) - $imp, 2) . " WHERE NUMMOV=$ant;");
+        $delta = ($codori === 'A') ? $imp : -$imp;
+        db_exec("UPDATE [Tbl Movimientos] SET SDOMOV=" . round((float) nz($s ? $s['SDOMOV'] : 0, 0) + $delta, 2) . " WHERE NUMMOV=$ant;");
     }
     db_exec("DELETE FROM [Tbl Movimientos Anticipos] WHERE NUMMOV=$num;");
+    if ($codori === 'A' && round($sumAnt, 2) != 0) db_exec("UPDATE [Tbl Cuentas Corrientes] SET SANCUE = SANCUE + " . round($sumAnt, 2) . " WHERE CODCUE=$codcue;");
 
     // 3) Referencias: la NC (460) restauró la FV (SDOMOV-=imp, venc CREMOV+=imp) → revertir. FV/ND solo traza.
     foreach (db_query("SELECT REFMOV, FVXMOV, IMPMOV FROM [Tbl Movimientos Referencias] WHERE NUMMOV=$num;") as $r) {

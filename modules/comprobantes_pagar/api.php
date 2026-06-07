@@ -28,6 +28,7 @@ if (!defined('CP_LIB')) {
             case 'cuentas':            cuentas_imputables(); break;
             case 'centros_costo':      centros_costo(); break;
             case 'guardar':            guardar(); break;
+            case 'anular':             anular(); break;
             default: fail('Acción inválida: ' . $action);
         }
     } catch (Exception $e) { fail($e->getMessage(), 500); }
@@ -218,5 +219,20 @@ function guardar() {
     } catch (Exception $e) {
         db_rollback();
         fail('No se pudo grabar el comprobante a pagar: ' . $e->getMessage(), 500);
+    }
+}
+
+/** Anula un CP (admin · no tiene CAE → siempre anulable · transacción · revierte asiento/cta cte/vencimientos). */
+function anular() {
+    require_once __DIR__ . '/../../includes/comprobante_anular.php';
+    $num = isset($_POST['nummov']) ? (int) $_POST['nummov'] : 0;
+    try {
+        anular_check($num, 310, 'Comprobante a pagar');
+        db_begin();
+        try { anular_comprobante($num, 310); db_commit(); }
+        catch (Exception $e) { db_rollback(); throw $e; }
+        ok(array('anulado' => $num));
+    } catch (Exception $e) {
+        fail('No se pudo anular el comprobante: ' . $e->getMessage(), 400);
     }
 }

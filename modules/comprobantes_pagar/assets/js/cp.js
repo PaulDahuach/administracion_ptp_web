@@ -25,6 +25,7 @@ const CP = {
         ['netmov', 'alimov', 'nogmov'].forEach(function (id) { CP.el(id).addEventListener('input', function () { CP.recalc(); }); });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.el('btnGrabar').addEventListener('click', function () { CP.grabar(); });
+        this.el('btnAnularHdr').addEventListener('click', function () { if (CP.anulNum) CP.anular(CP.anulNum); });
         this.recalc();
     },
 
@@ -79,7 +80,17 @@ const CP = {
         this.el('nummov').value = String(j.data.nummov).padStart(8, '0');
         this.el('cinmov').value = String(j.data.cinmov).padStart(8, '0');
         Array.prototype.forEach.call(document.querySelectorAll('#cpForm input, #cpForm select'), function (el) { el.disabled = true; });
+        if (j.data.anulable) { this.anulNum = j.data.nummov; this.el('btnAnularHdr').style.display = ''; }
         this.toast('Comprobante a pagar grabado: Nº ' + String(j.data.cinmov).padStart(8, '0') + ' (mov ' + j.data.nummov + ', total ' + this.n(j.data.total) + ').', 'success');
+    },
+
+    async anular(num) {
+        if (!confirm('¿Anular este comprobante a pagar?\nSe revierten el asiento contable, la cuenta corriente del proveedor y los vencimientos. No se puede deshacer.')) return;
+        var fd = new FormData(); fd.append('action', 'anular'); fd.append('nummov', num);
+        var j = await this.api('anular', {}, { method: 'POST', body: fd });
+        if (!j.ok) { this.toast(j.error, 'danger'); return; }
+        this.el('btnAnularHdr').style.display = 'none';
+        this.toast('Comprobante a pagar ' + num + ' anulado.', 'success');
     },
 
     autocomplete(input, list, action, label, onPick) {
