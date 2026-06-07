@@ -1,10 +1,11 @@
 /* Comprobantes a Pagar (acreedores) — registrar la factura del proveedor. Proveedor → comprobante del
-   proveedor → neto/IVA → imputación contable (Debe, multi-fila) → vencimientos (multi-fila) → grabar.
-   Sin productos/stock (v1). */
+   proveedor → neto/IVA → imputación (Debe, multi-fila) → vencimientos (multi-fila) → grabar.
+   Productos con costo en pesos o u$s (cotización), factor, lista, flete, "act. precio venta"; remitos del proveedor. */
 const CP = {
     prov: null, grabado: false, totales: { neto: 0, iva: 0, nog: 0, ali: 21, total: 0 },
-    imps: [], vtos: [], productos: [], centros: {}, impSel: null, prodSel: null,
+    imps: [], vtos: [], productos: [], remPend: [], centros: {}, impSel: null, prodSel: null,
     ivaCta() { return document.getElementById('cpForm').getAttribute('data-ivacta') || ''; },
+    cotmov() { return parseFloat(this.el('cotmov').value) || 1; },
 
     el(id) { return document.getElementById(id); },
     esc(s) { if (s == null) return ''; var d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; },
@@ -24,17 +25,30 @@ const CP = {
         if (cc.ok) { this.el('impCdc').innerHTML = cc.data.map(function (o) { CP.centros[o.CODCDC] = (o.DENCDC || '').trim(); return '<option value="' + o.CODCDC + '">' + CP.esc(o.DENCDC) + '</option>'; }).join(''); }
         this.autocomplete(this.el('provQ'), this.el('provList'), 'buscar_proveedores', function (o) { return o.CODCUE + ' · ' + o.DENCUE + (o.CITCUE ? ' · ' + o.CITCUE : ''); }, function (o) { CP.pickProv(o.CODCUE); });
         this.autocomplete(this.el('impCtaQ'), this.el('impCtaList'), 'cuentas', function (o) { return o.CODCUE + ' · ' + o.DENCUE; }, function (o) { CP.impSel = { codcue: o.CODCUE, label: o.CODCUE + ' · ' + (o.DENCUE || '').trim() }; CP.el('impCta').value = o.CODCUE; CP.el('impCtaQ').value = CP.impSel.label; });
+        this.autocomplete(this.el('prodQ'), this.el('prodList'), 'productos', function (o) { return o.CODPRO + ' · ' + o.DENPRO; }, function (o) {
+            CP.prodSel = { codpro: o.CODPRO, denpro: (o.DENPRO || '').trim(), codudm: o.CODUDM, codmon: (o.CODMON || 'P').trim() };
+            CP.el('prodCod').value = o.CODPRO; CP.el('prodQ').value = o.CODPRO + ' · ' + (o.DENPRO || '').trim();
+            CP.el('prodMon').value = CP.prodSel.codmon; CP.el('prodCos').value = o.COSPRO || ''; CP.el('prodLis').value = o.PLCPRO || '';
+            if (CP.prodSel.codmon === 'D' && o.COTPRO > 0 && CP.cotmov() <= 1) CP.el('cotmov').value = o.COTPRO;
+            CP.monLabels();
+        });
         ['netmov', 'alimov', 'nogmov'].forEach(function (id) { CP.el(id).addEventListener('input', function () { CP.recalc(); }); });
+        this.el('cotmov').addEventListener('input', function () { CP.recalc(); });
+        this.el('prodMon').addEventListener('change', function () { CP.monLabels(); });
         this.el('btnAddImp').addEventListener('click', function () { CP.addImp(); });
         this.el('btnSugIva').addEventListener('click', function () { CP.sugerirIva(); });
         this.el('btnAddVto').addEventListener('click', function () { CP.addVto(); });
         this.el('conProd').addEventListener('change', function () { CP.toggleProd(); });
         this.el('btnAddProd').addEventListener('click', function () { CP.addProd(); });
-        this.autocomplete(this.el('prodQ'), this.el('prodList'), 'productos', function (o) { return o.CODPRO + ' · ' + o.DENPRO; }, function (o) { CP.prodSel = { codpro: o.CODPRO, denpro: (o.DENPRO || '').trim(), cospro: o.COSPRO, codudm: o.CODUDM, codmon: o.CODMON }; CP.el('prodCod').value = o.CODPRO; CP.el('prodQ').value = o.CODPRO + ' · ' + (o.DENPRO || '').trim(); CP.el('prodCos').value = o.COSPRO || ''; });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.el('btnGrabar').addEventListener('click', function () { CP.grabar(); });
         this.el('btnAnularHdr').addEventListener('click', function () { if (CP.anulNum) CP.anular(CP.anulNum); });
         this.recalc();
+    },
+    monLabels() {
+        var m = this.el('prodMon').value;
+        this.el('lblCos').textContent = m === 'D' ? 'Costo u$s' : 'Costo $';
+        this.el('lblLis').textContent = m === 'D' ? 'Lista u$s' : 'Lista $';
     },
 
     async pickProv(codcue) {
@@ -44,6 +58,9 @@ const CP = {
         this.el('codcue').value = codcue; this.el('provQ').value = d.DENCUE;
         this.el('saldo').value = this.n(d.SALDO);
         this.el('provInfo').textContent = [d.CITCUE, d.DENCRI, d.DOMICILIO, d.LOCALIDAD].filter(Boolean).join(' · ');
+        var r = await this.api('remitos_pendientes', { codcue: codcue });
+        this.remPend = (r.ok && r.data) ? r.data : [];
+        this.renderRemitos();
     },
 
     recalc() {
@@ -56,6 +73,7 @@ const CP = {
         this.totales = { neto: neto, iva: iva, nog: nog, ali: ali, total: total };
         this.el('tNeto').textContent = this.n(neto); this.el('tIva').textContent = this.n(iva); this.el('tNog').textContent = this.n(nog); this.el('tTotal').textContent = this.n(total);
         this.el('impTot').textContent = this.n(total); this.el('vtoTot').textContent = this.n(total);
+        if (conProd) this.renderProds();
         this.refresh();
     },
     impSum() { return Math.round(this.imps.reduce(function (s, i) { return s + i.debmov; }, 0) * 100) / 100; },
@@ -118,24 +136,44 @@ const CP = {
         if (!on) { this.productos = []; this.renderProds(); }
         this.recalc();
     },
-    prodNet(p) { return Math.round(p.cant * p.cos * (1 - p.bon / 100) * 100) / 100; },
+    costoPesos(p) { return (p.codmon === 'P') ? p.cos : Math.round(p.cos * this.cotmov() * 10000) / 10000; },   // costo unitario en $
+    prodNet(p) { return Math.round(p.cant * this.costoPesos(p) * (1 - p.bon / 100) * 100) / 100; },
     prodSum() { return Math.round(this.productos.reduce(function (s, p) { return s + CP.prodNet(p); }, 0) * 100) / 100; },
     addProd() {
         if (!this.prodSel) { this.toast('Elegí un producto.', 'warning'); return; }
-        var cant = this.r2(this.el('prodCant').value), cos = parseFloat(this.el('prodCos').value) || 0, bon = this.r2(this.el('prodBon').value);
+        var cant = this.r2(this.el('prodCant').value), cos = parseFloat(this.el('prodCos').value) || 0;
         if (cant <= 0 || cos <= 0) { this.toast('Poné cantidad y costo.', 'warning'); return; }
-        this.productos.push({ codpro: this.prodSel.codpro, denpro: this.prodSel.denpro, cant: cant, cos: cos, bon: bon, stk: this.el('prodStk').checked, codudm: this.prodSel.codudm, codmon: this.prodSel.codmon });
-        this.prodSel = null; this.el('prodCod').value = ''; this.el('prodQ').value = ''; this.el('prodCant').value = ''; this.el('prodCos').value = '';
+        this.productos.push({
+            codpro: this.prodSel.codpro, denpro: this.prodSel.denpro, codudm: this.prodSel.codudm,
+            codmon: this.el('prodMon').value, cant: cant, cos: cos,
+            lis: parseFloat(this.el('prodLis').value) || 0, fct: parseFloat(this.el('prodFct').value) || 1,
+            bon: this.r2(this.el('prodBon').value), flt: parseFloat(this.el('prodFlt').value) || 0,
+            stk: this.el('prodStk').checked, apv: this.el('prodApv').checked
+        });
+        this.prodSel = null; this.el('prodCod').value = ''; this.el('prodQ').value = '';
+        this.el('prodCant').value = ''; this.el('prodCos').value = ''; this.el('prodLis').value = '0'; this.el('prodFct').value = '1'; this.el('prodBon').value = '0'; this.el('prodFlt').value = '0';
         this.renderProds(); this.recalc();
     },
     renderProds() {
         this.el('prodBody').innerHTML = this.productos.map(function (p, k) {
-            return '<tr><td>' + CP.esc(p.codpro + ' · ' + p.denpro) + '</td><td class="cp-num">' + CP.n(p.cant) + '</td><td class="cp-num">' + CP.n(p.cos) + '</td><td class="cp-num">' + CP.n(p.bon) + '</td>' +
-                '<td>' + (p.stk ? '<i class="bi bi-check-lg text-success"></i>' : '—') + '</td><td class="cp-num">' + CP.n(CP.prodNet(p)) + '</td>' +
+            return '<tr><td>' + CP.esc(p.codpro + ' · ' + p.denpro) + '</td><td>' + (p.codmon === 'D' ? 'u$s' : '$') + '</td>' +
+                '<td class="cp-num">' + CP.n(p.cant) + '</td><td class="cp-num">' + CP.n(p.cos) + '</td><td class="cp-num">' + CP.n(CP.costoPesos(p)) + '</td>' +
+                '<td class="cp-num">' + CP.n(p.bon) + '</td><td>' + (p.stk ? '<i class="bi bi-check-lg text-success"></i>' : '—') + '</td><td class="cp-num">' + CP.n(CP.prodNet(p)) + '</td>' +
                 '<td><button type="button" class="btn btn-sm btn-outline-danger p-del" data-k="' + k + '"><i class="bi bi-x"></i></button></td></tr>';
         }).join('');
         Array.prototype.forEach.call(this.el('prodBody').querySelectorAll('.p-del'), function (b) { b.addEventListener('click', function () { CP.productos.splice(+this.getAttribute('data-k'), 1); CP.renderProds(); CP.recalc(); }); });
     },
+
+    // ---- Remitos del proveedor ----
+    renderRemitos() {
+        if (!this.remPend.length) { this.el('cardRem').style.display = 'none'; this.el('remList').innerHTML = ''; return; }
+        this.el('cardRem').style.display = '';
+        this.el('remList').innerHTML = this.remPend.map(function (r, k) {
+            return '<div class="form-check"><input class="form-check-input rem-chk" type="checkbox" id="rem' + k + '" value="' + r.NUMMOV + '">' +
+                '<label class="form-check-label" for="rem' + k + '"><b>' + CP.esc(r.FECHA) + ' · Nº ' + CP.esc(r.NUMERO) + '</b> — ' + CP.esc(r.PRODUCTOS) + '</label></div>';
+        }).join('');
+    },
+    selectedRemitos() { return Array.prototype.slice.call(document.querySelectorAll('.rem-chk:checked')).map(function (c) { return parseInt(c.value, 10); }); },
 
     async grabar() {
         this.el('cpErr').textContent = '';
@@ -151,11 +189,12 @@ const CP = {
         var data = {
             codcue: this.el('codcue').value, fexmov: this.el('fexmov').value, codcat: conProd ? 1 : 2, detmov: this.el('detmov').value,
             cec: this.el('cec').value, cei: this.el('cei').value, cep: this.el('cep').value, cen: this.el('cen').value, cef: this.el('cef').value,
-            citmov: p.CITCUE, codcri: p.CODCRI, nogmov: t.nog, total: t.total,
+            citmov: p.CITCUE, codcri: p.CODCRI, cotmov: this.cotmov(), nogmov: t.nog, total: t.total,
             ivas: t.neto > 0 ? [{ net: t.neto, ali: t.ali, iva: t.iva }] : [],
             imputaciones: this.imps.map(function (i) { return { codcue: i.codcue, codcdc: i.codcdc, debmov: i.debmov }; }),
             vencimientos: this.vtos.map(function (v) { return { fvxmov: v.fvxmov, detmov: '', cremov: v.cremov }; }),
-            productos: conProd ? this.productos.map(function (p) { return { codpro: p.codpro, denmov: p.denpro, ingmov: p.cant, punmov: p.cos, bonmov: p.bon, stkmov: p.stk ? 1 : 0, codmon: p.codmon, codudm: p.codudm, fctmov: 1 }; }) : []
+            productos: conProd ? this.productos.map(function (p) { return { codpro: p.codpro, denmov: p.denpro, codmon: p.codmon, ingmov: p.cant, cosmov: p.cos, pulmov: p.lis, fctmov: p.fct, bonmov: p.bon, fltmov: p.flt, apvmov: p.apv ? 1 : 0, stkmov: p.stk ? 1 : 0, codudm: p.codudm }; }) : [],
+            remitos: this.selectedRemitos()
         };
         this.el('btnGrabar').disabled = true; this.el('btnGrabar').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Grabando…';
         var fd = new FormData(); fd.append('action', 'guardar'); fd.append('data', JSON.stringify(data));
@@ -164,13 +203,13 @@ const CP = {
         if (!j.ok) { this.el('btnGrabar').disabled = false; this.el('cpErr').textContent = j.error; return; }
         this.grabado = true;
         this.el('nummov').value = String(j.data.nummov).padStart(8, '0'); this.el('cinmov').value = String(j.data.cinmov).padStart(8, '0');
-        Array.prototype.forEach.call(document.querySelectorAll('#cpForm input, #cpForm select, #cpForm button.btn-outline-primary, #cpForm button.btn-outline-secondary, .i-del, .v-del'), function (el) { el.disabled = true; });
+        Array.prototype.forEach.call(document.querySelectorAll('#cpForm input, #cpForm select, #cpForm button.btn-outline-primary, #cpForm button.btn-outline-secondary, .i-del, .v-del, .p-del'), function (el) { el.disabled = true; });
         if (j.data.anulable) { this.anulNum = j.data.nummov; this.el('btnAnularHdr').style.display = ''; }
         this.toast('Comprobante a pagar grabado: Nº ' + String(j.data.cinmov).padStart(8, '0') + ' (mov ' + j.data.nummov + ', total ' + this.n(j.data.total) + ').', 'success');
     },
 
     async anular(num) {
-        if (!confirm('¿Anular este comprobante a pagar?\nSe revierten el asiento contable, la cuenta corriente del proveedor y los vencimientos. No se puede deshacer.')) return;
+        if (!confirm('¿Anular este comprobante a pagar?\nSe revierten el asiento contable, la cuenta corriente del proveedor, los vencimientos, el stock y los remitos. No se puede deshacer.')) return;
         var fd = new FormData(); fd.append('action', 'anular'); fd.append('nummov', num);
         var j = await this.api('anular', {}, { method: 'POST', body: fd });
         if (!j.ok) { this.toast(j.error, 'danger'); return; }

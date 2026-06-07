@@ -77,7 +77,7 @@ function buscar_productos() {
     $q = isset($_GET['q']) ? trim($_GET['q']) : '';
     if (strlen($q) < 1) { ok(array()); return; }
     $s = db_esc($q);
-    ok(db_query("SELECT TOP 20 CODPRO, DENPRO, COSPRO, CODUDM, CODMON FROM [Tbl Productos] WHERE DENPRO Is Not Null AND ((DENPRO Like '%$s%') OR (CODPRO Like '$s%')) ORDER BY DENPRO;"));
+    ok(db_query("SELECT TOP 20 CODPRO, DENPRO, COSPRO, PLCPRO, COTPRO, CODUDM, CODMON FROM [Tbl Productos] WHERE DENPRO Is Not Null AND ((DENPRO Like '%$s%') OR (CODPRO Like '$s%')) ORDER BY DENPRO;"));
 }
 
 /** Remitos de proveedor (CODOPE=300) pendientes de facturar (con líneas de stock sin marcar, ECCMOV null) para un proveedor. */

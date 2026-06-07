@@ -51,6 +51,7 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
       <div class="col-auto" style="width:90px"><input type="number" id="cep" class="form-control cp-num" placeholder="PDV" value="0"></div>
       <div class="col-auto" style="width:130px"><input type="number" id="cen" class="form-control cp-num" placeholder="Número"></div>
       <div class="col-auto" style="width:150px"><input type="date" id="cef" class="form-control" title="Fecha del comprobante"></div>
+      <div class="col-auto" style="width:120px"><input type="number" step="0.0001" id="cotmov" class="form-control cp-num" value="1" title="Cotización u$s (para productos en dólares)" placeholder="Cotiz. u$s"></div>
       <div class="col"><input id="detmov" class="form-control" placeholder="Detalle (opcional)"></div>
     </div>
   </div></div>
@@ -70,17 +71,28 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
     <div class="card-header"><i class="bi bi-box-seam me-1"></i>Productos (entra a stock) <span class="small text-muted">— el neto gravado sale de estas líneas</span></div>
     <div class="card-body">
       <div class="row g-2 align-items-end mb-2">
-        <div class="col"><label class="form-label mb-1 small">Producto</label>
+        <div class="col" style="min-width:190px"><label class="form-label mb-1 small">Producto</label>
           <div class="ac-box"><input type="text" id="prodQ" class="form-control form-control-sm" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="prodList"></div></div>
           <input type="hidden" id="prodCod"></div>
-        <div class="col-auto" style="width:110px"><label class="form-label mb-1 small">Cantidad</label><input type="number" step="0.01" id="prodCant" class="form-control form-control-sm cp-num"></div>
-        <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">Costo $</label><input type="number" step="0.0001" id="prodCos" class="form-control form-control-sm cp-num"></div>
-        <div class="col-auto" style="width:95px"><label class="form-label mb-1 small">Bonif %</label><input type="number" step="0.01" id="prodBon" class="form-control form-control-sm cp-num" value="0"></div>
+        <div class="col-auto" style="width:76px"><label class="form-label mb-1 small">Moneda</label><select id="prodMon" class="form-select form-select-sm"><option value="P">$</option><option value="D">u$s</option></select></div>
+        <div class="col-auto" style="width:90px"><label class="form-label mb-1 small">Cantidad</label><input type="number" step="0.01" id="prodCant" class="form-control form-control-sm cp-num"></div>
+        <div class="col-auto" style="width:105px"><label class="form-label mb-1 small" id="lblCos">Costo $</label><input type="number" step="0.0001" id="prodCos" class="form-control form-control-sm cp-num"></div>
+        <div class="col-auto" style="width:100px"><label class="form-label mb-1 small" id="lblLis">Lista $</label><input type="number" step="0.0001" id="prodLis" class="form-control form-control-sm cp-num" value="0"></div>
+        <div class="col-auto" style="width:72px"><label class="form-label mb-1 small">Factor</label><input type="number" step="0.0001" id="prodFct" class="form-control form-control-sm cp-num" value="1"></div>
+        <div class="col-auto" style="width:72px"><label class="form-label mb-1 small">Bonif %</label><input type="number" step="0.01" id="prodBon" class="form-control form-control-sm cp-num" value="0"></div>
+        <div class="col-auto" style="width:88px"><label class="form-label mb-1 small">Flete</label><input type="number" step="0.0001" id="prodFlt" class="form-control form-control-sm cp-num" value="0"></div>
         <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="prodStk" checked><label class="form-check-label small" for="prodStk">Stock</label></div></div>
-        <div class="col-auto"><button type="button" id="btnAddProd" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Agregar</button></div>
+        <div class="col-auto"><div class="form-check mt-3"><input class="form-check-input" type="checkbox" id="prodApv"><label class="form-check-label small" for="prodApv" title="Actualizar el precio de venta manteniendo el margen">Act.P.Vta</label></div></div>
+        <div class="col-auto"><button type="button" id="btnAddProd" class="btn btn-sm btn-outline-primary mt-3"><i class="bi bi-plus-lg"></i></button></div>
       </div>
-      <table class="table table-sm mb-0"><thead><tr><th>Producto</th><th class="cp-num" style="width:90px">Cant</th><th class="cp-num" style="width:110px">Costo $</th><th class="cp-num" style="width:80px">Bonif</th><th style="width:60px">Stock</th><th class="cp-num" style="width:130px">Neto</th><th style="width:36px"></th></tr></thead><tbody id="prodBody"></tbody></table>
+      <table class="table table-sm mb-0"><thead><tr><th>Producto</th><th>Mon</th><th class="cp-num" style="width:78px">Cant</th><th class="cp-num" style="width:95px">Costo</th><th class="cp-num" style="width:100px">Costo $</th><th class="cp-num" style="width:65px">Bonif</th><th style="width:46px">Stk</th><th class="cp-num" style="width:115px">Neto</th><th style="width:32px"></th></tr></thead><tbody id="prodBody"></tbody></table>
     </div>
+  </div>
+
+  <!-- Remitos del proveedor pendientes de facturar -->
+  <div class="card fc-card mb-2" id="cardRem" style="display:none">
+    <div class="card-header"><i class="bi bi-truck me-1"></i>Remitos del proveedor pendientes <span class="small text-muted">— tildá los que factura este comprobante (descomprometen stock)</span></div>
+    <div class="card-body"><div id="remList" class="small"></div></div>
   </div>
 
   <!-- Imputación contable (Debe) — multi-fila -->
@@ -133,5 +145,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=4"></script>
+<script src="assets/js/cp.js?v=5"></script>
 '); ?>
