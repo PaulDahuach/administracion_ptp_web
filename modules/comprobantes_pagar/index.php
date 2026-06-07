@@ -149,7 +149,7 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
       <div class="card fc-card mb-2" id="cardAnt" style="display:none">
         <div class="card-header"><i class="bi bi-cash-coin me-1"></i>Anticipos / Acreditaciones <span class="small text-muted">— baja de vencimientos</span></div>
         <div class="card-body">
-          <table class="table table-sm mb-0"><thead><tr><th>Com</th><th>Número</th><th>Fecha</th><th class="cp-num">Saldo</th><th class="cp-num" style="width:96px">A debitar</th></tr></thead><tbody id="antBody"></tbody></table>
+          <table class="table table-sm mb-0"><thead><tr><th>Com</th><th>Número</th><th class="cp-num">Saldo</th><th class="cp-num" style="width:118px">A debitar</th></tr></thead><tbody id="antBody"></tbody></table>
           <div class="small text-muted mt-1">Aplicado: <b id="antSum" class="cp-num">0.00</b></div>
         </div>
       </div>
@@ -218,13 +218,6 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
     </div>
   </div>
 
-  <div class="card fc-card"><div class="card-body tot-bar">
-    <div class="t"><div class="lbl">Neto</div><div class="val" id="tNeto">0.00</div></div>
-    <div class="t"><div class="lbl">I.V.A.</div><div class="val" id="tIva">0.00</div></div>
-    <div class="t"><div class="lbl">No gravado</div><div class="val" id="tNog">0.00</div></div>
-    <div class="t"><div class="lbl">Percepciones</div><div class="val" id="tPerc">0.00</div></div>
-    <div class="t" style="background:var(--fc-primary);color:#fff"><div class="lbl" style="color:#fff">Total a Pagar</div><div class="val" id="tTotal">0.00</div></div>
-  </div></div>
   <div class="text-danger small mt-2" id="cpErr"></div>
 </div>
 
@@ -233,5 +226,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=12"></script>
+<script src="assets/js/cp.js?v=13"></script>
 '); ?>

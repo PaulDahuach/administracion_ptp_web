@@ -116,7 +116,6 @@ const CP = {
         this.el('totReset').classList.toggle('d-none', !this.totManual);
         this.el('irimov').value = this.n(iva1); this.el('iri2mov').value = this.n(iva2);
         this.totales = { neto1: neto1, ali1: ali1, iva1: iva1, neto2: neto2, ali2: ali2, iva2: iva2, neto: neto, iva: iva, nog: nog, ip1: ip1, ip2: ip2, ap1: this.r2(this.el('ap1mov').value), ap2: this.r2(this.el('ap2mov').value), perc: perc, compTotal: compTotal, total: total };
-        this.el('tNeto').textContent = this.n(neto); this.el('tIva').textContent = this.n(iva); this.el('tNog').textContent = this.n(nog); this.el('tPerc').textContent = this.n(perc); this.el('tTotal').textContent = this.n(total);
         this.el('impTot').textContent = this.n(total); this.el('vtoTot').textContent = this.n(total);
         if (conProd) this.renderProds();
         this.refresh();
@@ -251,9 +250,9 @@ const CP = {
         if (!this.antPend.length) { this.el('cardAnt').style.display = 'none'; this.el('antBody').innerHTML = ''; return; }
         this.el('cardAnt').style.display = '';
         this.el('antBody').innerHTML = this.antPend.map(function (a, k) {
-            return '<tr><td>' + CP.esc(a.COM) + '</td><td>' + CP.esc(a.NUMERO) + '</td><td>' + CP.esc(a.FECHA) + '</td>' +
+            return '<tr><td>' + CP.esc(a.COM) + '</td><td title="' + CP.esc(a.FECHA) + '">' + CP.esc(a.NUMERO) + '</td>' +
                 '<td class="cp-num">' + CP.n(a.SALDO) + '</td>' +
-                '<td><input type="number" step="0.01" class="form-control form-control-sm cp-num ant-imp" data-k="' + k + '" data-max="' + a.SALDO + '" value="0"></td></tr>';
+                '<td><input type="number" step="0.01" class="form-control form-control-sm cp-num ant-imp" style="width:100%" data-k="' + k + '" data-max="' + a.SALDO + '" value="0"></td></tr>';
         }).join('');
         Array.prototype.forEach.call(this.el('antBody').querySelectorAll('.ant-imp'), function (inp) {
             inp.addEventListener('input', function () {
