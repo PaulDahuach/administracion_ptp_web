@@ -120,5 +120,5 @@ module_head('Facturas de Venta — Deudores', 'bi-receipt', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/facturas.js?v=8"></script>
+<script src="assets/js/facturas.js?v=9"></script>
 '); ?>
