@@ -222,7 +222,8 @@ var AS = {
             codcdc: parseInt(this.el('asCdc').value, 10) || 1, centro: opt ? opt.textContent : '',
             debe: deb, cre: cre, chq: chq, cheque: chq ? chq.disp : ''
         });
-        if (this.chqMode === 'terceros' && cre > 0 && this.depCue && this.el('asMod').value === '4') {   // Depósito Valores (CODMOD=4): cheque al Haber → banco al Debe
+        var depMod = this.el('asMod').value;   // Depósito Bancario: Valores (4, cheque al Haber) / Efectivo (3, importe al Haber) → banco al Debe
+        if (cre > 0 && this.depCue && ((depMod === '4' && this.chqMode === 'terceros') || depMod === '3')) {
             this.lineas.push({ codcue: this.depCue, cuenta: this.depCueLabel, codcdc: 1, centro: 'ADMINISTRACION', debe: cre, cre: 0, chq: null, cheque: 'depósito al banco' });
         }
         this.cuentaSel = null; this.el('asCta').value = ''; this.el('asCtaQ').value = '';
