@@ -97,6 +97,22 @@ function guardar() {
     if (round($totDeb, 2) <= 0) { fail('El asiento está en cero'); return; }
     if (abs(round($totDeb - $totCre, 2)) > 0.009) { fail('El asiento no cuadra: Debe ' . number_format($totDeb, 2) . ' ≠ Haber ' . number_format($totCre, 2)); return; }
 
+    // FASE 1 (candado de seguridad): rechazar imputaciones a cuentas de cheque/banco — valores a depositar
+    // (CACC_2), cuentas bancarias (CACC_3) y cheques diferidos (CACC_V). Esas cuentas mueven la cartera de
+    // cheques (Tbl Cheques: alta/depósito/emisión/diferidos), que es el subsistema de la FASE 2. Grabar el
+    // asiento sin tocar Tbl Cheques dejaría la cartera/conciliación inconsistente.
+    $rc = db_row("SELECT CACC_2, CACC_3, CACC_V FROM [Rec Control];");
+    $pref = array();
+    foreach (array('CACC_2', 'CACC_3', 'CACC_V') as $k) { $p = trim((string) nz($rc[$k], '')); if ($p !== '') $pref[] = $p; }
+    foreach ($val as $l) {
+        foreach ($pref as $p) {
+            if (strpos($l['codcue'], $p) === 0) {
+                fail('La cuenta ' . $l['codcue'] . ' es de cheques/banco: la carga simple de asientos (Fase 1) todavía no mueve la cartera de cheques. Esa operación es de la Fase 2.');
+                return;
+            }
+        }
+    }
+
     $modo = auth_modo();
     $estTrue = ($modo !== 'capacitacion');
     $estSql  = $estTrue ? 'True' : 'False';
