@@ -24,6 +24,7 @@ var AS = {
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.vadPref = this.el('asForm').getAttribute('data-vadpref') || '';
         this.bankPref = this.el('asForm').getAttribute('data-bankpref') || '';
+        this.difPref = this.el('asForm').getAttribute('data-difpref') || '';
         this.el('chqSyn').addEventListener('change', function () { AS.chequeLookup(); });
         this.el('chqBan').addEventListener('change', function () { AS.chequeLookup(); });
         this.renderImps();
@@ -34,6 +35,7 @@ var AS = {
         this.el('asCta').value = o.CODCUE; this.el('asCtaQ').value = this.cuentaSel.label;
         var cc = String(o.CODCUE);
         if (this.vadPref !== '' && cc.indexOf(this.vadPref) === 0) { this.setChequeMode('terceros'); this.el('chqBan').focus(); }
+        else if (this.difPref !== '' && cc.indexOf(this.difPref) === 0) { this.setChequeMode('diferido', cc); this.el('chqSyn').focus(); }
         else if (this.bankPref !== '' && cc.indexOf(this.bankPref) === 0) { this.setChequeMode('propio', cc); this.el('chqSyn').focus(); }
         else { this.setChequeMode(null); this.el('asDebe').focus(); }
     },
@@ -46,9 +48,12 @@ var AS = {
         this.el('chqColBan').style.display = ter ? '' : 'none';
         this.el('chqColBanInfo').style.display = ter ? 'none' : '';
         ['chqColPlz', 'chqColLib', 'chqColCit', 'chqColLoc'].forEach(function (id) { AS.el(id).style.display = ter ? '' : 'none'; });
-        this.el('chqRowLabel').innerHTML = ter
-            ? '<i class="bi bi-bank me-1"></i>Cheque de tercero — tipeá banco + número; si está en cartera se autocarga (depósito), sino cargá los datos (alta)'
-            : '<i class="bi bi-bank me-1"></i>Cheque propio — el banco es el de la cuenta; cargá número + fechas + el importe en Haber';
+        var labels = {
+            terceros: '<i class="bi bi-bank me-1"></i>Cheque de tercero — tipeá banco + número; si está en cartera se autocarga (depósito), sino cargá los datos (alta)',
+            propio: '<i class="bi bi-bank me-1"></i>Cheque propio — el banco es el de la cuenta; cargá número + fechas + el importe en Haber',
+            diferido: '<i class="bi bi-bank me-1"></i>Cheque diferido (posdatado) — el banco es el de la cuenta; emisión (importe en Haber) o vencimiento (Debe)'
+        };
+        this.el('chqRowLabel').innerHTML = labels[mode] || labels.propio;
         this.chqBancoSel = null;
         if (!ter && codcue) {
             this.el('chqBanInfo').textContent = '…';
@@ -60,6 +65,7 @@ var AS = {
     },
     chequeLookup: function () {
         if (this.chqMode === 'propio') { this.chequePropioCheck(); return; }
+        if (this.chqMode === 'diferido') { this.chequeDiferidoCheck(); return; }
         var ban = this.el('chqBan').value, syn = this.el('chqSyn').value.trim();
         var est = this.el('chqEstado');
         if (!ban || !syn) { est.style.display = 'none'; return; }
@@ -87,6 +93,17 @@ var AS = {
             else { est.textContent = 'Cheque propio nuevo'; est.className = 'badge bg-info text-dark mt-3'; est.style.display = ''; }
         });
     },
+    chequeDiferidoCheck: function () {
+        var syn = this.el('chqSyn').value.trim();
+        var est = this.el('chqEstado');
+        if (!syn || !this.chqBancoSel) { est.style.display = 'none'; return; }
+        this.api('cheque_lookup', { codban: this.chqBancoSel.codban, syn: syn }).then(function (j) {
+            if (j.ok && j.data) {
+                if (j.data.diferido) { AS.el('asDebe').value = j.data.imp; AS.el('asHaber').value = ''; est.textContent = 'Vencimiento — diferido ($' + AS.n(j.data.imp) + ', va al Debe)'; est.className = 'badge bg-warning text-dark mt-3'; est.style.display = ''; }
+                else { AS.toast('Ese cheque ya existe y no está diferido.', 'warning'); est.textContent = 'Ya existe — no diferido'; est.className = 'badge bg-danger mt-3'; est.style.display = ''; }
+            } else { est.textContent = 'Emisión — cheque diferido nuevo (importe en Haber)'; est.className = 'badge bg-info text-dark mt-3'; est.style.display = ''; }
+        });
+    },
     resetCheque: function () {
         var today = new Date().toISOString().slice(0, 10);
         this.el('chqBan').value = ''; this.el('chqSyn').value = '';
@@ -105,11 +122,12 @@ var AS = {
         var chq = null;
         if (esChq) {
             var syn = this.el('chqSyn').value.trim();
-            if (this.chqMode === 'propio') {
-                if (!syn) { this.toast('Cargá el número del cheque propio.', 'warning'); return; }
-                if (cre <= 0) { this.toast('El cheque propio es un pago: va al Haber.', 'warning'); return; }
+            if (this.chqMode === 'propio' || this.chqMode === 'diferido') {
+                if (!syn) { this.toast('Cargá el número del cheque.', 'warning'); return; }
+                if (this.chqMode === 'propio' && cre <= 0) { this.toast('El cheque propio es un pago: va al Haber.', 'warning'); return; }
                 var bn = this.chqBancoSel ? (this.chqBancoSel.denban || ('Banco ' + this.chqBancoSel.codban)) : '';
-                chq = { codban: this.chqBancoSel ? this.chqBancoSel.codban : 0, syn: syn, fde: this.el('chqFde').value, plz: 0, fda: this.el('chqFda').value, lib: '', cit: '', loc: '', disp: bn + ' Nº ' + syn + ' (propio)' };
+                var tag = this.chqMode === 'diferido' ? ' (diferido)' : ' (propio)';
+                chq = { codban: this.chqBancoSel ? this.chqBancoSel.codban : 0, syn: syn, fde: this.el('chqFde').value, plz: 0, fda: this.el('chqFda').value, lib: '', cit: '', loc: '', disp: bn + ' Nº ' + syn + tag };
             } else {
                 var ban = this.el('chqBan').value;
                 if (!ban || !syn) { this.toast('Elegí el banco y el número del cheque.', 'warning'); return; }

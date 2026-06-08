@@ -19,9 +19,10 @@ foreach (db_query("SELECT CODCDC, DENCDC FROM [Tbl Centros de Costo] ORDER BY DE
 $banOpts = '<option value="">— banco —</option>';
 foreach (db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos] ORDER BY DENBAN;") as $b)
     $banOpts .= '<option value="' . (int) $b['CODBAN'] . '">' . htmlspecialchars(trim((string) nz($b['DENBAN'], ''))) . '</option>';
-$_rc = db_row("SELECT CACC_2, CACC_3 FROM [Rec Control];");
+$_rc = db_row("SELECT CACC_2, CACC_3, CACC_V FROM [Rec Control];");
 $vadPref  = trim((string) nz($_rc['CACC_2'], ''));   // prefijo "valores a depositar" (cheques de terceros)
 $bankPref = trim((string) nz($_rc['CACC_3'], ''));   // prefijo cuentas bancarias (cheque propio)
+$difPref  = trim((string) nz($_rc['CACC_V'], ''));   // prefijo cuentas posdatados (cheque diferido)
 
 $capa = (auth_modo() === 'capacitacion');
 $btnLbl = $capa ? '<i class="bi bi-mortarboard me-1"></i>Grabar asiento (capacitación)' : '<i class="bi bi-save me-1"></i>Grabar asiento';
@@ -43,7 +44,7 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
 </style>
 
 <div id="roBanner" class="alert alert-info py-1 px-2 small mb-2" style="display:none"></div>
-<div class="fc-form" id="asForm" data-vadpref="<?= htmlspecialchars($vadPref, ENT_QUOTES) ?>" data-bankpref="<?= htmlspecialchars($bankPref, ENT_QUOTES) ?>">
+<div class="fc-form" id="asForm" data-vadpref="<?= htmlspecialchars($vadPref, ENT_QUOTES) ?>" data-bankpref="<?= htmlspecialchars($bankPref, ENT_QUOTES) ?>" data-difpref="<?= htmlspecialchars($difPref, ENT_QUOTES) ?>">
   <div class="card fc-card mb-2"><div class="card-body">
     <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> — el asiento se graba en el libro de capacitación.</div><?php endif; ?>
     <div class="row g-2 align-items-end">
@@ -116,5 +117,5 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/asientos.js?v=3"></script>
+<script src="assets/js/asientos.js?v=4"></script>
 '); ?>
