@@ -25,9 +25,52 @@ var AS = {
         this.vadPref = this.el('asForm').getAttribute('data-vadpref') || '';
         this.bankPref = this.el('asForm').getAttribute('data-bankpref') || '';
         this.difPref = this.el('asForm').getAttribute('data-difpref') || '';
+        this.ivaAcct = this.el('asForm').getAttribute('data-iva-acct') || '';
         this.el('chqSyn').addEventListener('change', function () { AS.chequeLookup(); });
         this.el('chqBan').addEventListener('change', function () { AS.chequeLookup(); });
+        this.el('codope').addEventListener('change', function () { AS.loadAuxiliares(AS.el('codope').value); });
+        this.el('compAux').addEventListener('change', function () { AS.toggleIvaRow(); });
+        ['compNet1', 'compAli1', 'compNet2', 'compAli2', 'compNog', 'compIp1', 'compIp2'].forEach(function (id) { AS.el(id).addEventListener('input', function () { AS.compIva(); }); });
+        this.el('btnImpIva').addEventListener('click', function () { AS.impIva(); });
         this.renderImps();
+    },
+
+    // ── Comprobante con IVA (OP Contado, Fase 3a) ──
+    loadAuxiliares: function (codope) {
+        var card = this.el('compCard');
+        if (!codope) { card.style.display = 'none'; return; }
+        this.api('auxiliares', { codope: codope }).then(function (j) {
+            var aux = (j.ok && j.data) ? j.data : [];
+            if (!aux.length) { card.style.display = 'none'; return; }
+            AS.el('compAux').innerHTML = aux.map(function (a) { return '<option value="' + a.CODAUX + '" data-iva="' + (a.IVAAUX ? '1' : '0') + '">' + AS.esc((a.DENAUX || '').trim()) + '</option>'; }).join('');
+            card.style.display = '';
+            AS.toggleIvaRow();
+        });
+    },
+    toggleIvaRow: function () {
+        var opt = this.el('compAux').selectedOptions[0];
+        var grav = opt && opt.getAttribute('data-iva') === '1';
+        this.el('compIvaRow').style.display = grav ? 'flex' : 'none';
+        if (!grav) { this.el('compNet1').value = ''; this.el('compNet2').value = ''; }
+        this.compIva();
+    },
+    compIva: function () {
+        var n1 = this.r2(this.el('compNet1').value), a1 = this.r2(this.el('compAli1').value);
+        var n2 = this.r2(this.el('compNet2').value), a2 = this.r2(this.el('compAli2').value);
+        var i1 = Math.round(n1 * a1) / 100, i2 = Math.round(n2 * a2) / 100;
+        this.el('compIva1').value = i1 ? this.n(i1) : '';
+        this.el('compIva2').value = i2 ? this.n(i2) : '';
+        var tot = Math.round((n1 + i1 + n2 + i2 + this.r2(this.el('compNog').value) + this.r2(this.el('compIp1').value) + this.r2(this.el('compIp2').value)) * 100) / 100;
+        this.el('compTot').value = this.n(tot);
+    },
+    impIva: function () {
+        if (!this.ivaAcct) { this.toast('No está configurada la cuenta de IVA crédito fiscal.', 'warning'); return; }
+        var iva = Math.round((this.r2(this.el('compNet1').value) * this.r2(this.el('compAli1').value) + this.r2(this.el('compNet2').value) * this.r2(this.el('compAli2').value))) / 100;
+        if (iva <= 0) { this.toast('No hay IVA para imputar.', 'warning'); return; }
+        if (this.lineas.some(function (l) { return l.codcue === AS.ivaAcct; })) { this.toast('El IVA crédito fiscal ya está imputado.', 'warning'); return; }
+        this.lineas.push({ codcue: this.ivaAcct, cuenta: this.ivaAcct + ' · I.V.A. CRÉDITO FISCAL', codcdc: 1, centro: '', debe: iva, cre: 0, chq: null, cheque: '' });
+        this.renderImps();
+        this.toast('IVA crédito fiscal imputado al Debe: ' + this.n(iva), 'success');
     },
 
     pickCuenta: function (o) {
@@ -174,6 +217,20 @@ var AS = {
             codope: this.el('codope').value, fexmov: this.el('fexmov').value, detmov: this.el('detmov').value,
             lineas: this.lineas.map(function (l) { var o = { codcue: l.codcue, codcdc: l.codcdc, debe: l.debe, cre: l.cre }; if (l.chq) { o.codban = l.chq.codban; o.syn = l.chq.syn; o.fde = l.chq.fde; o.plz = l.chq.plz; o.fda = l.chq.fda; o.lib = l.chq.lib; o.cit = l.chq.cit; o.loc = l.chq.loc; } return o; })
         };
+        if (this.el('compCard').style.display !== 'none') {
+            if (!this.el('compAux').value) { this.toast('Elegí el tipo de comprobante (auxiliar).', 'warning'); return; }
+            var ivas = [];
+            var n1 = this.r2(this.el('compNet1').value), a1 = this.r2(this.el('compAli1').value);
+            var n2 = this.r2(this.el('compNet2').value), a2 = this.r2(this.el('compAli2').value);
+            if (n1 > 0) ivas.push({ net: n1, ali: a1, iva: Math.round(n1 * a1) / 100 });
+            if (n2 > 0) ivas.push({ net: n2, ali: a2, iva: Math.round(n2 * a2) / 100 });
+            payload.comprobante = {
+                codaux: this.el('compAux').value, cec: this.el('compCec').value, cei: this.el('compCei').value,
+                cep: this.el('compCep').value, cen: this.el('compCen').value, cef: this.el('compCef').value,
+                citmov: this.el('compCit').value, denmov: this.el('compDen').value, codcri: this.el('compCri').value,
+                ivas: ivas, nogmov: this.r2(this.el('compNog').value), ip1mov: this.r2(this.el('compIp1').value), ip2mov: this.r2(this.el('compIp2').value)
+            };
+        }
         var fd = new FormData(); fd.append('action', 'guardar'); fd.append('data', JSON.stringify(payload));
         this.api('guardar', {}, { method: 'POST', body: fd }).then(function (j) {
             if (!j.ok) { self.el('asErr').textContent = j.error; self.toast(j.error, 'danger'); return; }

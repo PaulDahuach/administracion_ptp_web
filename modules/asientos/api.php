@@ -20,6 +20,8 @@ try {
         case 'bancos':        bancos();             break;
         case 'cheque_lookup': cheque_lookup();      break;
         case 'cuenta_banco':  cuenta_banco();       break;
+        case 'auxiliares':    auxiliares();          break;
+        case 'categorias_iva': categorias_iva();     break;
         case 'guardar':       guardar();            break;
         case 'anular':        anular();             break;
         case 'listar':        listar();             break;
@@ -86,6 +88,17 @@ function cuenta_banco() {
     $bk = db_row("SELECT B.CODBAN, N.DENBAN FROM [Tbl Cuentas Bancarias] AS B LEFT JOIN [Tbl Bancos] AS N ON B.CODBAN=N.CODBAN WHERE B.CODCBX=$codcbx;");
     if (!$bk) { ok(null); return; }
     ok(array('codban' => (int) nz($bk['CODBAN'], 0), 'denban' => trim((string) nz($bk['DENBAN'], ''))));
+}
+
+/** Auxiliares (gravada / no gravada) de una operación interna — para el comprobante de la OP Contado. */
+function auxiliares() {
+    $codope = isset($_GET['codope']) ? (int) $_GET['codope'] : 0;
+    ok(db_query("SELECT CODAUX, DENAUX, IVAAUX FROM [Tbl Operaciones Auxiliares] WHERE CODOPE=$codope ORDER BY CODAUX;"));
+}
+
+/** Categorías de responsabilidad IVA (para el comprobante). */
+function categorias_iva() {
+    ok(db_query("SELECT CODCRI, DENCRI FROM [Tbl Categorias Responsabilidad IVA] ORDER BY CODCRI;"));
 }
 
 /** Inserta una imputación (Debe o Haber) + SOCMOV (saldo cacheado pre-update) + mayoriza DEBCUE/CRECUE.

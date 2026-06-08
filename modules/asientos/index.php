@@ -19,10 +19,15 @@ foreach (db_query("SELECT CODCDC, DENCDC FROM [Tbl Centros de Costo] ORDER BY DE
 $banOpts = '<option value="">— banco —</option>';
 foreach (db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos] ORDER BY DENBAN;") as $b)
     $banOpts .= '<option value="' . (int) $b['CODBAN'] . '">' . htmlspecialchars(trim((string) nz($b['DENBAN'], ''))) . '</option>';
-$_rc = db_row("SELECT CACC_2, CACC_3, CACC_V FROM [Rec Control];");
+$_rc = db_row("SELECT CACC_2, CACC_3, CACC_V, CACC_D, ALIIVA FROM [Rec Control];");
 $vadPref  = trim((string) nz($_rc['CACC_2'], ''));   // prefijo "valores a depositar" (cheques de terceros)
 $bankPref = trim((string) nz($_rc['CACC_3'], ''));   // prefijo cuentas bancarias (cheque propio)
 $difPref  = trim((string) nz($_rc['CACC_V'], ''));   // prefijo cuentas posdatados (cheque diferido)
+$ivaAcct  = trim((string) nz($_rc['CACC_D'], ''));   // cuenta IVA crédito fiscal (para imputar el IVA de la OP Contado)
+$aliDef   = (float) nz($_rc['ALIIVA'], 21);          // alícuota IVA por defecto
+$criOpts = '<option value="">— categoría IVA —</option>';
+foreach (db_query("SELECT CODCRI, DENCRI FROM [Tbl Categorias Responsabilidad IVA] ORDER BY CODCRI;") as $c)
+    $criOpts .= '<option value="' . (int) $c['CODCRI'] . '">' . htmlspecialchars(trim((string) nz($c['DENCRI'], ''))) . '</option>';
 
 $capa = (auth_modo() === 'capacitacion');
 $btnLbl = $capa ? '<i class="bi bi-mortarboard me-1"></i>Grabar asiento (capacitación)' : '<i class="bi bi-save me-1"></i>Grabar asiento';
@@ -44,7 +49,7 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
 </style>
 
 <div id="roBanner" class="alert alert-info py-1 px-2 small mb-2" style="display:none"></div>
-<div class="fc-form" id="asForm" data-vadpref="<?= htmlspecialchars($vadPref, ENT_QUOTES) ?>" data-bankpref="<?= htmlspecialchars($bankPref, ENT_QUOTES) ?>" data-difpref="<?= htmlspecialchars($difPref, ENT_QUOTES) ?>">
+<div class="fc-form" id="asForm" data-vadpref="<?= htmlspecialchars($vadPref, ENT_QUOTES) ?>" data-bankpref="<?= htmlspecialchars($bankPref, ENT_QUOTES) ?>" data-difpref="<?= htmlspecialchars($difPref, ENT_QUOTES) ?>" data-iva-acct="<?= htmlspecialchars($ivaAcct, ENT_QUOTES) ?>">
   <div class="card fc-card mb-2"><div class="card-body">
     <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> — el asiento se graba en el libro de capacitación.</div><?php endif; ?>
     <div class="row g-2 align-items-end">
@@ -53,6 +58,38 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
       <div class="col-auto" style="width:115px"><label class="form-label mb-1 small">Número</label><input id="cinmov" class="form-control form-control-sm as-ro" placeholder="(auto)" readonly></div>
       <div class="col-auto" style="min-width:230px"><label class="form-label mb-1 small">Operación</label><select id="codope" class="form-select form-select-sm"><?= $opOpts ?></select></div>
       <div class="col" style="min-width:200px"><label class="form-label mb-1 small">Detalle</label><input id="detmov" class="form-control form-control-sm" placeholder="Detalle del asiento" autocomplete="off"></div>
+    </div>
+  </div></div>
+
+  <div class="card fc-card mb-2" id="compCard" style="display:none"><div class="card-body">
+    <div class="text-uppercase text-muted mb-2" style="font-size:.7rem;letter-spacing:.04em"><i class="bi bi-receipt me-1"></i>Comprobante del proveedor (con IVA)</div>
+    <div class="row g-2 align-items-end mb-2">
+      <div class="col-auto" style="width:215px"><label class="form-label mb-1 small">Tipo de operación</label><select id="compAux" class="form-select form-select-sm"></select></div>
+      <div class="col-auto" style="width:65px"><label class="form-label mb-1 small">Comp.</label><input id="compCec" class="form-control form-control-sm text-uppercase" value="FC" maxlength="2"></div>
+      <div class="col-auto" style="width:55px"><label class="form-label mb-1 small">Letra</label><input id="compCei" class="form-control form-control-sm text-uppercase" maxlength="1"></div>
+      <div class="col-auto" style="width:80px"><label class="form-label mb-1 small">PDV</label><input type="number" id="compCep" class="form-control form-control-sm as-num" value="0"></div>
+      <div class="col-auto" style="width:120px"><label class="form-label mb-1 small">Número</label><input type="number" id="compCen" class="form-control form-control-sm as-num"></div>
+      <div class="col-auto" style="width:140px"><label class="form-label mb-1 small">Fecha comp.</label><input type="date" id="compCef" class="form-control form-control-sm"></div>
+    </div>
+    <div class="row g-2 align-items-end mb-2">
+      <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">CUIT</label><input id="compCit" class="form-control form-control-sm" placeholder="00-00000000-0" autocomplete="off"></div>
+      <div class="col" style="min-width:200px"><label class="form-label mb-1 small">Denominación</label><input id="compDen" class="form-control form-control-sm" placeholder="Razón social del proveedor" autocomplete="off"></div>
+      <div class="col-auto" style="width:185px"><label class="form-label mb-1 small">Categoría IVA</label><select id="compCri" class="form-select form-select-sm"><?= $criOpts ?></select></div>
+    </div>
+    <div class="row g-2 align-items-end mb-1" id="compIvaRow">
+      <div class="col-auto" style="width:125px"><label class="form-label mb-1 small">Neto gravado 1</label><input type="number" step="0.01" id="compNet1" class="form-control form-control-sm as-num"></div>
+      <div class="col-auto" style="width:85px"><label class="form-label mb-1 small">Alíc. %</label><input type="number" step="0.01" id="compAli1" class="form-control form-control-sm as-num" value="<?= $aliDef ?>"></div>
+      <div class="col-auto" style="width:120px"><label class="form-label mb-1 small">IVA 1</label><input id="compIva1" class="form-control form-control-sm as-num as-ro" readonly></div>
+      <div class="col-auto" style="width:125px"><label class="form-label mb-1 small">Neto gravado 2</label><input type="number" step="0.01" id="compNet2" class="form-control form-control-sm as-num"></div>
+      <div class="col-auto" style="width:85px"><label class="form-label mb-1 small">Alíc. %</label><input type="number" step="0.01" id="compAli2" class="form-control form-control-sm as-num"></div>
+      <div class="col-auto" style="width:120px"><label class="form-label mb-1 small">IVA 2</label><input id="compIva2" class="form-control form-control-sm as-num as-ro" readonly></div>
+    </div>
+    <div class="row g-2 align-items-end">
+      <div class="col-auto" style="width:125px"><label class="form-label mb-1 small">No gravado</label><input type="number" step="0.01" id="compNog" class="form-control form-control-sm as-num"></div>
+      <div class="col-auto" style="width:125px"><label class="form-label mb-1 small">Percep. IVA</label><input type="number" step="0.01" id="compIp1" class="form-control form-control-sm as-num"></div>
+      <div class="col-auto" style="width:125px"><label class="form-label mb-1 small">Percep. IIBB</label><input type="number" step="0.01" id="compIp2" class="form-control form-control-sm as-num"></div>
+      <div class="col-auto" style="width:145px"><label class="form-label mb-1 small">Total comprobante</label><input id="compTot" class="form-control form-control-sm as-num as-ro fw-bold" readonly></div>
+      <div class="col-auto"><button type="button" id="btnImpIva" class="btn btn-sm btn-outline-secondary mt-3" title="Agrega a la imputación las líneas de IVA crédito fiscal y percepciones"><i class="bi bi-calculator me-1"></i>Imputar IVA/percep.</button></div>
     </div>
   </div></div>
 
@@ -117,5 +154,5 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/asientos.js?v=4"></script>
+<script src="assets/js/asientos.js?v=5"></script>
 '); ?>
