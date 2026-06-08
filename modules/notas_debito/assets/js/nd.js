@@ -103,10 +103,16 @@ const ND = {
         this.el('cinmov').value = String(j.data.cinmov).padStart(8, '0');
         if (j.data.cae) { this.el('caeDisp').textContent = j.data.cae; this.el('caeVto').textContent = j.data.cae_vto; this.el('caeWrap').style.display = ''; }
         Array.prototype.forEach.call(document.querySelectorAll('#ndForm input, #ndForm select'), function (el) { el.disabled = true; });
-        this.el('btnImprimirHdr').style.display = ''; this.el('btnImprimirHdr').onclick = function () { window.open('imprimir.php?nummov=' + j.data.nummov, '_blank'); };
+        if (!j.data.pendiente) { this.el('btnImprimirHdr').style.display = ''; this.el('btnImprimirHdr').onclick = function () { window.open('imprimir.php?nummov=' + j.data.nummov, '_blank'); }; }
         if (j.data.anulable) { this.anulNum = j.data.nummov; this.el('btnAnularHdr').style.display = ''; }
         var nro = this.el('letra').value + ' ' + String(j.data.cinmov).padStart(8, '0');
-        this.toast(j.data.cae ? ('ND ' + nro + ' autorizada · CAE ' + j.data.cae) : ('ND ' + nro + ' grabada (capacitación · sin CAE)'), 'success');
+        if (j.data.pendiente) {   // AFIP caído: se grabó pendiente de CAE (la cola lo autoriza al volver)
+            this.el('ndErr').className = 'small mt-2 text-warning fw-semibold';
+            this.el('ndErr').textContent = 'ND ' + nro + ' grabada — CAE PENDIENTE: AFIP no responde; se autorizará sola al volver (queda en la cola de pendientes).';
+            this.toast('ND ' + nro + ' grabada — CAE pendiente (AFIP no responde).', 'warning');
+        } else {
+            this.toast(j.data.cae ? ('ND ' + nro + ' autorizada · CAE ' + j.data.cae) : ('ND ' + nro + ' grabada (capacitación · sin CAE)'), 'success');
+        }
     },
 
     async anular(num) {

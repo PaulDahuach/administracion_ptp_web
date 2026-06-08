@@ -268,30 +268,48 @@ function nd_afip_request($d) {
     return $req;
 }
 
-/** Pide el CAE de la ND a AFIP (NO toca la DB). Devuelve {cinmov, cae, cae_vto, coddoc, pto_vta}. */
-function nd_solicitar_cae($d) {
-    require_once __DIR__ . '/../../includes/afip_wsfe.php';
-    $req = nd_afip_request($d);
-    $coddoc = $req['_coddoc']; unset($req['_coddoc']);
-    $wsfe = new AfipWsfe();
-    $prox = $wsfe->ultimoAutorizado($req['pto_vta'], $req['cbte_tipo']) + 1;
-    $req['cbte_desde'] = $prox; $req['cbte_hasta'] = $prox;
-    $r = $wsfe->solicitarCAE($req);
-    return array('cinmov' => (int) $r['cbte_desde'], 'cae' => $r['cae'], 'cae_vto' => $r['cae_vencimiento'], 'coddoc' => $coddoc, 'pto_vta' => $req['pto_vta']);
-}
-
-/** Emite la ND: pide el CAE (fuera de tx) y graba (en tx). Sincroniza el contador local con AFIP. */
+/**
+ * Emite la ND con CAE. Camino feliz: pide el CAE y graba; sincroniza ULTND con AFIP. Contingencia
+ * (AfipUnreachable o backlog): graba PENDIENTE (nd_insert sin cinmov → reserva ULTND+1, CAEMOV null)
+ * y encola el request. AfipRejected sube y NO se graba (afip_fail). Ver [[afip-cae-contingencia]].
+ */
 function nd_emitir($d, $estTrue) {
     require_once __DIR__ . '/../../config/afip.php';
-    $afip = nd_solicitar_cae($d);
-    $d['cipmov'] = $afip['pto_vta'];
+    require_once __DIR__ . '/../../includes/afip_wsfe.php';
+    require_once __DIR__ . '/../../includes/cae_cola.php';
+
+    $req = nd_afip_request($d);
+    $coddoc = $req['_coddoc']; unset($req['_coddoc']);
+    $pdv = (int) $req['pto_vta']; $tipo = (int) $req['cbte_tipo'];
+    $ciimov = strtoupper(trim((string) nz($d['ciimov'], 'A')));
+    $d['cipmov'] = $pdv;
+
+    $afip = null; $errPend = 'Encolado por backlog (hay comprobantes previos pendientes de CAE).';
+    if (cae_backlog($pdv, $tipo) === 0) {
+        try {
+            $wsfe = new AfipWsfe();
+            $prox = $wsfe->ultimoAutorizado($pdv, $tipo) + 1;
+            $req['cbte_desde'] = $prox; $req['cbte_hasta'] = $prox;
+            $r = $wsfe->solicitarCAE($req);
+            $afip = array('cinmov' => (int) $r['cbte_desde'], 'cae' => $r['cae'], 'cae_vto' => $r['cae_vencimiento'], 'coddoc' => $coddoc, 'pto_vta' => $pdv);
+        } catch (AfipUnreachable $e) { $errPend = $e->getMessage(); }
+    }
+
     db_begin();
     try {
-        $res = nd_insert($d, $estTrue, $afip);
-        $letra = strtoupper(trim((string) nz($d['ciimov'], 'A')));
-        @db_exec("UPDATE [Tbl Puntos de Venta] SET ULTND$letra=" . (int) $afip['cinmov'] . " WHERE CODPDV=" . (int) $afip['pto_vta'] . ";");
+        if ($afip !== null) {
+            $res = nd_insert($d, $estTrue, $afip);
+            @db_exec("UPDATE [Tbl Puntos de Venta] SET ULTND$ciimov=" . (int) $afip['cinmov'] . " WHERE CODPDV=$pdv;");
+            db_commit();
+            $res['cae'] = $afip['cae']; $res['cae_vto'] = $afip['cae_vto'];
+            return $res;
+        }
+        $res = nd_insert($d, $estTrue, array('coddoc' => $coddoc));
+        $numero = (int) $res['cinmov'];
+        $req['cbte_desde'] = $numero; $req['cbte_hasta'] = $numero;
+        cae_encolar((int) $res['nummov'], 440, $pdv, $tipo, $numero, $ciimov, $req, $errPend);
         db_commit();
-        $res['cae'] = $afip['cae']; $res['cae_vto'] = $afip['cae_vto'];
+        $res['cae'] = null; $res['cae_vto'] = null; $res['pendiente'] = true;
         return $res;
     } catch (Exception $e) { db_rollback(); throw $e; }
 }
@@ -313,7 +331,7 @@ function guardar() {
             catch (Exception $e) { db_rollback(); throw $e; }
         }
         require_once __DIR__ . '/../../includes/comprobante_anular.php';
-        $res['anulable'] = anular_es_anulable($estTrue, isset($res['cae']) ? $res['cae'] : '');
+        $res['anulable'] = (isset($res['pendiente']) && $res['pendiente']) ? false : anular_es_anulable($estTrue, isset($res['cae']) ? $res['cae'] : '');
         ok($res);
     } catch (Exception $e) {
         afip_fail($e, $estTrue ? 'emitir' : 'grabar');
