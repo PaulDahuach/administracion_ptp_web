@@ -261,7 +261,8 @@ function guardar() {
             'codban' => (int) nz(isset($l['codban']) ? $l['codban'] : 0, 0), 'syn' => $syn,
             'fde' => as_serial(isset($l['fde']) ? $l['fde'] : ''), 'fda' => as_serial(isset($l['fda']) ? $l['fda'] : ''),
             'plz' => (int) nz(isset($l['plz']) ? $l['plz'] : 0, 0), 'lib' => trim((string) nz(isset($l['lib']) ? $l['lib'] : '', '')),
-            'cit' => trim((string) nz(isset($l['cit']) ? $l['cit'] : '', '')), 'loc' => trim((string) nz(isset($l['loc']) ? $l['loc'] : '', '')));
+            'cit' => trim((string) nz(isset($l['cit']) ? $l['cit'] : '', '')), 'loc' => trim((string) nz(isset($l['loc']) ? $l['loc'] : '', '')),
+            'depchq' => (isset($l['depchq']) && is_array($l['depchq'])) ? $l['depchq'] : null);
         $totDeb += $deb; $totCre += $cre;
     }
     if (count($val) < 2) { fail('El asiento necesita al menos 2 imputaciones'); return; }
@@ -352,7 +353,12 @@ function guardar() {
                 $codchq = as_cheque_diferido($l);
                 as_imp($ord, $td, $tc, $nummov, $l['codcue'], $l['debe'], $l['cre'], $l['codcdc'], $codchq, $l['fda']);
             } else {
-                as_imp($ord, $td, $tc, $nummov, $l['codcue'], $l['debe'], $l['cre'], $l['codcdc']);
+                $depCodchq = null;   // Depósito Valores: la línea del banco se linkea al mismo cheque que el HABER 11103 (como el legacy)
+                if ($l['depchq']) {
+                    $cq = db_row("SELECT CODCHQ FROM [Tbl Cheques] WHERE CODBAN=" . (int) nz($l['depchq']['codban'], 0) . " AND SYNCHQ='" . db_esc((string) nz($l['depchq']['syn'], '')) . "';");
+                    if ($cq) $depCodchq = (int) $cq['CODCHQ'];
+                }
+                as_imp($ord, $td, $tc, $nummov, $l['codcue'], $l['debe'], $l['cre'], $l['codcdc'], $depCodchq);
             }
         }
 
@@ -453,7 +459,7 @@ function listar() {
 /** Detalle de un asiento para cargarlo en el form en sólo-lectura (cabecera + imputaciones). */
 function detalle() {
     $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
-    $h = db_row("SELECT M.CINMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.FEXMOV, M.CODOPE, M.CODAUX, M.DETMOV, M.TOTMOV, M.ANUMOV, O.DENOPE,
+    $h = db_row("SELECT M.CINMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.FEXMOV, M.CODOPE, M.CODAUX, M.CODCBX, M.CODMOD, M.DETMOV, M.TOTMOV, M.ANUMOV, O.DENOPE,
         M.CECMOV, M.CEIMOV, M.CEPMOV, M.CENMOV, M.CEFMOV, M.FIXMOV, M.CITMOV, M.DENMOV, M.CODCRI,
         M.NOGMOV, M.IP1MOV, M.IP2MOV, M.AP1MOV, M.AP2MOV
         FROM [Tbl Movimientos] AS M LEFT JOIN [Tbl Operaciones] AS O ON M.CODOPE=O.CODOPE
@@ -510,6 +516,13 @@ function detalle() {
             'ap1mov' => round((float) nz($h['AP1MOV'], 0), 2), 'ap2mov' => round((float) nz($h['AP2MOV'], 0), 2),
             'ivas' => $ivas,
         );
+    }
+    // Depósito Bancario: CODCBX (cuenta bancaria) + CODMOD (modelo) para repoblar el header en la carga readonly.
+    if ((int) nz($h['CODCBX'], 0) > 0) {
+        $r['codcbx'] = (int) $h['CODCBX'];
+        $r['codmod'] = (int) nz($h['CODMOD'], 0);
+        $md = db_row("SELECT DENMOD FROM [Tbl Modelos] WHERE CODMOD=" . (int) nz($h['CODMOD'], 0) . " AND CODOPE=" . (int) $h['CODOPE'] . ";");
+        $r['denmod'] = $md ? trim((string) nz($md['DENMOD'], '')) : '';
     }
     ok($r);
 }

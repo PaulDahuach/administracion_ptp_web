@@ -224,7 +224,8 @@ var AS = {
         });
         var depMod = this.el('asMod').value;   // Depósito Bancario: Valores (4, cheque al Haber) / Efectivo (3, importe al Haber) → banco al Debe
         if (cre > 0 && this.depCue && ((depMod === '4' && this.chqMode === 'terceros') || depMod === '3')) {
-            this.lineas.push({ codcue: this.depCue, cuenta: this.depCueLabel, codcdc: 1, centro: 'ADMINISTRACION', debe: cre, cre: 0, chq: null, cheque: 'depósito al banco' });
+            var depchq = (chq && chq.codban) ? { codban: chq.codban, syn: chq.syn } : null;   // Valores: linkear el cheque a la línea del banco (como el legacy)
+            this.lineas.push({ codcue: this.depCue, cuenta: this.depCueLabel, codcdc: 1, centro: 'ADMINISTRACION', debe: cre, cre: 0, chq: null, depchq: depchq, cheque: 'depósito al banco' + (depchq ? ' · ' + (chq.disp || '') : '') });
         }
         this.cuentaSel = null; this.el('asCta').value = ''; this.el('asCtaQ').value = '';
         this.el('asDebe').value = ''; this.el('asHaber').value = '';
@@ -257,7 +258,7 @@ var AS = {
         if (this.lineas.length < 2) { this.toast('El asiento necesita al menos 2 imputaciones.', 'warning'); return; }
         var payload = {
             codope: this.el('codope').value, fexmov: this.el('fexmov').value, detmov: this.el('detmov').value,
-            lineas: this.lineas.map(function (l) { var o = { codcue: l.codcue, codcdc: l.codcdc, debe: l.debe, cre: l.cre }; if (l.chq) { o.codban = l.chq.codban; o.syn = l.chq.syn; o.fde = l.chq.fde; o.plz = l.chq.plz; o.fda = l.chq.fda; o.lib = l.chq.lib; o.cit = l.chq.cit; o.loc = l.chq.loc; } return o; })
+            lineas: this.lineas.map(function (l) { var o = { codcue: l.codcue, codcdc: l.codcdc, debe: l.debe, cre: l.cre }; if (l.chq) { o.codban = l.chq.codban; o.syn = l.chq.syn; o.fde = l.chq.fde; o.plz = l.chq.plz; o.fda = l.chq.fda; o.lib = l.chq.lib; o.cit = l.chq.cit; o.loc = l.chq.loc; } if (l.depchq) { o.depchq = l.depchq; } return o; })
         };
         payload.codcbx = parseInt(this.el('asCbx').value, 10) || 0;
         payload.codmod = parseInt(this.el('asMod').value, 10) || 0;
@@ -323,6 +324,10 @@ var AS = {
             self.el('nummov').value = d.NUMERO; self.el('cinmov').value = d.NUMERO;
             self.el('cicmov').value = d.CIC || ''; self.el('ciimov').value = d.CII || ''; self.el('cipmov').value = (d.CIP != null ? d.CIP : '');
             self.el('compTot').value = self.n(d.TOTAL);
+            if (d.codcbx) {   // Depósito Bancario: repoblar banco + modelo en el header
+                self.el('asCbx').value = String(d.codcbx);
+                if (d.codmod) { self.el('asMod').innerHTML = '<option value="' + d.codmod + '">' + (AS.esc(d.denmod) || ('Modelo ' + d.codmod)) + '</option>'; self.el('asMod').value = String(d.codmod); }
+            }
             self.el('fexmov').value = d.FEXISO; self.el('codope').value = String(d.CODOPE); self.el('detmov').value = d.DETMOV;
             self.lineas = (d.lineas || []).map(function (l) { return { codcue: l.codcue, cuenta: l.cuenta, codcdc: l.codcdc, centro: l.centro, debe: l.debe, cre: l.cre, cheque: l.cheque }; });
             self.renderImps();
