@@ -63,22 +63,12 @@ return [
     'primary'     => '#2563eb',                 // color de acento
     'theme'       => 'dark',                     // tema por defecto: 'dark'|'light'
 
-    // ── Menú del dashboard (tabstrip por solapa, estilo legacy) ──────────
-    // Cada clave = una SOLAPA (tab). Su valor = lista de tarjetas (en orden).
-    // Tipos de entrada dentro de una solapa:
-    //   ['head' => 'LISTADOS']                         → sub-encabezado (no clickeable)
-    //   ['label'=>..,'desc'=>..,'icon'=>..,'url'=>..]  → opción construida (link)
-    //   ['label'=>'Cierre', 'disabled'=>true]          → opción del legacy aún NO portada
-    //                                                     (gris, badge "pronto", no clickeable)
-    //   ['label'=>..,'url'=>..,'admin'=>true]          → solo visible para admins (admin_users)
-    // El contador de la solapa muestra construidos/total cuando hay 'disabled'.
-    'menu' => [
-        'Consultas' => [
-            ['head'  => 'Listados'],
-            ['label' => 'Ejemplo',  'desc' => 'Módulo de ejemplo', 'icon' => 'bi-table', 'url' => '/modules/_template/'],
-            ['label' => 'Pendiente de portar', 'disabled' => true],
-        ],
-    ],
+    // ── Menú del dashboard (PORTABLE) ────────────────────────────────────
+    // El mapa de módulos (tabstrip por solapa, estilo legacy) vive en
+    // config/menu.php, que SÍ se versiona (es igual en dev y producción y
+    // viaja por git → no se replica a mano en deploy). El formato de cada
+    // entrada está documentado en el encabezado de config/menu.php.
+    'menu' => require __DIR__ . '/menu.php',
 
     // Administradores (CODUSR o DENUSR) que ven las tarjetas 'admin'=>true.
     // Lista vacía = nadie es admin (default seguro).
