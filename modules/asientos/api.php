@@ -20,6 +20,7 @@ try {
         case 'bancos':        bancos();             break;
         case 'cheque_lookup': cheque_lookup();      break;
         case 'cuenta_banco':  cuenta_banco();       break;
+        case 'cuenta_cbx':    cuenta_cbx();          break;
         case 'auxiliares':    auxiliares();          break;
         case 'op_config':     op_config();           break;
         case 'categorias_iva': categorias_iva();     break;
@@ -89,6 +90,16 @@ function cuenta_banco() {
     $bk = db_row("SELECT B.CODBAN, N.DENBAN FROM [Tbl Cuentas Bancarias] AS B LEFT JOIN [Tbl Bancos] AS N ON B.CODBAN=N.CODBAN WHERE B.CODCBX=$codcbx;");
     if (!$bk) { ok(null); return; }
     ok(array('codban' => (int) nz($bk['CODBAN'], 0), 'denban' => trim((string) nz($bk['DENBAN'], ''))));
+}
+
+/** Cuenta contable del banco (11104*) para una cuenta bancaria CODCBX — para el Depósito Bancario (DEBE banco). */
+function cuenta_cbx() {
+    $codcbx = isset($_GET['codcbx']) ? (int) $_GET['codcbx'] : 0;
+    if ($codcbx <= 0) { ok(null); return; }
+    $bankP = trim((string) nz(db_row("SELECT CACC_3 FROM [Rec Control];")['CACC_3'], ''));
+    $c = db_row("SELECT TOP 1 CODCUE, DENCUE FROM [Tbl Cuentas Contables] WHERE CODCBX=$codcbx AND CODCUE Like '" . db_esc($bankP) . "%';");
+    if (!$c) { ok(null); return; }
+    ok(array('codcue' => trim((string) nz($c['CODCUE'], '')), 'dencue' => trim((string) nz($c['DENCUE'], ''))));
 }
 
 /** Auxiliares (gravada / no gravada) de una operación interna — para el comprobante de la OP Contado. */
@@ -298,6 +309,13 @@ function guardar() {
         $ivaRows = $ivas;
     }
 
+    // ── Depósito Bancario (125): guardar CODCBX (cuenta bancaria) + CODMOD (modelo Valores/Efectivo) en el movimiento ──
+    $depCols = ''; $depVals = '';
+    $codcbx = (int) nz(isset($d['codcbx']) ? $d['codcbx'] : 0, 0);
+    $codmod = (int) nz(isset($d['codmod']) ? $d['codmod'] : 0, 0);
+    if ($codcbx > 0) { $depCols .= ', CODCBX'; $depVals .= ', ' . $codcbx; }
+    if ($codmod > 0) { $depCols .= ', CODMOD'; $depVals .= ', ' . $codmod; }
+
     db_begin();
     try {
         $nummov = next_number('ULTMOV');
@@ -309,8 +327,8 @@ function guardar() {
         $total = round($totDeb, 2);
 
         db_exec("INSERT INTO [Tbl Movimientos]
-            (NUMMOV, CODORI, CODOPE, FEXMOV, CICMOV, CIPMOV, CINMOV, CODCUE, DETMOV, TOTMOV$compCols, NOWMOV, ANUMOV, ESTMOV)
-            VALUES ($nummov, 'I', $codope, $fex, " . as_txt($cic) . ", $cipSql, $cinmov, Null, " . as_txt($detmov) . ", " . as_num($total) . "$compVals, Now(), False, $estSql);");
+            (NUMMOV, CODORI, CODOPE, FEXMOV, CICMOV, CIPMOV, CINMOV, CODCUE, DETMOV, TOTMOV$compCols$depCols, NOWMOV, ANUMOV, ESTMOV)
+            VALUES ($nummov, 'I', $codope, $fex, " . as_txt($cic) . ", $cipSql, $cinmov, Null, " . as_txt($detmov) . ", " . as_num($total) . "$compVals$depVals, Now(), False, $estSql);");
 
         // IVA por alícuota (Tbl Movimientos IVA), para que la OP Contado entre en el libro IVA Compras.
         $decmov = false;

@@ -30,6 +30,7 @@ var AS = {
         this.el('chqBan').addEventListener('change', function () { AS.chequeLookup(); });
         this.el('codope').addEventListener('change', function () { AS.opConfig(AS.el('codope').value); });
         this.el('compAux').addEventListener('change', function () { AS.toggleIvaRow(); });
+        this.el('asCbx').addEventListener('change', function () { AS.resolveDepCue(); });
         ['compNet1', 'compAli1', 'compNet2', 'compAli2', 'compNog', 'compAp1', 'compAp2', 'compIp1', 'compIp2'].forEach(function (id) { AS.el(id).addEventListener('input', function () { AS.compIva(); }); });
         this.el('toggleAli2').addEventListener('click', function (e) { e.preventDefault(); var r = AS.el('compRow2'); r.style.display = (r.style.display === 'none' || !r.style.display) ? 'flex' : 'none'; });
         this.el('btnImpIva').addEventListener('click', function () { AS.impIva(); });
@@ -41,7 +42,7 @@ var AS = {
         var ax = this.el('compAux'), cue = this.el('asCueQ'), cbx = this.el('asCbx'), mod = this.el('asMod'), iva = this.el('compIvaRow'), ext = this.el('compExtRow');
         ax.innerHTML = ''; ax.disabled = true; cue.disabled = true; cue.value = ''; this.el('asCue').value = '';
         cbx.disabled = true; cbx.value = ''; mod.innerHTML = '<option value="">—</option>'; mod.disabled = true; iva.style.display = 'none'; ext.style.display = 'none';
-        this.el('cicmov').value = ''; this.el('cipmov').value = '';
+        this.el('cicmov').value = ''; this.el('cipmov').value = ''; this.depCue = ''; this.depCueLabel = '';
         if (!codope) return;
         this.api('op_config', { codope: codope }).then(function (j) {
             if (!j.ok || !j.data) return;
@@ -58,6 +59,13 @@ var AS = {
             cue.disabled = !d.cueEnabled;    // CODCUE: cuenta corriente, según la operación
             cbx.disabled = !d.bancoEnabled;  // CODCBX: cuenta bancaria, sólo Depósito Bancario
             AS.toggleIvaRow();
+        });
+    },
+    resolveDepCue: function () {   // CODCBX → cuenta contable del banco (Depósito Bancario, DEBE banco)
+        var v = this.el('asCbx').value; this.depCue = ''; this.depCueLabel = '';
+        if (!v) return;
+        this.api('cuenta_cbx', { codcbx: v }).then(function (j) {
+            if (j.ok && j.data) { AS.depCue = j.data.codcue; AS.depCueLabel = j.data.codcue + ' · ' + j.data.dencue; }
         });
     },
     toggleIvaRow: function () { this.compIva(); },
@@ -214,6 +222,9 @@ var AS = {
             codcdc: parseInt(this.el('asCdc').value, 10) || 1, centro: opt ? opt.textContent : '',
             debe: deb, cre: cre, chq: chq, cheque: chq ? chq.disp : ''
         });
+        if (this.chqMode === 'terceros' && cre > 0 && this.depCue && this.el('asMod').value === '4') {   // Depósito Valores (CODMOD=4): cheque al Haber → banco al Debe
+            this.lineas.push({ codcue: this.depCue, cuenta: this.depCueLabel, codcdc: 1, centro: 'ADMINISTRACION', debe: cre, cre: 0, chq: null, cheque: 'depósito al banco' });
+        }
         this.cuentaSel = null; this.el('asCta').value = ''; this.el('asCtaQ').value = '';
         this.el('asDebe').value = ''; this.el('asHaber').value = '';
         if (esChq) { this.resetCheque(); this.el('chqRow').style.display = 'none'; }
@@ -247,6 +258,8 @@ var AS = {
             codope: this.el('codope').value, fexmov: this.el('fexmov').value, detmov: this.el('detmov').value,
             lineas: this.lineas.map(function (l) { var o = { codcue: l.codcue, codcdc: l.codcdc, debe: l.debe, cre: l.cre }; if (l.chq) { o.codban = l.chq.codban; o.syn = l.chq.syn; o.fde = l.chq.fde; o.plz = l.chq.plz; o.fda = l.chq.fda; o.lib = l.chq.lib; o.cit = l.chq.cit; o.loc = l.chq.loc; } return o; })
         };
+        payload.codcbx = parseInt(this.el('asCbx').value, 10) || 0;
+        payload.codmod = parseInt(this.el('asMod').value, 10) || 0;
         if (this.el('compCard').style.display !== 'none') {
             if (!this.el('compAux').value) { this.toast('Elegí el tipo de comprobante (auxiliar).', 'warning'); return; }
             var ivas = [];
