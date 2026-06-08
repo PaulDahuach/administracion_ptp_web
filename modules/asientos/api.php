@@ -231,6 +231,37 @@ function guardar() {
     $detmov = isset($d['detmov']) ? trim($d['detmov']) : '';
     $cic = trim((string) nz($op['ICCOPE'], ''));
 
+    // ── Comprobante con IVA (Fase 3a: OP Contado) — header del comprobante del proveedor + IVA, reusa el modelo del CP ──
+    $compCols = ''; $compVals = ''; $ivaRows = array();
+    if (isset($d['comprobante']) && is_array($d['comprobante'])) {
+        $cmp = $d['comprobante'];
+        $codaux = (int) nz($cmp['codaux'], 0);
+        if ($codaux <= 0) { fail('Elegí el tipo de comprobante (auxiliar gravada / no gravada).'); return; }
+        if (!db_row("SELECT CODAUX FROM [Tbl Operaciones Auxiliares] WHERE CODAUX=$codaux AND CODOPE=$codope;")) { fail('Auxiliar inválido para la operación.'); return; }
+        $ivas = (isset($cmp['ivas']) && is_array($cmp['ivas'])) ? array_values($cmp['ivas']) : array();
+        $netmov = 0.0; $irimov = 0.0;
+        foreach ($ivas as $iv) { $netmov += (float) nz($iv['net'], 0); $irimov += (float) nz($iv['iva'], 0); }
+        $netmov = round($netmov, 2); $irimov = round($irimov, 2);
+        $nogmov = round((float) nz(isset($cmp['nogmov']) ? $cmp['nogmov'] : 0, 0), 2);
+        $ip1 = round((float) nz(isset($cmp['ip1mov']) ? $cmp['ip1mov'] : 0, 0), 2);
+        $ip2 = round((float) nz(isset($cmp['ip2mov']) ? $cmp['ip2mov'] : 0, 0), 2);
+        $ap1 = round((float) nz(isset($cmp['ap1mov']) ? $cmp['ap1mov'] : 0, 0), 2);
+        $ap2 = round((float) nz(isset($cmp['ap2mov']) ? $cmp['ap2mov'] : 0, 0), 2);
+        $compTotal = round($netmov + $irimov + $nogmov + $ip1 + $ip2, 2);
+        if (abs($compTotal - round($totDeb, 2)) >= 0.01) { fail('El total del comprobante (' . number_format($compTotal, 2) . ') no coincide con la imputación al Debe (' . number_format($totDeb, 2) . ').'); return; }
+        $cep = (int) nz(isset($cmp['cep']) ? $cmp['cep'] : 0, 0);
+        $cen = (int) nz(isset($cmp['cen']) ? $cmp['cen'] : 0, 0);
+        $cefSer = as_serial(isset($cmp['cef']) ? $cmp['cef'] : '');
+        $cef = ($cefSer === null) ? $fex : (int) $cefSer;
+        $codcri = (int) nz(isset($cmp['codcri']) ? $cmp['codcri'] : 0, 0);
+        $compCols = ', FIXMOV, CODAUX, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV, DENMOV, CODCRI, CITMOV, NETMOV, IRIMOV, NOGMOV, IP1MOV, IP2MOV, AP1MOV, AP2MOV';
+        $compVals = ', ' . $fex . ', ' . $codaux . ', ' . as_txt(strtoupper(trim((string) nz($cmp['cec'], 'FC')))) . ', ' . as_txt(strtoupper(trim((string) nz($cmp['cei'], '')))) . ', ' . $cep . ', ' . $cen . ', ' . $cef
+            . ', ' . as_txt(trim((string) nz(isset($cmp['denmov']) ? $cmp['denmov'] : '', ''))) . ', ' . ($codcri > 0 ? $codcri : 'Null') . ', ' . as_txt(trim((string) nz(isset($cmp['citmov']) ? $cmp['citmov'] : '', '')))
+            . ', ' . ($netmov != 0 ? as_num($netmov) : 'Null') . ', ' . ($irimov != 0 ? as_num($irimov) : 'Null') . ', ' . ($nogmov != 0 ? as_num($nogmov) : 'Null')
+            . ', ' . ($ip1 != 0 ? as_num($ip1) : 'Null') . ', ' . ($ip2 != 0 ? as_num($ip2) : 'Null') . ', ' . ($ap1 != 0 ? as_num($ap1) : 'Null') . ', ' . ($ap2 != 0 ? as_num($ap2) : 'Null');
+        $ivaRows = $ivas;
+    }
+
     db_begin();
     try {
         $nummov = next_number('ULTMOV');
@@ -242,8 +273,18 @@ function guardar() {
         $total = round($totDeb, 2);
 
         db_exec("INSERT INTO [Tbl Movimientos]
-            (NUMMOV, CODORI, CODOPE, FEXMOV, CICMOV, CIPMOV, CINMOV, CODCUE, DETMOV, TOTMOV, NOWMOV, ANUMOV, ESTMOV)
-            VALUES ($nummov, 'I', $codope, $fex, " . as_txt($cic) . ", $cipSql, $cinmov, Null, " . as_txt($detmov) . ", " . as_num($total) . ", Now(), False, $estSql);");
+            (NUMMOV, CODORI, CODOPE, FEXMOV, CICMOV, CIPMOV, CINMOV, CODCUE, DETMOV, TOTMOV$compCols, NOWMOV, ANUMOV, ESTMOV)
+            VALUES ($nummov, 'I', $codope, $fex, " . as_txt($cic) . ", $cipSql, $cinmov, Null, " . as_txt($detmov) . ", " . as_num($total) . "$compVals, Now(), False, $estSql);");
+
+        // IVA por alícuota (Tbl Movimientos IVA), para que la OP Contado entre en el libro IVA Compras.
+        $decmov = false;
+        foreach ($ivaRows as $iv) {
+            $net = round((float) nz($iv['net'], 0), 2); $iva = round((float) nz($iv['iva'], 0), 2);
+            if ($net == 0 && $iva == 0) continue;
+            db_exec("INSERT INTO [Tbl Movimientos IVA] (NUMMOV, NETMOV, ALIMOV, IRIMOV, DECMOV)
+                VALUES ($nummov, " . as_num($net) . ", " . round((float) nz($iv['ali'], 0), 2) . ", " . as_num($iva) . ", " . ($decmov ? 'True' : 'False') . ");");
+            $decmov = true;
+        }
 
         $ord = 0; $td = 0.0; $tc = 0.0;
         foreach ($val as $l) {
@@ -313,6 +354,7 @@ function anular() {
                 db_exec("UPDATE [Tbl Cheques] SET DIFCHQ=True WHERE CODCHQ=$chq;");
             }
         }
+        db_exec("DELETE FROM [Tbl Movimientos IVA] WHERE NUMMOV=$num;");   // OP Contado: limpiar el IVA del comprobante
         db_exec("UPDATE [Tbl Movimientos] SET ANUMOV=True WHERE NUMMOV=$num;");
         db_commit();
         ok(array('anulado' => $num));
