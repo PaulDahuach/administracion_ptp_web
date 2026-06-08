@@ -51,8 +51,9 @@ function centros_costo() {
     ok(db_query("SELECT CODCDC, DENCDC FROM [Tbl Centros de Costo] ORDER BY DENCDC;"));
 }
 
-/** Inserta una imputación (Debe o Haber) + SOCMOV (saldo cacheado pre-update) + mayoriza DEBCUE/CRECUE. */
-function as_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $codcdc) {
+/** Inserta una imputación (Debe o Haber) + SOCMOV (saldo cacheado pre-update) + mayoriza DEBCUE/CRECUE.
+ *  $codchq/$fax (opcionales) = link al cheque (Tbl Cheques) + fecha de acreditación, para líneas de cheque. */
+function as_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $codcdc, $codchq = null, $fax = null) {
     $ord++;
     $cc = db_esc((string) $cuenta);
     $bal = db_row("SELECT DEBCUE, CRECUE FROM [Tbl Cuentas Contables] WHERE CODCUE='$cc';");
@@ -60,11 +61,32 @@ function as_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $codcdc
     $deb = round((float) $deb, 2); $cre = round((float) $cre, 2);
     $debSql = ($deb != 0) ? (string) $deb : 'Null';
     $creSql = ($cre != 0) ? (string) $cre : 'Null';
-    db_exec("INSERT INTO [Tbl Movimientos Imputaciones] (NUMMOV, ORDMOV, CODCUE, DEBMOV, CREMOV, CODCDC, SOCMOV)
-        VALUES ($nummov, $ord, '$cc', $debSql, $creSql, " . (int) $codcdc . ", $soc);");
+    $chqC = ($codchq === null) ? '' : ', CODCHQ'; $chqV = ($codchq === null) ? '' : ', ' . (int) $codchq;
+    $faxC = ($fax === null) ? '' : ', FAXMOV'; $faxV = ($fax === null) ? '' : ', ' . (int) $fax;
+    db_exec("INSERT INTO [Tbl Movimientos Imputaciones] (NUMMOV, ORDMOV, CODCUE, DEBMOV, CREMOV, CODCDC, SOCMOV$chqC$faxC)
+        VALUES ($nummov, $ord, '$cc', $debSql, $creSql, " . (int) $codcdc . ", $soc$chqV$faxV);");
     if ($deb != 0) db_exec("UPDATE [Tbl Cuentas Contables] SET DEBCUE = DEBCUE + $deb WHERE CODCUE='$cc';");
     if ($cre != 0) db_exec("UPDATE [Tbl Cuentas Contables] SET CRECUE = CRECUE + $cre WHERE CODCUE='$cc';");
     $totDeb += $deb; $totCre += $cre;
+}
+
+/** Cheque de tercero (cuenta CACC_2 = valores a depositar). Debe → ALTA en cartera (crea Tbl Cheques, VADCHQ=True);
+ *  Haber → BAJA de cartera (debe existir con VADCHQ=True → VADCHQ=False). Devuelve el CODCHQ. Lanza si no corresponde. */
+function as_cheque($l) {
+    $codban = (int) $l['codban']; $syns = db_esc($l['syn']);
+    $ex = db_row("SELECT CODCHQ, VADCHQ FROM [Tbl Cheques] WHERE CODBAN=$codban AND SYNCHQ='$syns';");
+    $inCart = $ex && ($ex['VADCHQ'] === true || $ex['VADCHQ'] == -1);
+    if ($l['debe'] > 0) {
+        if ($inCart) throw new Exception('El cheque ' . $codban . '-' . $l['syn'] . ' ya está en cartera');
+        $codchq = next_number('ULTCHQ');
+        db_exec("INSERT INTO [Tbl Cheques] (CODCHQ, CODBAN, SYNCHQ, FEXCHQ, PLZCHQ, FAXCHQ, LIBCHQ, CITCHQ, LOCCHQ, IMPCHQ, VADCHQ, DIFCHQ)
+            VALUES ($codchq, $codban, '$syns', " . ($l['fde'] === null ? 'Null' : (int) $l['fde']) . ", " . (int) nz($l['plz'], 0) . ", " . ($l['fda'] === null ? 'Null' : (int) $l['fda']) . ", " . as_txt($l['lib']) . ", " . as_txt($l['cit']) . ", " . as_txt($l['loc']) . ", " . as_num($l['debe']) . ", True, False);");
+        return $codchq;
+    }
+    if (!$inCart) throw new Exception('El cheque ' . $codban . '-' . $l['syn'] . ' no está en cartera (no se puede depositar)');
+    $codchq = (int) $ex['CODCHQ'];
+    db_exec("UPDATE [Tbl Cheques] SET VADCHQ=False WHERE CODCHQ=$codchq;");
+    return $codchq;
 }
 
 /**
@@ -83,35 +105,36 @@ function guardar() {
     $op = db_row("SELECT ICCOPE FROM [Tbl Operaciones] WHERE CODOPE=$codope AND CODORI='I';");
     if (!$op) { fail('Operación interna inexistente'); return; }
 
-    // Limpiar líneas válidas + totales para validar el balance ANTES de tocar nada.
+    // Prefijos de cuentas especiales (Rec Control): valores a depositar (CACC_2 = cheques de terceros en cartera),
+    // bancos (CACC_3), cheques diferidos (CACC_V). FASE 2a: maneja cheques de terceros (alta/depósito) + banco plano.
+    // Cheque propio (banco + nº de cheque) = Fase 2b; cheques diferidos = Fase 2c → todavía rechazados.
+    $rc = db_row("SELECT CACC_2, CACC_3, CACC_V FROM [Rec Control];");
+    $vadP = trim((string) nz($rc['CACC_2'], '')); $bankP = trim((string) nz($rc['CACC_3'], '')); $difP = trim((string) nz($rc['CACC_V'], ''));
+
     $val = array(); $totDeb = 0.0; $totCre = 0.0;
     foreach ($lineas as $l) {
         $cu = trim((string) nz($l['codcue'], '')); if ($cu === '') continue;
         $deb = round((float) nz($l['debe'], 0), 2); $cre = round((float) nz($l['cre'], 0), 2);
         if ($deb == 0 && $cre == 0) continue;
         $cdc = isset($l['codcdc']) && $l['codcdc'] !== '' ? (int) $l['codcdc'] : 1;
-        $val[] = array('codcue' => $cu, 'codcdc' => $cdc, 'debe' => $deb, 'cre' => $cre);
+        $syn = trim((string) nz(isset($l['syn']) ? $l['syn'] : '', ''));
+        $isVad = ($vadP !== '' && strpos($cu, $vadP) === 0);
+        if ($difP !== '' && strpos($cu, $difP) === 0) { fail('Cuenta ' . $cu . ': los cheques diferidos son de la Fase 2c (todavía no disponible).'); return; }
+        if ($bankP !== '' && strpos($cu, $bankP) === 0 && $syn !== '') { fail('Cuenta ' . $cu . ': emitir cheque propio es de la Fase 2b (todavía no disponible).'); return; }
+        if ($isVad) {
+            if ($syn === '' || (int) nz(isset($l['codban']) ? $l['codban'] : 0, 0) <= 0) { fail('Falta el banco y/o número del cheque en la cuenta de valores a depositar (' . $cu . ').'); return; }
+            if ($deb > 0 && $cre > 0) { fail('El cheque ' . $cu . ' va al Debe O al Haber, no a los dos.'); return; }
+        }
+        $val[] = array('codcue' => $cu, 'codcdc' => $cdc, 'debe' => $deb, 'cre' => $cre, 'isVad' => $isVad,
+            'codban' => (int) nz(isset($l['codban']) ? $l['codban'] : 0, 0), 'syn' => $syn,
+            'fde' => as_serial(isset($l['fde']) ? $l['fde'] : ''), 'fda' => as_serial(isset($l['fda']) ? $l['fda'] : ''),
+            'plz' => (int) nz(isset($l['plz']) ? $l['plz'] : 0, 0), 'lib' => trim((string) nz(isset($l['lib']) ? $l['lib'] : '', '')),
+            'cit' => trim((string) nz(isset($l['cit']) ? $l['cit'] : '', '')), 'loc' => trim((string) nz(isset($l['loc']) ? $l['loc'] : '', '')));
         $totDeb += $deb; $totCre += $cre;
     }
     if (count($val) < 2) { fail('El asiento necesita al menos 2 imputaciones'); return; }
     if (round($totDeb, 2) <= 0) { fail('El asiento está en cero'); return; }
     if (abs(round($totDeb - $totCre, 2)) > 0.009) { fail('El asiento no cuadra: Debe ' . number_format($totDeb, 2) . ' ≠ Haber ' . number_format($totCre, 2)); return; }
-
-    // FASE 1 (candado de seguridad): rechazar imputaciones a cuentas de cheque/banco — valores a depositar
-    // (CACC_2), cuentas bancarias (CACC_3) y cheques diferidos (CACC_V). Esas cuentas mueven la cartera de
-    // cheques (Tbl Cheques: alta/depósito/emisión/diferidos), que es el subsistema de la FASE 2. Grabar el
-    // asiento sin tocar Tbl Cheques dejaría la cartera/conciliación inconsistente.
-    $rc = db_row("SELECT CACC_2, CACC_3, CACC_V FROM [Rec Control];");
-    $pref = array();
-    foreach (array('CACC_2', 'CACC_3', 'CACC_V') as $k) { $p = trim((string) nz($rc[$k], '')); if ($p !== '') $pref[] = $p; }
-    foreach ($val as $l) {
-        foreach ($pref as $p) {
-            if (strpos($l['codcue'], $p) === 0) {
-                fail('La cuenta ' . $l['codcue'] . ' es de cheques/banco: la carga simple de asientos (Fase 1) todavía no mueve la cartera de cheques. Esa operación es de la Fase 2.');
-                return;
-            }
-        }
-    }
 
     $modo = auth_modo();
     $estTrue = ($modo !== 'capacitacion');
@@ -136,7 +159,14 @@ function guardar() {
             VALUES ($nummov, 'I', $codope, $fex, " . as_txt($cic) . ", $cipSql, $cinmov, Null, " . as_txt($detmov) . ", " . as_num($total) . ", Now(), False, $estSql);");
 
         $ord = 0; $td = 0.0; $tc = 0.0;
-        foreach ($val as $l) as_imp($ord, $td, $tc, $nummov, $l['codcue'], $l['debe'], $l['cre'], $l['codcdc']);
+        foreach ($val as $l) {
+            if ($l['isVad']) {   // cheque de tercero: alta/baja de cartera + link
+                $codchq = as_cheque($l);
+                as_imp($ord, $td, $tc, $nummov, $l['codcue'], $l['debe'], $l['cre'], $l['codcdc'], $codchq, $l['fda']);
+            } else {
+                as_imp($ord, $td, $tc, $nummov, $l['codcue'], $l['debe'], $l['cre'], $l['codcdc']);
+            }
+        }
 
         db_commit();
         ok(array('nummov' => $nummov, 'cinmov' => $cinmov, 'total' => $total));
@@ -157,12 +187,26 @@ function anular() {
 
     db_begin();
     try {
-        foreach (db_query("SELECT CODCUE, DEBMOV, CREMOV FROM [Tbl Movimientos Imputaciones] WHERE NUMMOV=$num;") as $i) {
+        $imps = array();
+        foreach (db_query("SELECT CODCUE, DEBMOV, CREMOV, CODCHQ FROM [Tbl Movimientos Imputaciones] WHERE NUMMOV=$num;") as $i) $imps[] = $i;
+        foreach ($imps as $i) {
             $cc = db_esc((string) nz($i['CODCUE'], '')); if ($cc === '') continue;
             if ($i['DEBMOV'] !== null && $i['DEBMOV'] !== '') db_exec("UPDATE [Tbl Cuentas Contables] SET DEBCUE = DEBCUE - " . round((float) $i['DEBMOV'], 2) . " WHERE CODCUE='$cc';");
             if ($i['CREMOV'] !== null && $i['CREMOV'] !== '') db_exec("UPDATE [Tbl Cuentas Contables] SET CRECUE = CRECUE - " . round((float) $i['CREMOV'], 2) . " WHERE CODCUE='$cc';");
         }
-        db_exec("UPDATE [Tbl Movimientos Imputaciones] SET DEBMOV=0, CREMOV=0 WHERE NUMMOV=$num;");
+        // Sacar el link al cheque + zerar importes ANTES de tocar Tbl Cheques (para no violar la relación).
+        db_exec("UPDATE [Tbl Movimientos Imputaciones] SET DEBMOV=0, CREMOV=0, CODCHQ=Null WHERE NUMMOV=$num;");
+        // Revertir la cartera: ALTA (Debe) → eliminar el cheque creado si sigue en cartera; DEPÓSITO (Haber) → vuelve a cartera.
+        foreach ($imps as $i) {
+            $chq = (int) nz($i['CODCHQ'], 0); if ($chq <= 0) continue;
+            if ((float) nz($i['DEBMOV'], 0) > 0) {
+                $cs = db_row("SELECT VADCHQ FROM [Tbl Cheques] WHERE CODCHQ=$chq;");
+                if ($cs && !($cs['VADCHQ'] === true || $cs['VADCHQ'] == -1)) throw new Exception('Un cheque de este asiento ya fue depositado en otro movimiento; anulá ese primero.');
+                db_exec("DELETE FROM [Tbl Cheques] WHERE CODCHQ=$chq;");
+            } else {
+                db_exec("UPDATE [Tbl Cheques] SET VADCHQ=True WHERE CODCHQ=$chq;");
+            }
+        }
         db_exec("UPDATE [Tbl Movimientos] SET ANUMOV=True WHERE NUMMOV=$num;");
         db_commit();
         ok(array('anulado' => $num));
