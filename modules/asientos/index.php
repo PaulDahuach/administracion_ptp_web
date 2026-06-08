@@ -152,7 +152,6 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
       <div class="col-auto" style="width:185px"><label class="form-label mb-1 small">Centro de costo</label><select id="asCdc" class="form-select form-select-sm"><?= $cdcOpts ?></select></div>
       <div class="col-auto" style="width:120px"><label class="form-label mb-1 small">Debe</label><input type="number" step="0.01" id="asDebe" class="form-control form-control-sm as-num"></div>
       <div class="col-auto" style="width:120px"><label class="form-label mb-1 small">Haber</label><input type="number" step="0.01" id="asHaber" class="form-control form-control-sm as-num"></div>
-      <div class="col-auto"><button type="button" id="btnAddImp" class="btn btn-sm btn-outline-primary mt-3"><i class="bi bi-plus-lg"></i></button></div>
     </div>
     <div class="row g-2 align-items-end mb-2" id="chqRow" style="display:none">
       <div class="col-12"><div class="text-uppercase text-muted" id="chqRowLabel" style="font-size:.64rem;letter-spacing:.04em"></div></div>
@@ -167,6 +166,7 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
       <div class="col-auto" style="width:130px" id="chqColLoc"><label class="form-label mb-1 small">Localidad</label><input id="chqLoc" class="form-control form-control-sm" autocomplete="off"></div>
       <div class="col-auto"><span id="chqEstado" class="badge bg-secondary mt-3" style="display:none"></span></div>
     </div>
+    <div class="mb-2"><button type="button" id="btnAddImp" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg me-1"></i>Agregar línea</button></div>
     <table class="table table-sm mb-0"><thead><tr><th>Cuenta contable</th><th>Centro de costo</th><th class="as-num" style="width:140px">Debe</th><th class="as-num" style="width:140px">Haber</th><th style="width:32px"></th></tr></thead>
       <tbody id="impBody"></tbody>
       <tfoot>
@@ -204,5 +204,5 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/asientos.js?v=15"></script>
+<script src="assets/js/asientos.js?v=16"></script>
 '); ?>

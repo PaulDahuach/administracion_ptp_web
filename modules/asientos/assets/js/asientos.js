@@ -16,8 +16,8 @@ var AS = {
         this.el('fexmov').value = new Date().toISOString().slice(0, 10);
         this.autocomplete(this.el('asCtaQ'), this.el('asCtaList'), 'cuentas', function (o) { return o.CODCUE + ' · ' + o.DENCUE; }, function (o) { AS.pickCuenta(o); });
         this.el('btnAddImp').addEventListener('click', function () { AS.addImp(); });
-        this.el('asHaber').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); AS.addImp(); } });
-        this.el('asDebe').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); AS.el('asHaber').focus(); } });
+        this.el('asHaber').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (AS.el('chqRow').style.display !== 'none') AS.el('chqBan').focus(); else AS.addImp(); } });
+        this.el('asDebe').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (AS.el('chqRow').style.display !== 'none') AS.el('chqBan').focus(); else AS.el('asHaber').focus(); } });
         this.el('btnGrabar').addEventListener('click', function () { AS.grabar(); });
         this.el('btnAnularHdr').addEventListener('click', function () { if (AS.anulNum) AS.anular(AS.anulNum); });
         this.el('btnBuscar').addEventListener('click', function () { AS.openBuscar(); });
@@ -246,6 +246,7 @@ var AS = {
         var dif = Math.round((td - tc) * 100) / 100;
         this.el('totDebe').textContent = this.n(td);
         this.el('totHaber').textContent = this.n(tc);
+        if (this.el('compIvaRow').style.display === 'none') this.el('compTot').value = this.n(td);   // sin comprobante: el Total refleja el asiento (Σ Debe)
         this.el('totDif').textContent = this.n(dif);
         var ok = (dif === 0 && td > 0);
         this.el('balInd').innerHTML = this.lineas.length ? (ok ? '<span class="badge bg-success"><i class="bi bi-check-lg"></i> Cuadra</span>' : '<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> No cuadra</span>') : '';
