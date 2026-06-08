@@ -55,7 +55,7 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
 </style>
 
 <div id="roBanner" class="alert alert-info py-1 px-2 small mb-2" style="display:none"></div>
-<div class="fc-form" id="asForm" data-vadpref="<?= htmlspecialchars($vadPref, ENT_QUOTES) ?>" data-bankpref="<?= htmlspecialchars($bankPref, ENT_QUOTES) ?>" data-difpref="<?= htmlspecialchars($difPref, ENT_QUOTES) ?>" data-iva-acct="<?= htmlspecialchars($ivaAcct, ENT_QUOTES) ?>">
+<div class="fc-form" id="asForm" data-keynav data-keynav-submit="#btnGrabar" data-vadpref="<?= htmlspecialchars($vadPref, ENT_QUOTES) ?>" data-bankpref="<?= htmlspecialchars($bankPref, ENT_QUOTES) ?>" data-difpref="<?= htmlspecialchars($difPref, ENT_QUOTES) ?>" data-iva-acct="<?= htmlspecialchars($ivaAcct, ENT_QUOTES) ?>">
   <div class="card fc-card mb-2"><div class="card-body">
     <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> — el asiento se graba en el libro de capacitación.</div><?php endif; ?>
     <div class="row g-2 align-items-end">
@@ -204,5 +204,5 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/asientos.js?v=11"></script>
+<script src="assets/js/asientos.js?v=12"></script>
 '); ?>

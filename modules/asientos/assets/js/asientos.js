@@ -16,8 +16,8 @@ var AS = {
         this.el('fexmov').value = new Date().toISOString().slice(0, 10);
         this.autocomplete(this.el('asCtaQ'), this.el('asCtaList'), 'cuentas', function (o) { return o.CODCUE + ' · ' + o.DENCUE; }, function (o) { AS.pickCuenta(o); });
         this.el('btnAddImp').addEventListener('click', function () { AS.addImp(); });
-        this.el('asHaber').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); AS.addImp(); } });
-        this.el('asDebe').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); AS.el('asHaber').focus(); } });
+        this.el('asHaber').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); AS.addImp(); } });
+        this.el('asDebe').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); AS.el('asHaber').focus(); } });
         this.el('btnGrabar').addEventListener('click', function () { AS.grabar(); });
         this.el('btnAnularHdr').addEventListener('click', function () { if (AS.anulNum) AS.anular(AS.anulNum); });
         this.el('btnBuscar').addEventListener('click', function () { AS.openBuscar(); });
@@ -334,7 +334,7 @@ var AS = {
         var hi = -1, items = [], t = null;
         function render() { list.innerHTML = items.map(function (o, k) { return '<div class="ac-opt' + (k === hi ? ' active' : '') + '" data-k="' + k + '">' + AS.esc(label(o)) + '</div>'; }).join(''); list.classList.toggle('show', items.length > 0); }
         input.addEventListener('input', function () { clearTimeout(t); var q = input.value.trim(); if (q.length < 1) { items = []; render(); return; } t = setTimeout(function () { AS.api(action, { q: q }).then(function (j) { items = j.ok ? j.data : []; hi = items.length ? 0 : -1; render(); }); }, 180); });
-        input.addEventListener('keydown', function (e) { if (!list.classList.contains('show')) return; if (e.key === 'ArrowDown') { e.preventDefault(); hi = Math.min(hi + 1, items.length - 1); render(); } else if (e.key === 'ArrowUp') { e.preventDefault(); hi = Math.max(hi - 1, 0); render(); } else if (e.key === 'Enter') { if (hi >= 0) { e.preventDefault(); onPick(items[hi]); list.classList.remove('show'); } } else if (e.key === 'Escape') list.classList.remove('show'); });
+        input.addEventListener('keydown', function (e) { if (!list.classList.contains('show')) return; if (e.key === 'ArrowDown') { e.preventDefault(); hi = Math.min(hi + 1, items.length - 1); render(); } else if (e.key === 'ArrowUp') { e.preventDefault(); hi = Math.max(hi - 1, 0); render(); } else if (e.key === 'Enter') { if (hi >= 0) { e.preventDefault(); e.stopPropagation(); onPick(items[hi]); list.classList.remove('show'); } } else if (e.key === 'Escape') list.classList.remove('show'); });
         list.addEventListener('mousedown', function (e) { var o = e.target.closest('.ac-opt'); if (o) { e.preventDefault(); onPick(items[+o.dataset.k]); list.classList.remove('show'); } });
         input.addEventListener('blur', function () { setTimeout(function () { list.classList.remove('show'); }, 150); });
     },
