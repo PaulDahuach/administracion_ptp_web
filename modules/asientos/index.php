@@ -63,8 +63,8 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
       <div class="col-auto" style="width:135px"><label class="form-label mb-1 small">Emisión</label><input type="date" id="fexmov" class="form-control form-control-sm"></div>
       <div class="col-auto" style="width:210px"><label class="form-label mb-1 small">Operación</label><select id="codope" class="form-select form-select-sm"><?= $opOpts ?></select></div>
       <div class="col-auto" style="width:200px"><label class="form-label mb-1 small">Tipo (auxiliar)</label><select id="compAux" class="form-select form-select-sm" disabled></select></div>
-      <div class="col" style="min-width:175px"><label class="form-label mb-1 small">Cuenta corriente</label>
-        <div class="ac-box"><input type="text" id="asCueQ" class="form-control form-control-sm" autocomplete="off" disabled placeholder="(según operación)"><div class="ac-list" id="asCueList"></div></div>
+      <div class="col" style="min-width:175px"><label class="form-label mb-1 small">Cuenta corriente deudora</label>
+        <div class="ac-box"><input type="text" id="asCueQ" class="form-control form-control-sm" autocomplete="off" disabled placeholder="(opcional — cliente del gasto)"><div class="ac-list" id="asCueList"></div></div>
         <input type="hidden" id="asCue"></div>
       <div class="col-auto" style="width:185px"><label class="form-label mb-1 small">Cuenta bancaria</label><select id="asCbx" class="form-select form-select-sm" disabled><?= $cbxOpts ?></select></div>
       <div class="col-auto" style="width:175px"><label class="form-label mb-1 small">Modelo</label><select id="asMod" class="form-select form-select-sm" disabled><option value="">—</option></select></div>
@@ -204,5 +204,5 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/asientos.js?v=17"></script>
+<script src="assets/js/asientos.js?v=18"></script>
 '); ?>

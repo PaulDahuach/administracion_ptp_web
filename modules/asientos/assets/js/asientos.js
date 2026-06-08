@@ -15,6 +15,8 @@ var AS = {
     init: function () {
         this.el('fexmov').value = new Date().toISOString().slice(0, 10);
         this.autocomplete(this.el('asCtaQ'), this.el('asCtaList'), 'cuentas', function (o) { return o.CODCUE + ' · ' + o.DENCUE; }, function (o) { AS.pickCuenta(o); });
+        this.autocomplete(this.el('asCueQ'), this.el('asCueList'), 'cuentas_corrientes', function (o) { return o.CODCUE + ' · ' + o.DENCUE; }, function (o) { AS.el('asCue').value = o.CODCUE; AS.el('asCueQ').value = o.CODCUE + ' · ' + o.DENCUE; });
+        this.el('asCueQ').addEventListener('input', function () { if (!this.value.trim()) AS.el('asCue').value = ''; });
         this.el('btnAddImp').addEventListener('click', function () { AS.addImp(); });
         this.el('asHaber').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (AS.el('chqRow').style.display !== 'none') AS.el('chqBan').focus(); else AS.addImp(); } });
         this.el('asDebe').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (AS.el('chqRow').style.display !== 'none') AS.el('chqBan').focus(); else AS.el('asHaber').focus(); } });
@@ -49,7 +51,7 @@ var AS = {
             var d = j.data;
             AS.el('cicmov').value = d.iccope || ''; AS.el('cipmov').value = '0';   // comprobante interno (auto)
             if (d.auxiliares && d.auxiliares.length) {   // CODAUX: habilita + dispara el comprobante externo + IVA
-                ax.innerHTML = d.auxiliares.map(function (a) { return '<option value="' + a.CODAUX + '" data-iva="' + (a.IVAAUX ? '1' : '0') + '">' + AS.esc((a.DENAUX || '').trim()) + '</option>'; }).join('');
+                ax.innerHTML = d.auxiliares.map(function (a) { return '<option value="' + a.CODAUX + '" data-iva="' + (a.IVAAUX ? '1' : '0') + '" data-cue="' + (a.CUEAUX ? '1' : '0') + '">' + AS.esc((a.DENAUX || '').trim()) + '</option>'; }).join('');
                 ax.disabled = false; iva.style.display = 'flex'; ext.style.display = '';
             }
             if (d.modelos && d.modelos.length) {         // CODMOD: sólo operaciones con modelo (Depósito Bancario)
@@ -68,7 +70,13 @@ var AS = {
             if (j.ok && j.data) { AS.depCue = j.data.codcue; AS.depCueLabel = j.data.codcue + ' · ' + j.data.dencue; }
         });
     },
-    toggleIvaRow: function () { this.compIva(); },
+    toggleIvaRow: function () {
+        var ax = this.el('compAux'), opt = ax.options[ax.selectedIndex];
+        var cueAux = !!(opt && opt.getAttribute('data-cue') === '1' && !ax.disabled);   // el auxiliar (CUEAUX) habilita la cta cte deudora
+        this.el('asCueQ').disabled = !cueAux;
+        if (!cueAux) { this.el('asCueQ').value = ''; this.el('asCue').value = ''; }
+        this.compIva();
+    },
     compIva: function () {
         var n1 = this.r2(this.el('compNet1').value), a1 = this.r2(this.el('compAli1').value);
         var n2 = this.r2(this.el('compNet2').value), a2 = this.r2(this.el('compAli2').value);
@@ -263,6 +271,7 @@ var AS = {
         };
         payload.codcbx = parseInt(this.el('asCbx').value, 10) || 0;
         payload.codmod = parseInt(this.el('asMod').value, 10) || 0;
+        payload.codcue = parseInt(this.el('asCue').value, 10) || 0;   // cta cte deudora opcional (cliente del gasto, para costos)
         if (this.el('compIvaRow').style.display !== 'none') {   // sólo operaciones con comprobante (OP Contado): las cajas de IVA visibles
             if (!this.el('compAux').value) { this.toast('Elegí el tipo de comprobante (auxiliar).', 'warning'); return; }
             var ivas = [];
@@ -329,6 +338,7 @@ var AS = {
                 self.el('asCbx').value = String(d.codcbx);
                 if (d.codmod) { self.el('asMod').innerHTML = '<option value="' + d.codmod + '">' + (AS.esc(d.denmod) || ('Modelo ' + d.codmod)) + '</option>'; self.el('asMod').value = String(d.codmod); }
             }
+            if (d.codcue) { self.el('asCue').value = d.codcue; self.el('asCueQ').value = d.codcue + ' · ' + (d.codcue_den || ''); }   // cta cte deudora asociada
             self.el('fexmov').value = d.FEXISO; self.el('codope').value = String(d.CODOPE); self.el('detmov').value = d.DETMOV;
             self.lineas = (d.lineas || []).map(function (l) { return { codcue: l.codcue, cuenta: l.cuenta, codcdc: l.codcdc, centro: l.centro, debe: l.debe, cre: l.cre, cheque: l.cheque }; });
             self.renderImps();

@@ -21,6 +21,7 @@ try {
         case 'cheque_lookup': cheque_lookup();      break;
         case 'cuenta_banco':  cuenta_banco();       break;
         case 'cuenta_cbx':    cuenta_cbx();          break;
+        case 'cuentas_corrientes': cuentas_corrientes(); break;
         case 'auxiliares':    auxiliares();          break;
         case 'op_config':     op_config();           break;
         case 'categorias_iva': categorias_iva();     break;
@@ -100,6 +101,20 @@ function cuenta_cbx() {
     $c = db_row("SELECT TOP 1 CODCUE, DENCUE FROM [Tbl Cuentas Contables] WHERE CODCBX=$codcbx AND CODCUE Like '" . db_esc($bankP) . "%';");
     if (!$c) { ok(null); return; }
     ok(array('codcue' => trim((string) nz($c['CODCUE'], '')), 'dencue' => trim((string) nz($c['DENCUE'], ''))));
+}
+
+/** Búsqueda de cuentas corrientes DEUDORAS (CODORI='D') — asociar (indirecto) un gasto a un cliente, para costos. */
+function cuentas_corrientes() {
+    $q = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
+    if ($q === '') { ok(array()); return; }
+    $qe = db_esc($q);
+    $where = "CODORI='D' AND (DENCUE Like '%" . $qe . "%'";
+    if (is_numeric($q)) $where .= " OR CODCUE=" . (int) $q;
+    $where .= ")";
+    $rows = array();
+    foreach (db_query("SELECT TOP 20 CODCUE, DENCUE FROM [Tbl Cuentas Corrientes] WHERE $where ORDER BY DENCUE;") as $r)
+        $rows[] = array('CODCUE' => (int) $r['CODCUE'], 'DENCUE' => trim((string) nz($r['DENCUE'], '')));
+    ok($rows);
 }
 
 /** Auxiliares (gravada / no gravada) de una operación interna — para el comprobante de la OP Contado. */
@@ -316,6 +331,9 @@ function guardar() {
     $codmod = (int) nz(isset($d['codmod']) ? $d['codmod'] : 0, 0);
     if ($codcbx > 0) { $depCols .= ', CODCBX'; $depVals .= ', ' . $codcbx; }
     if ($codmod > 0) { $depCols .= ', CODMOD'; $depVals .= ', ' . $codmod; }
+    // CODCUE: cuenta corriente DEUDORA opcional (asociar el gasto a un cliente, para costos). 0/ausente = Null.
+    $codcue = (int) nz(isset($d['codcue']) ? $d['codcue'] : 0, 0);
+    $codcueSql = $codcue > 0 ? $codcue : 'Null';
 
     db_begin();
     try {
@@ -329,7 +347,7 @@ function guardar() {
 
         db_exec("INSERT INTO [Tbl Movimientos]
             (NUMMOV, CODORI, CODOPE, FEXMOV, CICMOV, CIPMOV, CINMOV, CODCUE, DETMOV, TOTMOV$compCols$depCols, NOWMOV, ANUMOV, ESTMOV)
-            VALUES ($nummov, 'I', $codope, $fex, " . as_txt($cic) . ", $cipSql, $cinmov, Null, " . as_txt($detmov) . ", " . as_num($total) . "$compVals$depVals, Now(), False, $estSql);");
+            VALUES ($nummov, 'I', $codope, $fex, " . as_txt($cic) . ", $cipSql, $cinmov, $codcueSql, " . as_txt($detmov) . ", " . as_num($total) . "$compVals$depVals, Now(), False, $estSql);");
 
         // IVA por alícuota (Tbl Movimientos IVA), para que la OP Contado entre en el libro IVA Compras.
         $decmov = false;
@@ -459,7 +477,7 @@ function listar() {
 /** Detalle de un asiento para cargarlo en el form en sólo-lectura (cabecera + imputaciones). */
 function detalle() {
     $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
-    $h = db_row("SELECT M.CINMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.FEXMOV, M.CODOPE, M.CODAUX, M.CODCBX, M.CODMOD, M.DETMOV, M.TOTMOV, M.ANUMOV, O.DENOPE,
+    $h = db_row("SELECT M.CINMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.FEXMOV, M.CODOPE, M.CODAUX, M.CODCBX, M.CODMOD, M.CODCUE, M.DETMOV, M.TOTMOV, M.ANUMOV, O.DENOPE,
         M.CECMOV, M.CEIMOV, M.CEPMOV, M.CENMOV, M.CEFMOV, M.FIXMOV, M.CITMOV, M.DENMOV, M.CODCRI,
         M.NOGMOV, M.IP1MOV, M.IP2MOV, M.AP1MOV, M.AP2MOV
         FROM [Tbl Movimientos] AS M LEFT JOIN [Tbl Operaciones] AS O ON M.CODOPE=O.CODOPE
@@ -523,6 +541,11 @@ function detalle() {
         $r['codmod'] = (int) nz($h['CODMOD'], 0);
         $md = db_row("SELECT DENMOD FROM [Tbl Modelos] WHERE CODMOD=" . (int) nz($h['CODMOD'], 0) . " AND CODOPE=" . (int) $h['CODOPE'] . ";");
         $r['denmod'] = $md ? trim((string) nz($md['DENMOD'], '')) : '';
+    }
+    if ((int) nz($h['CODCUE'], 0) > 0) {   // cuenta corriente deudora asociada (cliente del gasto)
+        $r['codcue'] = (int) $h['CODCUE'];
+        $cc = db_row("SELECT DENCUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=" . (int) $h['CODCUE'] . " AND CODORI='D';");
+        $r['codcue_den'] = $cc ? trim((string) nz($cc['DENCUE'], '')) : '';
     }
     ok($r);
 }
