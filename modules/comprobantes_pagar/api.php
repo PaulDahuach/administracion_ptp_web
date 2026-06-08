@@ -44,10 +44,12 @@ if (!defined('CP_LIB')) {
 function cp_iso($s) { if ($s === null || $s === '') return null; if (is_numeric($s)) return (int) $s; return (int) (new DateTime('1899-12-30'))->diff(new DateTime($s))->days; }
 function cp_txt($v) { $v = trim((string) $v); return ($v === '') ? 'Null' : "'" . db_esc($v) . "'"; }
 function cp_num($v) { return (string) round((float) $v, 2); }
+/** CODOPE del comprobante (default 310=Comprobante a Pagar; override por $GLOBALS['CP_CODOPE'], ej 320=NC Acreedora). */
+function cp_codope() { return isset($GLOBALS['CP_CODOPE']) ? (int) $GLOBALS['CP_CODOPE'] : 310; }
 
 /** Buscar Comprobantes a Pagar emitidos (CODOPE=310) por proveedor / nº / texto / fecha — filtrado por el libro del modo. */
 function listar() {
-    $w = array("M.CODORI='A'", "M.CODOPE=310");
+    $w = array("M.CODORI='A'", "M.CODOPE=" . cp_codope());
     $unico = auth_libro_unico();
     if ($unico === 'blanco') $w[] = "M.ESTMOV=True";
     elseif ($unico === 'capacitacion') $w[] = "M.ESTMOV=False";
@@ -83,8 +85,8 @@ function cp_fiso($s) { $f = fecha_serial($s); if (!$f || strpos($f, '/') === fal
 function cp_detalle() {
     if (!function_exists('anular_es_anulable')) require_once __DIR__ . '/../../includes/comprobante_anular.php';
     $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
-    $h = db_row("SELECT CINMOV, CIPMOV, FEXMOV, FIXMOV, CODCUE, DENMOV, CITMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV, CODAUX, DETMOV, COTMOV, NETMOV, IRIMOV, NOGMOV, IP1MOV, IP2MOV, AP1MOV, AP2MOV, TOTMOV, ESTMOV, CAEMOV, ANUMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=310;");
-    if (!$h) { fail('Comprobante a pagar no encontrado'); return; }
+    $h = db_row("SELECT CINMOV, CIPMOV, FEXMOV, FIXMOV, CODCUE, DENMOV, CITMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV, CODAUX, DETMOV, COTMOV, NETMOV, IRIMOV, NOGMOV, IP1MOV, IP2MOV, AP1MOV, AP2MOV, TOTMOV, ESTMOV, CAEMOV, ANUMOV FROM [Tbl Movimientos] WHERE NUMMOV=$num AND CODOPE=" . cp_codope() . ";");
+    if (!$h) { fail('Comprobante no encontrado'); return; }
     $cc = (int) $h['CODCUE'];
     $pv = db_row("SELECT CODCAT, SANCUE, SOPCUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=$cc AND CODORI='A';");
     $conprod = ((int) nz($h['CODAUX'], 312) === 311);
@@ -261,7 +263,13 @@ function cp_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $codcdc
     $totDeb += $deb; $totCre += $cre;
 }
 
-function cp_insert($d, $estTrue) {
+function cp_insert($d, $estTrue, $op = null) {
+    // $op parametriza el tipo de comprobante: codope/cicmov/codaux/contador (default = Comprobante a Pagar
+    // 310/'CP'/ULTCAP). Lo reusa Notas de Crédito Acreedoras (320/'NC'/321/ULTNCI), misma anatomía sin productos.
+    if (!is_array($op)) $op = array();
+    $opCodope = isset($op['codope']) ? (int) $op['codope'] : 310;
+    $opCicmov = isset($op['cicmov']) ? db_esc($op['cicmov']) : 'CP';
+    $opContador = isset($op['contador']) ? $op['contador'] : 'ULTCAP';
     $rc = db_row("SELECT CACC_K, CACC_L, CACC_Z FROM [Rec Control];");
     $caccK = trim((string) $rc['CACC_K']);   // Proveedores (HABER)
     $caccL = trim((string) $rc['CACC_L']);   // Anticipo a Proveedores
@@ -282,8 +290,8 @@ function cp_insert($d, $estTrue) {
     $cep = (int) nz($d['cep'], 0);
     $cen = (int) nz($d['cen'], 0);
     $cef = isset($d['cef']) && $d['cef'] !== '' ? cp_iso($d['cef']) : $fex;
-    $codcat = (int) nz($d['codcat'], 2);                          // 1=con productos (CODAUX=311) / 2=sin (312)
-    $codaux = ($codcat == 1) ? 311 : 312;
+    $codcat = (int) nz(isset($d['codcat']) ? $d['codcat'] : 2, 2);   // 1=con productos (CODAUX=311) / 2=sin (312)
+    $codaux = isset($op['codaux']) ? (int) $op['codaux'] : (($codcat == 1) ? 311 : 312);
     $productos = isset($d['productos']) && is_array($d['productos']) ? $d['productos'] : array();
 
     // Importes
@@ -315,7 +323,7 @@ function cp_insert($d, $estTrue) {
 
     // Numeración interna (ULTCAP): contador en CODPDV 1 (blanco) / 9999 (capacitación). CIPMOV=0 (sin PDV fiscal).
     $nummov = next_number('ULTMOV');
-    $cinmov = next_number_pdv('ULTCAP', $estTrue ? 1 : 9999);
+    $cinmov = next_number_pdv($opContador, $estTrue ? 1 : 9999);
     $sdomov = round(-$sumVto, 2);                                 // negativo = le debemos
 
     // ── Header ──
@@ -329,7 +337,7 @@ function cp_insert($d, $estTrue) {
         (NUMMOV, CODORI, FEXMOV, FIXMOV, CODOPE, CODAUX, CICMOV, CIPMOV, CINMOV, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV,
          CODCUE, SOCMOV, SACMOV, DENMOV, DCXMOV, DNXMOV, CODLOC, CODCRI, CITMOV, DETMOV, COTMOV, NETMOV, IRIMOV, NOGMOV, IP1MOV, IP2MOV, AP1MOV, AP2MOV,
          CREMOV, TOTMOV, SDOMOV, ESTMOV, NUIMOV, NMIMOV, NOWMOV)
-        VALUES ($nummov, 'A', $fex, $fix, 310, $codaux, 'CP', 0, $cinmov, '$cec', '$cei', $cep, $cen, $cef,
+        VALUES ($nummov, 'A', $fex, $fix, $opCodope, $codaux, '$opCicmov', 0, $cinmov, '$cec', '$cei', $cep, $cen, $cef,
          $codcue, " . cp_num($soc) . ", " . cp_num($sac) . ", $den, $dcx, $dnx, $codloc, $codcri, $cit, $det, $cotmov, " . ($netmov != 0 ? cp_num($netmov) : 'Null') . ", " . ($irimov != 0 ? cp_num($irimov) : 'Null') . ", " . ($nogmov != 0 ? cp_num($nogmov) : 'Null') . ", " . ($ip1 != 0 ? cp_num($ip1) : 'Null') . ", " . ($ip2 != 0 ? cp_num($ip2) : 'Null') . ", " . ($ap1 != 0 ? cp_num($ap1) : 'Null') . ", " . ($ap2 != 0 ? cp_num($ap2) : 'Null') . ",
          " . cp_num($total) . ", " . cp_num($total) . ", " . cp_num($sdomov) . ", $estSql, 0, 0, Now());");
 
@@ -462,9 +470,9 @@ function anular() {
     require_once __DIR__ . '/../../includes/comprobante_anular.php';
     $num = isset($_POST['nummov']) ? (int) $_POST['nummov'] : 0;
     try {
-        anular_check($num, 310, 'Comprobante a pagar');
+        anular_check($num, cp_codope(), 'Comprobante');
         db_begin();
-        try { anular_comprobante($num, 310); db_commit(); }
+        try { anular_comprobante($num, cp_codope()); db_commit(); }
         catch (Exception $e) { db_rollback(); throw $e; }
         ok(array('anulado' => $num));
     } catch (Exception $e) {
