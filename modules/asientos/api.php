@@ -21,6 +21,7 @@ try {
         case 'cheque_lookup': cheque_lookup();      break;
         case 'cuenta_banco':  cuenta_banco();       break;
         case 'auxiliares':    auxiliares();          break;
+        case 'op_config':     op_config();           break;
         case 'categorias_iva': categorias_iva();     break;
         case 'guardar':       guardar();            break;
         case 'anular':        anular();             break;
@@ -99,6 +100,26 @@ function auxiliares() {
 /** Categorías de responsabilidad IVA (para el comprobante). */
 function categorias_iva() {
     ok(db_query("SELECT CODCRI, DENCRI FROM [Tbl Categorias Responsabilidad IVA] ORDER BY CODCRI;"));
+}
+
+/** Config del header según la operación: auxiliares + modelos + si habilita cuenta corriente (CUEOPE) / cuenta bancaria (Depósito 125). */
+function op_config() {
+    $codope = isset($_GET['codope']) ? (int) $_GET['codope'] : 0;
+    $op = db_row("SELECT CUEOPE, ICCOPE FROM [Tbl Operaciones] WHERE CODOPE=$codope;");
+    $aux = array();
+    foreach (db_query("SELECT CODAUX, DENAUX, IVAAUX, CUEAUX FROM [Tbl Operaciones Auxiliares] WHERE CODOPE=$codope ORDER BY CODAUX;") as $a)
+        $aux[] = array('CODAUX' => (int) $a['CODAUX'], 'DENAUX' => trim((string) nz($a['DENAUX'], '')),
+            'IVAAUX' => ($a['IVAAUX'] === true || $a['IVAAUX'] == -1), 'CUEAUX' => ($a['CUEAUX'] === true || $a['CUEAUX'] == -1));
+    $mod = array();
+    foreach (db_query("SELECT CODMOD, DENMOD FROM [Tbl Modelos] WHERE CODOPE=$codope ORDER BY DENMOD;") as $m)
+        $mod[] = array('CODMOD' => (int) $m['CODMOD'], 'DENMOD' => trim((string) nz($m['DENMOD'], '')));
+    ok(array(
+        'iccope'       => $op ? trim((string) nz($op['ICCOPE'], '')) : '',
+        'cueEnabled'   => ($op && ($op['CUEOPE'] === true || $op['CUEOPE'] == -1)),
+        'bancoEnabled' => ($codope === 125),
+        'auxiliares'   => $aux,
+        'modelos'      => $mod,
+    ));
 }
 
 /** Inserta una imputación (Debe o Haber) + SOCMOV (saldo cacheado pre-update) + mayoriza DEBCUE/CRECUE.
@@ -266,9 +287,11 @@ function guardar() {
         $cen = (int) nz(isset($cmp['cen']) ? $cmp['cen'] : 0, 0);
         $cefSer = as_serial(isset($cmp['cef']) ? $cmp['cef'] : '');
         $cef = ($cefSer === null) ? $fex : (int) $cefSer;
+        $fixSer = as_serial(isset($cmp['fix']) ? $cmp['fix'] : '');
+        $fixmov = ($fixSer === null) ? $fex : (int) $fixSer;
         $codcri = (int) nz(isset($cmp['codcri']) ? $cmp['codcri'] : 0, 0);
         $compCols = ', FIXMOV, CODAUX, CECMOV, CEIMOV, CEPMOV, CENMOV, CEFMOV, DENMOV, CODCRI, CITMOV, NETMOV, IRIMOV, NOGMOV, IP1MOV, IP2MOV, AP1MOV, AP2MOV';
-        $compVals = ', ' . $fex . ', ' . $codaux . ', ' . as_txt(strtoupper(trim((string) nz($cmp['cec'], 'FC')))) . ', ' . as_txt(strtoupper(trim((string) nz($cmp['cei'], '')))) . ', ' . $cep . ', ' . $cen . ', ' . $cef
+        $compVals = ', ' . $fixmov . ', ' . $codaux . ', ' . as_txt(strtoupper(trim((string) nz($cmp['cec'], 'FC')))) . ', ' . as_txt(strtoupper(trim((string) nz($cmp['cei'], '')))) . ', ' . $cep . ', ' . $cen . ', ' . $cef
             . ', ' . as_txt(trim((string) nz(isset($cmp['denmov']) ? $cmp['denmov'] : '', ''))) . ', ' . ($codcri > 0 ? $codcri : 'Null') . ', ' . as_txt(trim((string) nz(isset($cmp['citmov']) ? $cmp['citmov'] : '', '')))
             . ', ' . ($netmov != 0 ? as_num($netmov) : 'Null') . ', ' . ($irimov != 0 ? as_num($irimov) : 'Null') . ', ' . ($nogmov != 0 ? as_num($nogmov) : 'Null')
             . ', ' . ($ip1 != 0 ? as_num($ip1) : 'Null') . ', ' . ($ip2 != 0 ? as_num($ip2) : 'Null') . ', ' . ($ap1 != 0 ? as_num($ap1) : 'Null') . ', ' . ($ap2 != 0 ? as_num($ap2) : 'Null');
@@ -412,13 +435,18 @@ function listar() {
 /** Detalle de un asiento para cargarlo en el form en sólo-lectura (cabecera + imputaciones). */
 function detalle() {
     $num = isset($_GET['nummov']) ? (int) $_GET['nummov'] : 0;
-    $h = db_row("SELECT M.CINMOV, M.FEXMOV, M.CODOPE, M.DETMOV, M.TOTMOV, M.ANUMOV, O.DENOPE
+    $h = db_row("SELECT M.CINMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.FEXMOV, M.CODOPE, M.CODAUX, M.DETMOV, M.TOTMOV, M.ANUMOV, O.DENOPE,
+        M.CECMOV, M.CEIMOV, M.CEPMOV, M.CENMOV, M.CEFMOV, M.FIXMOV, M.CITMOV, M.DENMOV, M.CODCRI,
+        M.NOGMOV, M.IP1MOV, M.IP2MOV, M.AP1MOV, M.AP2MOV
         FROM [Tbl Movimientos] AS M LEFT JOIN [Tbl Operaciones] AS O ON M.CODOPE=O.CODOPE
         WHERE M.NUMMOV=$num AND M.CODORI='I';");
     if (!$h) { fail('Asiento no encontrado'); return; }
     $r = array(
         'NUMMOV'    => $num,
         'NUMERO'    => str_pad((string) (int) nz($h['CINMOV'], 0), 8, '0', STR_PAD_LEFT),
+        'CIC'       => trim((string) nz($h['CICMOV'], '')),
+        'CII'       => trim((string) nz($h['CIIMOV'], '')),
+        'CIP'       => (int) nz($h['CIPMOV'], 0),
         'FEXISO'    => as_fiso($h['FEXMOV']),
         'CODOPE'    => (int) $h['CODOPE'],
         'OPERACION' => trim((string) nz($h['DENOPE'], '')),
@@ -446,6 +474,23 @@ function detalle() {
             'debe'    => round((float) nz($i['DEBMOV'], 0), 2),
             'cre'     => round((float) nz($i['CREMOV'], 0), 2),
             'cheque'  => $chq,
+        );
+    }
+    // Comprobante con IVA (OP Contado): para que la carga readonly muestre la discriminación neto/alícuota/IVA.
+    $codaux = (int) nz($h['CODAUX'], 0);
+    if ($codaux > 0) {
+        $ivas = array();
+        foreach (db_query("SELECT NETMOV, ALIMOV, IRIMOV FROM [Tbl Movimientos IVA] WHERE NUMMOV=$num ORDER BY DECMOV;") as $iv)
+            $ivas[] = array('net' => round((float) nz($iv['NETMOV'], 0), 2), 'ali' => round((float) nz($iv['ALIMOV'], 0), 2), 'iva' => round((float) nz($iv['IRIMOV'], 0), 2));
+        $r['comprobante'] = array(
+            'codaux' => $codaux,
+            'cec' => trim((string) nz($h['CECMOV'], '')), 'cei' => trim((string) nz($h['CEIMOV'], '')),
+            'cep' => (int) nz($h['CEPMOV'], 0), 'cen' => (int) nz($h['CENMOV'], 0),
+            'cef' => as_fiso($h['CEFMOV']), 'fix' => as_fiso($h['FIXMOV']),
+            'citmov' => trim((string) nz($h['CITMOV'], '')), 'denmov' => trim((string) nz($h['DENMOV'], '')), 'codcri' => (int) nz($h['CODCRI'], 0),
+            'nogmov' => round((float) nz($h['NOGMOV'], 0), 2), 'ip1mov' => round((float) nz($h['IP1MOV'], 0), 2), 'ip2mov' => round((float) nz($h['IP2MOV'], 0), 2),
+            'ap1mov' => round((float) nz($h['AP1MOV'], 0), 2), 'ap2mov' => round((float) nz($h['AP2MOV'], 0), 2),
+            'ivas' => $ivas,
         );
     }
     ok($r);
