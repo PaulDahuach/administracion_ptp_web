@@ -19,6 +19,7 @@ try {
         case 'centros_costo': centros_costo();      break;
         case 'bancos':        bancos();             break;
         case 'cheque_lookup': cheque_lookup();      break;
+        case 'cuenta_banco':  cuenta_banco();       break;
         case 'guardar':       guardar();            break;
         case 'anular':        anular();             break;
         case 'listar':        listar();             break;
@@ -73,6 +74,18 @@ function cheque_lookup() {
         'fde' => as_fiso($c['FEXCHQ']), 'fda' => as_fiso($c['FAXCHQ']), 'plz' => (int) nz($c['PLZCHQ'], 0),
         'lib' => trim((string) nz($c['LIBCHQ'], '')), 'cit' => trim((string) nz($c['CITCHQ'], '')), 'loc' => trim((string) nz($c['LOCCHQ'], '')),
     ));
+}
+
+/** Banco de una cuenta bancaria (CACC_3): CODCBX → Tbl Cuentas Bancarias → CODBAN/DENBAN. Para el cheque propio. */
+function cuenta_banco() {
+    $cu = isset($_GET['codcue']) ? trim($_GET['codcue']) : '';
+    if ($cu === '') { ok(null); return; }
+    $cbx = db_row("SELECT CODCBX FROM [Tbl Cuentas Contables] WHERE CODCUE='" . db_esc($cu) . "';");
+    $codcbx = $cbx ? (int) nz($cbx['CODCBX'], 0) : 0;
+    if ($codcbx <= 0) { ok(null); return; }
+    $bk = db_row("SELECT B.CODBAN, N.DENBAN FROM [Tbl Cuentas Bancarias] AS B LEFT JOIN [Tbl Bancos] AS N ON B.CODBAN=N.CODBAN WHERE B.CODCBX=$codcbx;");
+    if (!$bk) { ok(null); return; }
+    ok(array('codban' => (int) nz($bk['CODBAN'], 0), 'denban' => trim((string) nz($bk['DENBAN'], ''))));
 }
 
 /** Inserta una imputación (Debe o Haber) + SOCMOV (saldo cacheado pre-update) + mayoriza DEBCUE/CRECUE.

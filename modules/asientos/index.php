@@ -19,7 +19,9 @@ foreach (db_query("SELECT CODCDC, DENCDC FROM [Tbl Centros de Costo] ORDER BY DE
 $banOpts = '<option value="">— banco —</option>';
 foreach (db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos] ORDER BY DENBAN;") as $b)
     $banOpts .= '<option value="' . (int) $b['CODBAN'] . '">' . htmlspecialchars(trim((string) nz($b['DENBAN'], ''))) . '</option>';
-$vadPref = trim((string) nz(db_row("SELECT CACC_2 FROM [Rec Control];")['CACC_2'], ''));   // prefijo "valores a depositar" (cheques de terceros)
+$_rc = db_row("SELECT CACC_2, CACC_3 FROM [Rec Control];");
+$vadPref  = trim((string) nz($_rc['CACC_2'], ''));   // prefijo "valores a depositar" (cheques de terceros)
+$bankPref = trim((string) nz($_rc['CACC_3'], ''));   // prefijo cuentas bancarias (cheque propio)
 
 $capa = (auth_modo() === 'capacitacion');
 $btnLbl = $capa ? '<i class="bi bi-mortarboard me-1"></i>Grabar asiento (capacitación)' : '<i class="bi bi-save me-1"></i>Grabar asiento';
@@ -41,7 +43,7 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
 </style>
 
 <div id="roBanner" class="alert alert-info py-1 px-2 small mb-2" style="display:none"></div>
-<div class="fc-form" id="asForm" data-vadpref="<?= htmlspecialchars($vadPref, ENT_QUOTES) ?>">
+<div class="fc-form" id="asForm" data-vadpref="<?= htmlspecialchars($vadPref, ENT_QUOTES) ?>" data-bankpref="<?= htmlspecialchars($bankPref, ENT_QUOTES) ?>">
   <div class="card fc-card mb-2"><div class="card-body">
     <?php if ($capa): ?><div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-mortarboard me-1"></i>Modo <b>capacitación</b> — el asiento se graba en el libro de capacitación.</div><?php endif; ?>
     <div class="row g-2 align-items-end">
@@ -65,15 +67,16 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
       <div class="col-auto"><button type="button" id="btnAddImp" class="btn btn-sm btn-outline-primary mt-3"><i class="bi bi-plus-lg"></i></button></div>
     </div>
     <div class="row g-2 align-items-end mb-2" id="chqRow" style="display:none">
-      <div class="col-12"><div class="text-uppercase text-muted" style="font-size:.64rem;letter-spacing:.04em"><i class="bi bi-bank me-1"></i>Cheque de tercero — tipeá banco + número; si está en cartera se autocarga (depósito), sino cargá los datos (alta)</div></div>
-      <div class="col-auto" style="width:200px"><label class="form-label mb-1 small">Banco</label><select id="chqBan" class="form-select form-select-sm"><?= $banOpts ?></select></div>
+      <div class="col-12"><div class="text-uppercase text-muted" id="chqRowLabel" style="font-size:.64rem;letter-spacing:.04em"></div></div>
+      <div class="col-auto" style="width:200px" id="chqColBan"><label class="form-label mb-1 small">Banco</label><select id="chqBan" class="form-select form-select-sm"><?= $banOpts ?></select></div>
+      <div class="col-auto" style="width:200px;display:none" id="chqColBanInfo"><label class="form-label mb-1 small">Banco (de la cuenta)</label><div id="chqBanInfo" class="form-control form-control-sm as-ro"></div></div>
       <div class="col-auto" style="width:120px"><label class="form-label mb-1 small">Número</label><input id="chqSyn" class="form-control form-control-sm" autocomplete="off"></div>
       <div class="col-auto" style="width:135px"><label class="form-label mb-1 small">Emisión</label><input type="date" id="chqFde" class="form-control form-control-sm"></div>
-      <div class="col-auto" style="width:70px"><label class="form-label mb-1 small">Plaza</label><input type="number" id="chqPlz" class="form-control form-control-sm as-num" value="0"></div>
+      <div class="col-auto" style="width:70px" id="chqColPlz"><label class="form-label mb-1 small">Plaza</label><input type="number" id="chqPlz" class="form-control form-control-sm as-num" value="0"></div>
       <div class="col-auto" style="width:135px"><label class="form-label mb-1 small">Acreditación</label><input type="date" id="chqFda" class="form-control form-control-sm"></div>
-      <div class="col" style="min-width:140px"><label class="form-label mb-1 small">Librador</label><input id="chqLib" class="form-control form-control-sm" autocomplete="off"></div>
-      <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">CUIT</label><input id="chqCit" class="form-control form-control-sm" autocomplete="off"></div>
-      <div class="col-auto" style="width:130px"><label class="form-label mb-1 small">Localidad</label><input id="chqLoc" class="form-control form-control-sm" autocomplete="off"></div>
+      <div class="col" style="min-width:140px" id="chqColLib"><label class="form-label mb-1 small">Librador</label><input id="chqLib" class="form-control form-control-sm" autocomplete="off"></div>
+      <div class="col-auto" style="width:130px" id="chqColCit"><label class="form-label mb-1 small">CUIT</label><input id="chqCit" class="form-control form-control-sm" autocomplete="off"></div>
+      <div class="col-auto" style="width:130px" id="chqColLoc"><label class="form-label mb-1 small">Localidad</label><input id="chqLoc" class="form-control form-control-sm" autocomplete="off"></div>
       <div class="col-auto"><span id="chqEstado" class="badge bg-secondary mt-3" style="display:none"></span></div>
     </div>
     <table class="table table-sm mb-0"><thead><tr><th>Cuenta contable</th><th>Centro de costo</th><th class="as-num" style="width:140px">Debe</th><th class="as-num" style="width:140px">Haber</th><th style="width:32px"></th></tr></thead>
@@ -113,5 +116,5 @@ module_head('Imputaciones Contables', 'bi-journal-bookmark-fill', $toolbar);
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/asientos.js?v=2"></script>
+<script src="assets/js/asientos.js?v=3"></script>
 '); ?>

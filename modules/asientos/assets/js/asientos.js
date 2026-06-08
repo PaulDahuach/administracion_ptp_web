@@ -23,6 +23,7 @@ var AS = {
         this.el('btnBuscar').addEventListener('click', function () { AS.openBuscar(); });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
         this.vadPref = this.el('asForm').getAttribute('data-vadpref') || '';
+        this.bankPref = this.el('asForm').getAttribute('data-bankpref') || '';
         this.el('chqSyn').addEventListener('change', function () { AS.chequeLookup(); });
         this.el('chqBan').addEventListener('change', function () { AS.chequeLookup(); });
         this.renderImps();
@@ -31,11 +32,34 @@ var AS = {
     pickCuenta: function (o) {
         this.cuentaSel = { codcue: o.CODCUE, label: o.CODCUE + ' · ' + (o.DENCUE || '').trim() };
         this.el('asCta').value = o.CODCUE; this.el('asCtaQ').value = this.cuentaSel.label;
-        var esChq = this.vadPref !== '' && String(o.CODCUE).indexOf(this.vadPref) === 0;
-        this.el('chqRow').style.display = esChq ? 'flex' : 'none';
-        if (esChq) { this.resetCheque(); this.el('chqBan').focus(); } else { this.el('asDebe').focus(); }
+        var cc = String(o.CODCUE);
+        if (this.vadPref !== '' && cc.indexOf(this.vadPref) === 0) { this.setChequeMode('terceros'); this.el('chqBan').focus(); }
+        else if (this.bankPref !== '' && cc.indexOf(this.bankPref) === 0) { this.setChequeMode('propio', cc); this.el('chqSyn').focus(); }
+        else { this.setChequeMode(null); this.el('asDebe').focus(); }
+    },
+    setChequeMode: function (mode, codcue) {
+        this.chqMode = mode || null;
+        var row = this.el('chqRow');
+        if (!mode) { row.style.display = 'none'; return; }
+        this.resetCheque(); row.style.display = 'flex';
+        var ter = (mode === 'terceros');
+        this.el('chqColBan').style.display = ter ? '' : 'none';
+        this.el('chqColBanInfo').style.display = ter ? 'none' : '';
+        ['chqColPlz', 'chqColLib', 'chqColCit', 'chqColLoc'].forEach(function (id) { AS.el(id).style.display = ter ? '' : 'none'; });
+        this.el('chqRowLabel').innerHTML = ter
+            ? '<i class="bi bi-bank me-1"></i>Cheque de tercero — tipeá banco + número; si está en cartera se autocarga (depósito), sino cargá los datos (alta)'
+            : '<i class="bi bi-bank me-1"></i>Cheque propio — el banco es el de la cuenta; cargá número + fechas + el importe en Haber';
+        this.chqBancoSel = null;
+        if (!ter && codcue) {
+            this.el('chqBanInfo').textContent = '…';
+            this.api('cuenta_banco', { codcue: codcue }).then(function (j) {
+                if (j.ok && j.data) { AS.chqBancoSel = j.data; AS.el('chqBanInfo').textContent = j.data.denban || ('Banco ' + j.data.codban); }
+                else { AS.el('chqBanInfo').textContent = '(la cuenta no tiene banco asociado)'; }
+            });
+        }
     },
     chequeLookup: function () {
+        if (this.chqMode === 'propio') { this.chequePropioCheck(); return; }
         var ban = this.el('chqBan').value, syn = this.el('chqSyn').value.trim();
         var est = this.el('chqEstado');
         if (!ban || !syn) { est.style.display = 'none'; return; }
@@ -52,6 +76,15 @@ var AS = {
                 ro(false);
                 est.textContent = 'Alta — cheque nuevo (cargá los datos + el Debe)'; est.className = 'badge bg-info text-dark mt-3'; est.style.display = '';
             }
+        });
+    },
+    chequePropioCheck: function () {
+        var syn = this.el('chqSyn').value.trim();
+        var est = this.el('chqEstado');
+        if (!syn || !this.chqBancoSel) { est.style.display = 'none'; return; }
+        this.api('cheque_lookup', { codban: this.chqBancoSel.codban, syn: syn }).then(function (j) {
+            if (j.ok && j.data) { AS.toast('Ese cheque propio ya existe (no se puede re-emitir).', 'warning'); est.textContent = 'Ya existe — no re-emitir'; est.className = 'badge bg-danger mt-3'; est.style.display = ''; }
+            else { est.textContent = 'Cheque propio nuevo'; est.className = 'badge bg-info text-dark mt-3'; est.style.display = ''; }
         });
     },
     resetCheque: function () {
@@ -71,10 +104,18 @@ var AS = {
         var esChq = this.el('chqRow').style.display !== 'none';
         var chq = null;
         if (esChq) {
-            var ban = this.el('chqBan').value, syn = this.el('chqSyn').value.trim();
-            if (!ban || !syn) { this.toast('Elegí el banco y el número del cheque.', 'warning'); return; }
-            var bopt = this.el('chqBan').selectedOptions[0];
-            chq = { codban: parseInt(ban, 10), syn: syn, fde: this.el('chqFde').value, plz: parseInt(this.el('chqPlz').value, 10) || 0, fda: this.el('chqFda').value, lib: this.el('chqLib').value, cit: this.el('chqCit').value, loc: this.el('chqLoc').value, disp: (bopt ? bopt.textContent : '') + ' Nº ' + syn };
+            var syn = this.el('chqSyn').value.trim();
+            if (this.chqMode === 'propio') {
+                if (!syn) { this.toast('Cargá el número del cheque propio.', 'warning'); return; }
+                if (cre <= 0) { this.toast('El cheque propio es un pago: va al Haber.', 'warning'); return; }
+                var bn = this.chqBancoSel ? (this.chqBancoSel.denban || ('Banco ' + this.chqBancoSel.codban)) : '';
+                chq = { codban: this.chqBancoSel ? this.chqBancoSel.codban : 0, syn: syn, fde: this.el('chqFde').value, plz: 0, fda: this.el('chqFda').value, lib: '', cit: '', loc: '', disp: bn + ' Nº ' + syn + ' (propio)' };
+            } else {
+                var ban = this.el('chqBan').value;
+                if (!ban || !syn) { this.toast('Elegí el banco y el número del cheque.', 'warning'); return; }
+                var bopt = this.el('chqBan').selectedOptions[0];
+                chq = { codban: parseInt(ban, 10), syn: syn, fde: this.el('chqFde').value, plz: parseInt(this.el('chqPlz').value, 10) || 0, fda: this.el('chqFda').value, lib: this.el('chqLib').value, cit: this.el('chqCit').value, loc: this.el('chqLoc').value, disp: (bopt ? bopt.textContent : '') + ' Nº ' + syn };
+            }
         }
         var opt = this.el('asCdc').selectedOptions[0];
         this.lineas.push({
