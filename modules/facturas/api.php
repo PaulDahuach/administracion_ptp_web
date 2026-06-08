@@ -472,6 +472,7 @@ function fv_emitir($d, $estTrue) {
 
 function guardar() {
     if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
+    require_once __DIR__ . '/../../includes/afip_wsfe.php';   // AfipUnreachable/AfipRejected + afip_fail (para el catch, incluso en capacitación)
     $raw = isset($_POST['data']) ? json_decode($_POST['data'], true) : null;
     if (!is_array($raw)) { fail('Datos inválidos'); return; }
     // BLANCO (operador/integral) = factura electrónica con CAE de AFIP.
@@ -490,7 +491,7 @@ function guardar() {
         $res['anulable'] = anular_es_anulable($estTrue, isset($res['cae']) ? $res['cae'] : '');
         ok($res);
     } catch (Exception $e) {
-        fail('No se pudo ' . ($estTrue ? 'emitir' : 'grabar') . ' la factura: ' . $e->getMessage(), 500);
+        afip_fail($e, $estTrue ? 'emitir' : 'grabar');
     }
 }
 

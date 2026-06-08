@@ -34,11 +34,13 @@ function ok($data = null) {
     echo json_out(['ok' => true, 'data' => $data]);
 }
 
-/** Respuesta JSON de error. Uso: fail('mensaje'); exit; */
-function fail($msg, $code = 400) {
+/** Respuesta JSON de error. Uso: fail('mensaje'); exit;  $kind opcional (ej 'unreachable'/'rejected') para que el front discrimine. */
+function fail($msg, $code = 400, $kind = null) {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_out(['ok' => false, 'error' => $msg]);
+    $payload = ['ok' => false, 'error' => $msg];
+    if ($kind !== null) $payload['kind'] = $kind;
+    echo json_out($payload);
 }
 
 /** NZ de Access: valor por defecto si es null/''. */

@@ -6,6 +6,11 @@
  */
 require_once __DIR__ . '/afip_wsaa.php';
 
+/** AFIP inalcanzable (red/timeout/servicio caído) — transitorio y reintentable; NO se grabó nada. */
+class AfipUnreachable extends Exception {}
+/** AFIP procesó el pedido y lo RECHAZÓ (observaciones/errores de datos o negocio) — hay que corregir, no reintentar a ciegas. */
+class AfipRejected extends Exception {}
+
 class AfipWsfe {
 
     private $client;
@@ -13,21 +18,34 @@ class AfipWsfe {
     private $cuit;
 
     public function __construct() {
-        $wsaa = new AfipWsaa('wsfe');
-        $cred = $wsaa->getCredentials();
-        $this->cuit = AFIP_CUIT;
-        $this->auth = array('Token' => $cred['token'], 'Sign' => $cred['sign'], 'Cuit' => $this->cuit);
-        $this->client = new SoapClient(AFIP_WSFE_WSDL, array(
-            'soap_version'   => SOAP_1_2,
-            'trace'          => true,
-            'exceptions'     => true,
-            'stream_context' => stream_context_create(array('ssl' => array('verify_peer' => false, 'verify_peer_name' => false))),
-        ));
+        try {
+            $wsaa = new AfipWsaa('wsfe');
+            $cred = $wsaa->getCredentials();
+            $this->cuit = AFIP_CUIT;
+            $this->auth = array('Token' => $cred['token'], 'Sign' => $cred['sign'], 'Cuit' => $this->cuit);
+            $this->client = new SoapClient(AFIP_WSFE_WSDL, array(
+                'soap_version'   => SOAP_1_2,
+                'trace'          => true,
+                'exceptions'     => true,
+                'stream_context' => stream_context_create(array('ssl' => array('verify_peer' => false, 'verify_peer_name' => false))),
+            ));
+        } catch (SoapFault $e) {
+            throw new AfipUnreachable('No se pudo conectar con AFIP: ' . $e->getMessage());
+        }
+    }
+
+    /** Ejecuta un método SOAP de AFIP; un SoapFault (red/timeout/servicio caído) se traduce a AfipUnreachable (reintentable). */
+    private function call($method, $args) {
+        try {
+            return $this->client->$method($args);
+        } catch (SoapFault $e) {
+            throw new AfipUnreachable('AFIP no respondió (' . $method . '): ' . $e->getMessage());
+        }
     }
 
     /** Último comprobante autorizado para un punto de venta + tipo. */
     public function ultimoAutorizado($ptoVta, $cbteTipo) {
-        $result = $this->client->FECompUltimoAutorizado(array('Auth' => $this->auth, 'PtoVta' => (int) $ptoVta, 'CbteTipo' => (int) $cbteTipo));
+        $result = $this->call('FECompUltimoAutorizado', array('Auth' => $this->auth, 'PtoVta' => (int) $ptoVta, 'CbteTipo' => (int) $cbteTipo));
         $this->checkErrors($result->FECompUltimoAutorizadoResult);
         return (int) $result->FECompUltimoAutorizadoResult->CbteNro;
     }
@@ -96,7 +114,7 @@ class AfipWsfe {
             ),
         );
 
-        $result = $this->client->FECAESolicitar($request);
+        $result = $this->call('FECAESolicitar', $request);
         $fecae = $result->FECAESolicitarResult;
         $this->checkErrors($fecae);
 
@@ -109,7 +127,7 @@ class AfipWsfe {
                 $arr = is_array($det->Observaciones->Obs) ? $det->Observaciones->Obs : array($det->Observaciones->Obs);
                 foreach ($arr as $o) $obs .= "({$o->Code}) {$o->Msg} ";
             }
-            throw new Exception('Comprobante rechazado por AFIP: ' . $obs);
+            throw new AfipRejected('Comprobante rechazado por AFIP: ' . $obs);
         }
 
         return array(
@@ -123,7 +141,7 @@ class AfipWsfe {
 
     /** Consulta un comprobante ya emitido. */
     public function consultarComprobante($ptoVta, $cbteTipo, $cbteNro) {
-        $result = $this->client->FECompConsultar(array(
+        $result = $this->call('FECompConsultar', array(
             'Auth' => $this->auth,
             'FeCompConsReq' => array('CbteTipo' => (int) $cbteTipo, 'CbteNro' => (int) $cbteNro, 'PtoVta' => (int) $ptoVta),
         ));
@@ -136,10 +154,26 @@ class AfipWsfe {
             $errs = is_array($result->Errors->Err) ? $result->Errors->Err : array($result->Errors->Err);
             $msg = '';
             foreach ($errs as $e) $msg .= "({$e->Code}) {$e->Msg} ";
-            throw new Exception('Error AFIP: ' . $msg);
+            throw new AfipRejected('Error AFIP: ' . $msg);
         }
     }
 
     public function getLastRequest()  { return $this->client->__getLastRequest(); }
     public function getLastResponse() { return $this->client->__getLastResponse(); }
+}
+
+/**
+ * Traduce una excepción de emisión electrónica a la respuesta JSON de error adecuada (uniforme FV/NC/ND):
+ *  - AfipUnreachable → 503 'unreachable' (transitorio; reintentar; no se grabó nada).
+ *  - AfipRejected    → 422 'rejected'    (AFIP rechazó por datos; corregir).
+ *  - cualquier otra  → 500 genérico (error local: DB, etc.).
+ */
+function afip_fail(Exception $e, $verbo) {
+    if ($e instanceof AfipUnreachable) {
+        fail('AFIP no está respondiendo, así que el comprobante NO se emitió ni se grabó. Reintentá en unos minutos — los datos quedan cargados.', 503, 'unreachable');
+    } elseif ($e instanceof AfipRejected) {
+        fail($e->getMessage() . ' — corregí los datos y reintentá.', 422, 'rejected');
+    } else {
+        fail('No se pudo ' . $verbo . ' el comprobante: ' . $e->getMessage(), 500);
+    }
 }

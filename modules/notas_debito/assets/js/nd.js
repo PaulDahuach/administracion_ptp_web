@@ -92,7 +92,12 @@ const ND = {
         var fd = new FormData(); fd.append('action', 'guardar'); fd.append('data', JSON.stringify(data));
         var j = await this.api('guardar', {}, { method: 'POST', body: fd });
         this.el('btnEmitir').innerHTML = '<i class="bi bi-cloud-arrow-up me-1"></i>Emitir ND (AFIP)';
-        if (!j.ok) { this.el('btnEmitir').disabled = false; this.el('ndErr').textContent = j.error; return; }
+        if (!j.ok) {
+            this.el('btnEmitir').disabled = false;
+            this.el('ndErr').textContent = j.error;   // detalle (el backend distingue AFIP caído vs rechazado)
+            this.toast(j.kind === 'unreachable' ? 'AFIP no responde — reintentá en unos minutos (no se grabó nada).' : (j.kind === 'rejected' ? 'AFIP rechazó el comprobante — corregí los datos.' : 'No se pudo emitir la nota de débito.'), j.kind === 'unreachable' ? 'warning' : 'danger');
+            return;
+        }
         this.emitida = true;
         this.el('nummov').value = String(j.data.nummov).padStart(8, '0');
         this.el('cinmov').value = String(j.data.cinmov).padStart(8, '0');
