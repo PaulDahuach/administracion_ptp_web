@@ -17,6 +17,8 @@ try {
         case 'operaciones':   operaciones();        break;
         case 'cuentas':       cuentas_imputables(); break;
         case 'centros_costo': centros_costo();      break;
+        case 'bancos':        bancos();             break;
+        case 'cheque_lookup': cheque_lookup();      break;
         case 'guardar':       guardar();            break;
         case 'anular':        anular();             break;
         case 'listar':        listar();             break;
@@ -49,6 +51,28 @@ function cuentas_imputables() {
 
 function centros_costo() {
     ok(db_query("SELECT CODCDC, DENCDC FROM [Tbl Centros de Costo] ORDER BY DENCDC;"));
+}
+
+/** Bancos (combo del cheque). */
+function bancos() {
+    ok(db_query("SELECT CODBAN, DENBAN FROM [Tbl Bancos] ORDER BY DENBAN;"));
+}
+
+/** Buscar un cheque por banco + número. null = no existe (→ alta); sino sus datos + si está en cartera (→ depósito). */
+function cheque_lookup() {
+    $codban = isset($_GET['codban']) ? (int) $_GET['codban'] : 0;
+    $syn = isset($_GET['syn']) ? trim($_GET['syn']) : '';
+    if ($codban <= 0 || $syn === '') { ok(null); return; }
+    $c = db_row("SELECT CODCHQ, IMPCHQ, FEXCHQ, FAXCHQ, PLZCHQ, LIBCHQ, CITCHQ, LOCCHQ, VADCHQ, DIFCHQ FROM [Tbl Cheques] WHERE CODBAN=$codban AND SYNCHQ='" . db_esc($syn) . "';");
+    if (!$c) { ok(null); return; }
+    ok(array(
+        'codchq' => (int) $c['CODCHQ'],
+        'enCartera' => ($c['VADCHQ'] === true || $c['VADCHQ'] == -1),
+        'diferido' => ($c['DIFCHQ'] === true || $c['DIFCHQ'] == -1),
+        'imp' => round((float) nz($c['IMPCHQ'], 0), 2),
+        'fde' => as_fiso($c['FEXCHQ']), 'fda' => as_fiso($c['FAXCHQ']), 'plz' => (int) nz($c['PLZCHQ'], 0),
+        'lib' => trim((string) nz($c['LIBCHQ'], '')), 'cit' => trim((string) nz($c['CITCHQ'], '')), 'loc' => trim((string) nz($c['LOCCHQ'], '')),
+    ));
 }
 
 /** Inserta una imputación (Debe o Haber) + SOCMOV (saldo cacheado pre-update) + mayoriza DEBCUE/CRECUE.
@@ -267,11 +291,16 @@ function detalle() {
         'ANULABLE'  => (auth_is_admin() && !($h['ANUMOV'] === true || $h['ANUMOV'] == -1)),
         'lineas'    => array(),
     );
-    foreach (db_query("SELECT I.CODCUE, I.DEBMOV, I.CREMOV, I.CODCDC, C.DENCUE, D.DENCDC
+    foreach (db_query("SELECT I.CODCUE, I.DEBMOV, I.CREMOV, I.CODCDC, I.CODCHQ, C.DENCUE, D.DENCDC
         FROM ([Tbl Movimientos Imputaciones] AS I LEFT JOIN [Tbl Cuentas Contables] AS C ON I.CODCUE=C.CODCUE)
         LEFT JOIN [Tbl Centros de Costo] AS D ON I.CODCDC=D.CODCDC
         WHERE I.NUMMOV=$num ORDER BY I.ORDMOV;") as $i) {
         $cu = trim((string) nz($i['CODCUE'], ''));
+        $chq = '';
+        if ((int) nz($i['CODCHQ'], 0) > 0) {
+            $cq = db_row("SELECT C.SYNCHQ, B.DENBAN FROM [Tbl Cheques] AS C LEFT JOIN [Tbl Bancos] AS B ON C.CODBAN=B.CODBAN WHERE C.CODCHQ=" . (int) $i['CODCHQ'] . ";");
+            if ($cq) $chq = trim((string) nz($cq['DENBAN'], '')) . ' Nº ' . trim((string) nz($cq['SYNCHQ'], ''));
+        }
         $r['lineas'][] = array(
             'codcue'  => $cu,
             'cuenta'  => $cu . ' · ' . trim((string) nz($i['DENCUE'], '')),
@@ -279,6 +308,7 @@ function detalle() {
             'centro'  => trim((string) nz($i['DENCDC'], '')),
             'debe'    => round((float) nz($i['DEBMOV'], 0), 2),
             'cre'     => round((float) nz($i['CREMOV'], 0), 2),
+            'cheque'  => $chq,
         );
     }
     ok($r);

@@ -22,13 +22,45 @@ var AS = {
         this.el('btnAnularHdr').addEventListener('click', function () { if (AS.anulNum) AS.anular(AS.anulNum); });
         this.el('btnBuscar').addEventListener('click', function () { AS.openBuscar(); });
         this.el('btnNuevo').addEventListener('click', function () { location.reload(); });
+        this.vadPref = this.el('asForm').getAttribute('data-vadpref') || '';
+        this.el('chqSyn').addEventListener('change', function () { AS.chequeLookup(); });
+        this.el('chqBan').addEventListener('change', function () { AS.chequeLookup(); });
         this.renderImps();
     },
 
     pickCuenta: function (o) {
         this.cuentaSel = { codcue: o.CODCUE, label: o.CODCUE + ' · ' + (o.DENCUE || '').trim() };
         this.el('asCta').value = o.CODCUE; this.el('asCtaQ').value = this.cuentaSel.label;
-        this.el('asDebe').focus();
+        var esChq = this.vadPref !== '' && String(o.CODCUE).indexOf(this.vadPref) === 0;
+        this.el('chqRow').style.display = esChq ? 'flex' : 'none';
+        if (esChq) { this.resetCheque(); this.el('chqBan').focus(); } else { this.el('asDebe').focus(); }
+    },
+    chequeLookup: function () {
+        var ban = this.el('chqBan').value, syn = this.el('chqSyn').value.trim();
+        var est = this.el('chqEstado');
+        if (!ban || !syn) { est.style.display = 'none'; return; }
+        this.api('cheque_lookup', { codban: ban, syn: syn }).then(function (j) {
+            var ro = function (v) { ['chqFde', 'chqPlz', 'chqFda', 'chqLib', 'chqCit', 'chqLoc'].forEach(function (id) { AS.el(id).readOnly = v; }); };
+            if (j.ok && j.data) {
+                if (!j.data.enCartera) { AS.toast('Ese cheque ya no está en cartera (fue depositado).', 'warning'); est.textContent = 'No está en cartera'; est.className = 'badge bg-danger mt-3'; est.style.display = ''; return; }
+                AS.el('chqFde').value = j.data.fde; AS.el('chqPlz').value = j.data.plz; AS.el('chqFda').value = j.data.fda;
+                AS.el('chqLib').value = j.data.lib; AS.el('chqCit').value = j.data.cit; AS.el('chqLoc').value = j.data.loc;
+                AS.el('asHaber').value = j.data.imp; AS.el('asDebe').value = '';
+                ro(true);
+                est.textContent = 'Depósito — en cartera ($' + AS.n(j.data.imp) + ')'; est.className = 'badge bg-success mt-3'; est.style.display = '';
+            } else {
+                ro(false);
+                est.textContent = 'Alta — cheque nuevo (cargá los datos + el Debe)'; est.className = 'badge bg-info text-dark mt-3'; est.style.display = '';
+            }
+        });
+    },
+    resetCheque: function () {
+        var today = new Date().toISOString().slice(0, 10);
+        this.el('chqBan').value = ''; this.el('chqSyn').value = '';
+        this.el('chqFde').value = today; this.el('chqPlz').value = 0; this.el('chqFda').value = today;
+        this.el('chqLib').value = ''; this.el('chqCit').value = ''; this.el('chqLoc').value = '';
+        ['chqFde', 'chqPlz', 'chqFda', 'chqLib', 'chqCit', 'chqLoc'].forEach(function (id) { AS.el(id).readOnly = false; });
+        this.el('chqEstado').style.display = 'none';
     },
 
     addImp: function () {
@@ -36,20 +68,30 @@ var AS = {
         var deb = this.r2(this.el('asDebe').value), cre = this.r2(this.el('asHaber').value);
         if (deb <= 0 && cre <= 0) { this.toast('Poné un importe en Debe o Haber.', 'warning'); return; }
         if (deb > 0 && cre > 0) { this.toast('Una imputación va al Debe O al Haber, no a los dos.', 'warning'); return; }
+        var esChq = this.el('chqRow').style.display !== 'none';
+        var chq = null;
+        if (esChq) {
+            var ban = this.el('chqBan').value, syn = this.el('chqSyn').value.trim();
+            if (!ban || !syn) { this.toast('Elegí el banco y el número del cheque.', 'warning'); return; }
+            var bopt = this.el('chqBan').selectedOptions[0];
+            chq = { codban: parseInt(ban, 10), syn: syn, fde: this.el('chqFde').value, plz: parseInt(this.el('chqPlz').value, 10) || 0, fda: this.el('chqFda').value, lib: this.el('chqLib').value, cit: this.el('chqCit').value, loc: this.el('chqLoc').value, disp: (bopt ? bopt.textContent : '') + ' Nº ' + syn };
+        }
         var opt = this.el('asCdc').selectedOptions[0];
         this.lineas.push({
             codcue: this.cuentaSel.codcue, cuenta: this.cuentaSel.label,
             codcdc: parseInt(this.el('asCdc').value, 10) || 1, centro: opt ? opt.textContent : '',
-            debe: deb, cre: cre
+            debe: deb, cre: cre, chq: chq, cheque: chq ? chq.disp : ''
         });
         this.cuentaSel = null; this.el('asCta').value = ''; this.el('asCtaQ').value = '';
         this.el('asDebe').value = ''; this.el('asHaber').value = '';
+        if (esChq) { this.resetCheque(); this.el('chqRow').style.display = 'none'; }
         this.renderImps(); this.el('asCtaQ').focus();
     },
 
     renderImps: function () {
         this.el('impBody').innerHTML = this.lineas.map(function (l, k) {
-            return '<tr><td>' + AS.esc(l.cuenta) + '</td><td class="small">' + AS.esc(l.centro || '') + '</td>' +
+            var chq = l.cheque ? '<div class="small text-info"><i class="bi bi-bank"></i> ' + AS.esc(l.cheque) + '</div>' : '';
+            return '<tr><td>' + AS.esc(l.cuenta) + chq + '</td><td class="small">' + AS.esc(l.centro || '') + '</td>' +
                 '<td class="as-num">' + (l.debe > 0 ? AS.n(l.debe) : '·') + '</td><td class="as-num">' + (l.cre > 0 ? AS.n(l.cre) : '·') + '</td>' +
                 '<td><button type="button" class="btn btn-sm btn-outline-danger i-del" data-k="' + k + '"><i class="bi bi-x"></i></button></td></tr>';
         }).join('');
@@ -71,7 +113,7 @@ var AS = {
         if (this.lineas.length < 2) { this.toast('El asiento necesita al menos 2 imputaciones.', 'warning'); return; }
         var payload = {
             codope: this.el('codope').value, fexmov: this.el('fexmov').value, detmov: this.el('detmov').value,
-            lineas: this.lineas.map(function (l) { return { codcue: l.codcue, codcdc: l.codcdc, debe: l.debe, cre: l.cre }; })
+            lineas: this.lineas.map(function (l) { var o = { codcue: l.codcue, codcdc: l.codcdc, debe: l.debe, cre: l.cre }; if (l.chq) { o.codban = l.chq.codban; o.syn = l.chq.syn; o.fde = l.chq.fde; o.plz = l.chq.plz; o.fda = l.chq.fda; o.lib = l.chq.lib; o.cit = l.chq.cit; o.loc = l.chq.loc; } return o; })
         };
         var fd = new FormData(); fd.append('action', 'guardar'); fd.append('data', JSON.stringify(payload));
         this.api('guardar', {}, { method: 'POST', body: fd }).then(function (j) {
@@ -119,7 +161,7 @@ var AS = {
             var bm = bootstrap.Modal.getInstance(self.el('modalBuscar')); if (bm) bm.hide();
             self.el('nummov').value = d.NUMERO; self.el('cinmov').value = d.NUMERO;
             self.el('fexmov').value = d.FEXISO; self.el('codope').value = String(d.CODOPE); self.el('detmov').value = d.DETMOV;
-            self.lineas = (d.lineas || []).map(function (l) { return { codcue: l.codcue, cuenta: l.cuenta, codcdc: l.codcdc, centro: l.centro, debe: l.debe, cre: l.cre }; });
+            self.lineas = (d.lineas || []).map(function (l) { return { codcue: l.codcue, cuenta: l.cuenta, codcdc: l.codcdc, centro: l.centro, debe: l.debe, cre: l.cre, cheque: l.cheque }; });
             self.renderImps();
             self.lockForm(num, d.ANULABLE, d.ANULADO);
         });
