@@ -263,7 +263,7 @@ var AS = {
         };
         payload.codcbx = parseInt(this.el('asCbx').value, 10) || 0;
         payload.codmod = parseInt(this.el('asMod').value, 10) || 0;
-        if (this.el('compCard').style.display !== 'none') {
+        if (this.el('compIvaRow').style.display !== 'none') {   // sólo operaciones con comprobante (OP Contado): las cajas de IVA visibles
             if (!this.el('compAux').value) { this.toast('Elegí el tipo de comprobante (auxiliar).', 'warning'); return; }
             var ivas = [];
             var n1 = this.r2(this.el('compNet1').value), a1 = this.r2(this.el('compAli1').value);
