@@ -144,6 +144,33 @@ function as_cheque_propio($l) {
     return $codchq;
 }
 
+/** Cheque PROPIO DIFERIDO (cuenta posdatados CACC_V). Haber → EMITE el cheque diferido (banco de la cuenta,
+ *  VADCHQ=False/DIFCHQ=True); Debe → VENCIMIENTO (el cheque deja de ser diferido → DIFCHQ=False). */
+function as_cheque_diferido($l) {
+    $cu = db_esc((string) $l['codcue']);
+    $cbx = db_row("SELECT CODCBX FROM [Tbl Cuentas Contables] WHERE CODCUE='$cu';");
+    $codcbx = $cbx ? (int) nz($cbx['CODCBX'], 0) : 0;
+    if ($codcbx <= 0) throw new Exception('La cuenta ' . $l['codcue'] . ' no está asociada a una cuenta bancaria');
+    $bk = db_row("SELECT CODBAN FROM [Tbl Cuentas Bancarias] WHERE CODCBX=$codcbx;");
+    $codban = $bk ? (int) nz($bk['CODBAN'], 0) : 0;
+    if ($codban <= 0) throw new Exception('No se encontró el banco de la cuenta ' . $l['codcue']);
+    $syns = db_esc($l['syn']);
+    $ex = db_row("SELECT CODCHQ, DIFCHQ FROM [Tbl Cheques] WHERE CODBAN=$codban AND SYNCHQ='$syns';");
+    if ($l['cre'] > 0) {   // Haber: EMITIR el cheque diferido
+        if ($ex) throw new Exception('El cheque diferido ' . $codban . '-' . $l['syn'] . ' ya existe (re-emisión)');
+        $codchq = next_number('ULTCHQ');
+        db_exec("INSERT INTO [Tbl Cheques] (CODCHQ, CODBAN, SYNCHQ, FEXCHQ, FAXCHQ, IMPCHQ, PLZCHQ, VADCHQ, DIFCHQ)
+            VALUES ($codchq, $codban, '$syns', " . ($l['fde'] === null ? 'Null' : (int) $l['fde']) . ", " . ($l['fda'] === null ? 'Null' : (int) $l['fda']) . ", " . as_num($l['cre']) . ", " . (int) nz($l['plz'], 0) . ", False, True);");
+        return $codchq;
+    }
+    // Debe: VENCIMIENTO (el diferido se devenga → deja de ser diferido)
+    if (!$ex) throw new Exception('El cheque ' . $codban . '-' . $l['syn'] . ' no existe (no se puede vencer)');
+    if (!($ex['DIFCHQ'] === true || $ex['DIFCHQ'] == -1)) throw new Exception('El cheque ' . $codban . '-' . $l['syn'] . ' no está diferido');
+    $codchq = (int) $ex['CODCHQ'];
+    db_exec("UPDATE [Tbl Cheques] SET DIFCHQ=False WHERE CODCHQ=$codchq;");
+    return $codchq;
+}
+
 /**
  * Graba un asiento manual. $_POST['data'] = JSON {codope, fexmov(iso), detmov,
  * lineas:[{codcue, codcdc, debe, cre}]}. Devuelve {nummov, cinmov, total}.
@@ -174,14 +201,18 @@ function guardar() {
         $cdc = isset($l['codcdc']) && $l['codcdc'] !== '' ? (int) $l['codcdc'] : 1;
         $syn = trim((string) nz(isset($l['syn']) ? $l['syn'] : '', ''));
         $isVad = ($vadP !== '' && strpos($cu, $vadP) === 0);
-        if ($difP !== '' && strpos($cu, $difP) === 0) { fail('Cuenta ' . $cu . ': los cheques diferidos son de la Fase 2c (todavía no disponible).'); return; }
+        $isDif = ($difP !== '' && strpos($cu, $difP) === 0);   // 2c: cheque propio diferido (cuenta posdatados)
         $isBank = ($bankP !== '' && strpos($cu, $bankP) === 0 && $syn !== '');   // 2b: cheque propio (cuenta banco + nº)
         if ($isVad) {
             if ($syn === '' || (int) nz(isset($l['codban']) ? $l['codban'] : 0, 0) <= 0) { fail('Falta el banco y/o número del cheque en la cuenta de valores a depositar (' . $cu . ').'); return; }
             if ($deb > 0 && $cre > 0) { fail('El cheque ' . $cu . ' va al Debe O al Haber, no a los dos.'); return; }
         }
+        if ($isDif) {
+            if ($syn === '') { fail('Falta el número del cheque diferido (' . $cu . ').'); return; }
+            if ($deb > 0 && $cre > 0) { fail('El cheque diferido ' . $cu . ' va al Debe (vencimiento) O al Haber (emisión).'); return; }
+        }
         if ($isBank && $cre <= 0) { fail('El cheque propio (' . $cu . ') es un pago: va al Haber.'); return; }
-        $val[] = array('codcue' => $cu, 'codcdc' => $cdc, 'debe' => $deb, 'cre' => $cre, 'isVad' => $isVad, 'isBank' => $isBank,
+        $val[] = array('codcue' => $cu, 'codcdc' => $cdc, 'debe' => $deb, 'cre' => $cre, 'isVad' => $isVad, 'isBank' => $isBank, 'isDif' => $isDif,
             'codban' => (int) nz(isset($l['codban']) ? $l['codban'] : 0, 0), 'syn' => $syn,
             'fde' => as_serial(isset($l['fde']) ? $l['fde'] : ''), 'fda' => as_serial(isset($l['fda']) ? $l['fda'] : ''),
             'plz' => (int) nz(isset($l['plz']) ? $l['plz'] : 0, 0), 'lib' => trim((string) nz(isset($l['lib']) ? $l['lib'] : '', '')),
@@ -222,6 +253,9 @@ function guardar() {
             } elseif ($l['isBank']) { // cheque propio: lo emitimos (crea el cheque, banco de la cuenta) + link
                 $codchq = as_cheque_propio($l);
                 as_imp($ord, $td, $tc, $nummov, $l['codcue'], $l['debe'], $l['cre'], $l['codcdc'], $codchq, $l['fda']);
+            } elseif ($l['isDif']) {  // cheque propio diferido: emisión (Haber) o vencimiento (Debe) + link
+                $codchq = as_cheque_diferido($l);
+                as_imp($ord, $td, $tc, $nummov, $l['codcue'], $l['debe'], $l['cre'], $l['codcdc'], $codchq, $l['fda']);
             } else {
                 as_imp($ord, $td, $tc, $nummov, $l['codcue'], $l['debe'], $l['cre'], $l['codcdc']);
             }
@@ -255,20 +289,28 @@ function anular() {
         }
         // Sacar el link al cheque + zerar importes ANTES de tocar Tbl Cheques (para no violar la relación).
         db_exec("UPDATE [Tbl Movimientos Imputaciones] SET DEBMOV=0, CREMOV=0, CODCHQ=Null WHERE NUMMOV=$num;");
-        // Revertir la cartera (según la cuenta): cheque PROPIO (banco CACC_3) o ALTA de tercero (Debe) → eliminar el
-        // cheque creado por este asiento (si no quedó referenciado en otro movimiento); DEPÓSITO de tercero (Haber) → vuelve a cartera.
-        $rcA = db_row("SELECT CACC_3 FROM [Rec Control];");
-        $bankPA = trim((string) nz($rcA['CACC_3'], ''));
+        // Revertir el cheque según la cuenta + el lado. CREÓ el cheque (→ eliminar si no quedó referenciado):
+        // alta de tercero (Debe CACC_2), emisión propia (Haber CACC_3), emisión diferida (Haber CACC_V).
+        // MOVIÓ un cheque existente (→ revertir el flag): depósito de tercero (Haber CACC_2 → VADCHQ=True),
+        // vencimiento de diferido (Debe CACC_V → DIFCHQ=True).
+        $rcA = db_row("SELECT CACC_2, CACC_3, CACC_V FROM [Rec Control];");
+        $vadPA = trim((string) nz($rcA['CACC_2'], '')); $bankPA = trim((string) nz($rcA['CACC_3'], '')); $difPA = trim((string) nz($rcA['CACC_V'], ''));
         foreach ($imps as $i) {
             $chq = (int) nz($i['CODCHQ'], 0); if ($chq <= 0) continue;
             $cuA = trim((string) nz($i['CODCUE'], ''));
-            $esBanco = ($bankPA !== '' && strpos($cuA, $bankPA) === 0);
-            if ($esBanco || (float) nz($i['DEBMOV'], 0) > 0) {
+            $debA = (float) nz($i['DEBMOV'], 0); $creA = (float) nz($i['CREMOV'], 0);
+            $isVadA  = ($vadPA  !== '' && strpos($cuA, $vadPA)  === 0);
+            $isBankA = ($bankPA !== '' && strpos($cuA, $bankPA) === 0);
+            $isDifA  = ($difPA  !== '' && strpos($cuA, $difPA)  === 0);
+            $creo = ($isVadA && $debA > 0) || ($isBankA && $creA > 0) || ($isDifA && $creA > 0);
+            if ($creo) {
                 $oth = (int) nz(db_row("SELECT Count(*) AS N FROM [Tbl Movimientos Imputaciones] WHERE CODCHQ=$chq;")['N'], 0);
                 if ($oth > 0) throw new Exception('Un cheque de este asiento se usó en otro movimiento; anulá ese primero.');
                 db_exec("DELETE FROM [Tbl Cheques] WHERE CODCHQ=$chq;");
-            } else {
+            } elseif ($isVadA) {   // depósito de tercero → vuelve a cartera
                 db_exec("UPDATE [Tbl Cheques] SET VADCHQ=True WHERE CODCHQ=$chq;");
+            } elseif ($isDifA) {   // vencimiento de diferido → vuelve a diferido
+                db_exec("UPDATE [Tbl Cheques] SET DIFCHQ=True WHERE CODCHQ=$chq;");
             }
         }
         db_exec("UPDATE [Tbl Movimientos] SET ANUMOV=True WHERE NUMMOV=$num;");
