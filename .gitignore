@@ -1,5 +1,6 @@
 # Config con rutas/secretos por instalación
 config/system.php
+config/system.php.*
 config/afip.php
 config/certs/
 
