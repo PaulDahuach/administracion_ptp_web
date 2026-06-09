@@ -34,7 +34,7 @@ return [
         ['label' => 'Imputaciones Contables', 'desc' => 'Asientos contables: manuales, cheques (cartera/propio/diferido) y OP Contado con IVA', 'icon' => 'bi-journal-text', 'url' => '/modules/asientos/'],
         ['head' => 'Procesos'],
         ['label' => 'Conciliación', 'disabled' => true],
-        ['label' => 'Cierre', 'disabled' => true],
+        ['label' => 'Cierre', 'desc' => 'Cierre diario de caja: posición de efectivo/cheques + cambio de fecha del sistema', 'icon' => 'bi-cash-coin', 'url' => '/modules/cierre/'],
         ['head' => 'Listados'],
         ['label' => 'Bancos', 'desc' => 'Movimientos y conciliación bancaria', 'icon' => 'bi-bank', 'url' => '/modules/bancos/'],
         ['label' => 'Operaciones', 'disabled' => true],
