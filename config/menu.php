@@ -176,7 +176,7 @@ return [
         ['label' => 'Exportación Percepciones IIBB [Compras]', 'disabled' => true],
         ['label' => 'Importación Padrón Contribuyentes IIBB Bs As', 'disabled' => true],
         ['label' => 'Cambio de Alícuota Padrón IIBB Bs As', 'disabled' => true],
-        ['label' => 'Exportación I.V.A. Compras a Holistor', 'disabled' => true],
+        ['label' => 'Exportación I.V.A. Compras a Holistor', 'desc' => 'Genera el .txt de IVA Compras para importar en Holistor + mapeo cuenta→tipo', 'icon' => 'bi-file-earmark-arrow-down', 'url' => '/modules/holistor_iva_compras/'],
         ['label' => 'Cambio Fecha de Apertura', 'disabled' => true],
         ['label' => 'Modificación de Fecha Comprobante', 'disabled' => true],
         ['head' => 'Listados'],
