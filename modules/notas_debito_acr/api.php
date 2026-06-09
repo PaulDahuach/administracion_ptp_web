@@ -33,6 +33,7 @@ if (!defined('NDA_LIB')) {
             case 'get_proveedor':      get_proveedor();         break;
             case 'cuentas':            cuentas_imputables();    break;
             case 'centros_costo':      centros_costo();         break;
+            case 'auto_imputar':       auto_imputar_ep();       break;
             case 'pendientes':         nda_pendientes();        break;   // CP/ND con saldo a referenciar
             case 'guardar':            nda_guardar();           break;
             case 'anular':             nda_anular();            break;

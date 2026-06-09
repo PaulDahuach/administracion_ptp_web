@@ -27,6 +27,7 @@ if (!defined('CP_LIB')) {
             case 'get_proveedor':      get_proveedor(); break;
             case 'cuentas':            cuentas_imputables(); break;
             case 'centros_costo':      centros_costo(); break;
+            case 'auto_imputar':       auto_imputar_ep(); break;   // porta rutCuentas (asiento sugerido)
             case 'productos':          buscar_productos(); break;
             case 'producto_por_ext':   producto_por_ext(); break;
             case 'remitos_pendientes': remitos_pendientes(); break;
@@ -162,10 +163,13 @@ function buscar_proveedores() {
 
 function get_proveedor() {
     $cc = isset($_GET['codcue']) ? (int) $_GET['codcue'] : 0;
-    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.SANCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI, C.CODCAT, C.APICUE, C.APBCUE
+    $c = db_row("SELECT C.CODCUE, C.DENCUE, C.CITCUE, C.SOPCUE, C.SANCUE, C.DCXCUE, C.DNXCUE, C.CODLOC, L.DENLOC, P.DENPRO, C.CODCRI, C.CODCAT, C.CPACUE, C.APICUE, C.APBCUE
         FROM ([Tbl Provincias] AS P RIGHT JOIN ([Tbl Localidades] AS L INNER JOIN [Tbl Cuentas Corrientes] AS C ON L.CODLOC=C.CODLOC) ON P.CODPRO=L.CODPRO)
         WHERE C.CODORI='A' AND C.CODCUE=$cc;");
     if (!$c) { fail('Proveedor no encontrado'); return; }
+    $c['CPACUE'] = trim((string) nz($c['CPACUE'], ''));                          // cuenta de gasto por defecto (servicios) → auto-imputación
+    if ($c['CPACUE'] !== '') { $cp = db_row("SELECT DENCUE FROM [Tbl Cuentas Contables] WHERE CODCUE='" . db_esc($c['CPACUE']) . "';"); $c['CPADEN'] = $cp ? trim((string) nz($cp['DENCUE'], '')) : ''; }
+    else { $c['CPADEN'] = ''; }
     $cri = db_row("SELECT DENCRI FROM [Tbl Categorias Responsabilidad IVA] WHERE CODCRI=" . (int) nz($c['CODCRI'], 0) . ";");
     $c['DENCRI'] = $cri ? trim((string) nz($cri['DENCRI'], '')) : '';
     $c['SALDO'] = round((float) nz($c['SOPCUE'], 0), 2);   // negativo = le debemos
@@ -261,6 +265,81 @@ function cp_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $codcdc
     if ($deb != 0) db_exec("UPDATE [Tbl Cuentas Contables] SET DEBCUE = DEBCUE + $deb WHERE CODCUE='$cc';");
     if ($cre != 0) db_exec("UPDATE [Tbl Cuentas Contables] SET CRECUE = CRECUE + $cre WHERE CODCUE='$cc';");
     $totDeb += $deb; $totCre += $cre;
+}
+
+/** Un renglón sugerido (con la denominación de la cuenta). kind: gasto|iva|piva|piibb|bal. */
+function auto_row($cuenta, $deb, $ali, $iva, $tot, $kind, $key) {
+    $cuenta = trim((string) $cuenta);
+    $den = $cuenta !== '' ? db_row("SELECT DENCUE FROM [Tbl Cuentas Contables] WHERE CODCUE='" . db_esc($cuenta) . "';") : null;
+    return array('codcue' => $cuenta, 'label' => ($cuenta === '' ? '(sin cuenta)' : $cuenta . ' · ' . trim((string) nz($den ? $den['DENCUE'] : '', ''))),
+        'debmov' => round((float) $deb, 2), 'alimov' => $ali === null ? null : round((float) $ali, 2),
+        'ivamov' => $iva === null ? null : round((float) $iva, 2), 'totmov' => $tot === null ? null : round((float) $tot, 2),
+        'kind' => $kind, 'key' => $key);
+}
+
+/**
+ * Auto-imputación — PORTA `Sub rutCuentas()` (Frm CA Creditos, 3180-3362). Devuelve el DEBE del asiento
+ * sugerido: gasto (productos→CPASUB/CPARUB del rubro/subrubro · servicios→CPACUE del proveedor, por alícuota)
+ * + IVA Crédito (CACC_D) + Percep. IVA (CACC_F) + Percep. IIBB (CACC_G) + balanceo (CACC_Z). El proveedor (HABER)
+ * lo agrega cp_insert. $d: codcue, total, ivas[{net,ali,iva}], nogmov, ip1mov, ip2mov, productos[{codpro,neto}].
+ */
+function auto_imputar($d) {
+    $rc = db_row("SELECT CACC_D, CACC_F, CACC_G, CACC_Z FROM [Rec Control];");
+    $caccD = trim((string) nz($rc['CACC_D'], '')); $caccF = trim((string) nz($rc['CACC_F'], ''));
+    $caccG = trim((string) nz($rc['CACC_G'], '')); $caccZ = trim((string) nz($rc['CACC_Z'], ''));
+    $codcue = (int) nz($d['codcue'], 0);
+    $prov = $codcue > 0 ? db_row("SELECT CPACUE FROM [Tbl Cuentas Corrientes] WHERE CODCUE=$codcue AND CODORI='A';") : null;
+    $cpacue = $prov ? trim((string) nz($prov['CPACUE'], '')) : '';
+    $total = round((float) nz($d['total'], 0), 2);
+    $ivas = isset($d['ivas']) && is_array($d['ivas']) ? array_values($d['ivas']) : array();
+    $nog = round((float) nz(isset($d['nogmov']) ? $d['nogmov'] : 0, 0), 2);
+    $ip1 = round((float) nz(isset($d['ip1mov']) ? $d['ip1mov'] : 0, 0), 2);
+    $ip2 = round((float) nz(isset($d['ip2mov']) ? $d['ip2mov'] : 0, 0), 2);
+    $productos = isset($d['productos']) && is_array($d['productos']) ? $d['productos'] : array();
+
+    $rows = array(); $sumDeb = 0;
+    if (count($productos)) {
+        // X PRODUCTOS: cada producto → CPASUB del subrubro, o CPARUB del rubro, o CACC_Z; agregado por cuenta.
+        $agg = array();
+        foreach ($productos as $p) {
+            $codpro = trim((string) nz($p['codpro'], '')); $neto = round((float) nz($p['neto'], 0), 2); if ($neto == 0) continue;
+            $cuenta = '';
+            $pr = $codpro !== '' ? db_row("SELECT CODSUB, CODRUB FROM [Tbl Productos] WHERE CODPRO='" . db_esc($codpro) . "';") : null;
+            if ($pr) {
+                if ($pr['CODSUB'] !== null) { $sb = db_row("SELECT CPASUB FROM [Tbl SubRubros] WHERE CODSUB=" . (int) $pr['CODSUB'] . " AND CPASUB Is Not Null;"); if ($sb) $cuenta = trim((string) nz($sb['CPASUB'], '')); }
+                if ($cuenta === '' && $pr['CODRUB'] !== null) { $rb = db_row("SELECT CPARUB FROM [Tbl Rubros] WHERE CODRUB=" . (int) $pr['CODRUB'] . " AND CPARUB Is Not Null;"); if ($rb) $cuenta = trim((string) nz($rb['CPARUB'], '')); }
+            }
+            if ($cuenta === '') $cuenta = $caccZ;
+            if (!isset($agg[$cuenta])) $agg[$cuenta] = 0; $agg[$cuenta] = round($agg[$cuenta] + $neto, 2);
+        }
+        foreach ($agg as $cuenta => $deb) { $rows[] = auto_row($cuenta, $deb, null, null, null, 'gasto', 'prod:' . $cuenta); $sumDeb = round($sumDeb + $deb, 2); }
+    } else {
+        // X CUENTA CORRIENTE (servicios): gasto a CPACUE, un renglón por alícuota gravada + uno por no gravado.
+        $discrim = count($ivas) > 0 || $nog > 0;
+        if ($discrim) {
+            $k = 0;
+            foreach ($ivas as $iv) { $net = round((float) nz($iv['net'], 0), 2); if ($net <= 0) { $k++; continue; }
+                $iva = round((float) nz($iv['iva'], 0), 2); $ali = round((float) nz($iv['ali'], 0), 2);
+                $rows[] = auto_row($cpacue, $net, $ali, $iva, round($net + $iva, 2), 'gasto', 'ali:' . $k); $sumDeb = round($sumDeb + $net, 2); $k++; }
+            if ($nog > 0) { $rows[] = auto_row($cpacue, $nog, 0, 0, $nog, 'gasto', 'nog'); $sumDeb = round($sumDeb + $nog, 2); }
+        } else {
+            $rows[] = auto_row($cpacue, $total, null, null, null, 'gasto', 'total'); $sumDeb = round($sumDeb + $total, 2);
+        }
+    }
+    $totIva = 0; foreach ($ivas as $iv) $totIva = round($totIva + round((float) nz($iv['iva'], 0), 2), 2);
+    if ($totIva > 0) { $rows[] = auto_row($caccD, $totIva, null, null, null, 'iva', 'iva'); $sumDeb = round($sumDeb + $totIva, 2); }       // IVA Crédito Fiscal
+    if ($ip1 > 0) { $rows[] = auto_row($caccF, $ip1, 0, 0, $ip1, 'piva', 'piva'); $sumDeb = round($sumDeb + $ip1, 2); }                   // Percep. IVA
+    if ($ip2 > 0) { $rows[] = auto_row($caccG, $ip2, 0, 0, $ip2, 'piibb', 'piibb'); $sumDeb = round($sumDeb + $ip2, 2); }                 // Percep. IIBB
+    $dif = round($total - $sumDeb, 2);
+    if (abs($dif) >= 0.01) $rows[] = auto_row($caccZ, $dif, null, null, null, 'bal', 'bal');                                            // balanceo/redondeo
+    return $rows;
+}
+
+/** Endpoint: devuelve los renglones sugeridos (auto_imputar) para el form. */
+function auto_imputar_ep() {
+    $raw = isset($_POST['data']) ? json_decode($_POST['data'], true) : null;
+    if (!is_array($raw)) { fail('Datos inválidos'); return; }
+    ok(auto_imputar($raw));
 }
 
 function cp_insert($d, $estTrue, $op = null) {

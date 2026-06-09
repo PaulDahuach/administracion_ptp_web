@@ -24,6 +24,7 @@ try {
         case 'get_proveedor':        get_proveedor();         break;
         case 'cuentas':              cuentas_imputables();    break;
         case 'centros_costo':        centros_costo();         break;
+        case 'auto_imputar':         auto_imputar_ep();       break;
         case 'anticipos_pendientes': anticipos_pendientes();  break;
         case 'guardar':              nc_acr_guardar($NC_OP);  break;
         case 'anular':               anular();                break;   // CP_CODOPE=320
