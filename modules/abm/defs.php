@@ -35,6 +35,10 @@
  *      req   : obligatorio
  *      size  : maxlength (text)
  *      min/max: rango permitido (number/decimal)
+ *      suffix: sufijo al lado del campo (ej. '%', 'Días')
+ *      ancho : 'narrow' | 'mid' | 'wide' — fuerza el ancho (default según tipo)
+ *      cuit  : true → valida/normaliza C.U.I.T. (XX-XXXXXXXX-X)
+ *      big   : true (en 'select') → autocomplete server-side (lookups grandes)
  *      list  : se muestra como columna en la grilla de Buscar
  *      lookup: para 'select' → ['tabla'=>..,'pk'=>..,'den'=>..]
  *
@@ -143,7 +147,7 @@ return [
         'unico'  => ['DENTRA', ['col' => 'CITTRA', 'except' => '00-00000000-0']],
         'uso'    => [['tabla' => 'Tbl Movimientos', 'col' => 'CODTRA', 'msg' => 'No se puede eliminar: el transporte tiene movimientos asociados.']],
         'campos' => [
-            ['col' => 'CITTRA', 'label' => 'C.U.I.T.', 'tipo' => 'text', 'cuit' => true, 'size' => 13, 'list' => true],
+            ['col' => 'CITTRA', 'label' => 'C.U.I.T.', 'tipo' => 'text', 'cuit' => true, 'size' => 13, 'ancho' => 'narrow', 'list' => true],
             ['col' => 'CODCRI', 'label' => 'Cat. Resp. I.V.A.', 'tipo' => 'select', 'lookup' => $CAT_RESP_IVA, 'req' => true],
             ['col' => 'DENTRA', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
             ['col' => 'DOMTRA', 'label' => 'Domicilio', 'tipo' => 'text', 'size' => 30],

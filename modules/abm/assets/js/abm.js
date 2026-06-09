@@ -54,7 +54,8 @@ const App = {
             const req = c.req ? ' <span class="text-danger">*</span>' : '';
             let ctl = this.ctrl(c, 'f_' + c.col);
             if (c.suffix) ctl = `<div class="input-group">${ctl}<span class="input-group-text">${this.esc(c.suffix)}</span></div>`;
-            const w = (c.tipo === 'memo') ? 'wide'
+            const w = c.ancho ? c.ancho   // override por campo: 'narrow' | 'mid' | 'wide'
+                : (c.tipo === 'memo') ? 'wide'
                 : (c.tipo === 'number' || c.tipo === 'decimal' || c.tipo === 'bool') ? 'narrow' : 'mid';
             rows.push(this.frow(this.esc(c.label) + req, ctl, w));
         });
