@@ -18,6 +18,13 @@
  *    'titulo' => 'X'             rótulo de la pantalla
  *    'icono'  => 'bi-...'        ícono Bootstrap Icons
  *    'orden'  => 'DENX'          columna de ordenamiento de la lista
+ *    'fijo'   => ['CODORI'=>'D'] columnas constantes: se setean al alta y SCOPEAN
+ *                                list/get/tope (cuando una misma tabla guarda varios
+ *                                orígenes, ej. categorías deudores 'D' vs acreedores 'A')
+ *    'unico'  => ['DENX']        columna(s) que no pueden repetirse (chequeo global al guardar)
+ *    'tope'   => 10              cantidad máxima de registros (dentro del scope 'fijo')
+ *    'uso'    => [['tabla'=>'Tbl Y','col'=>'CODX','msg'=>'...']]
+ *                                bloquea el borrado si el registro está referenciado (DelData)
  *    'campos' => [ ... ]         (ver abajo)
  *    'hijos'  => [ ... ]         sub-tablas / subforms (opcional)
  *
@@ -27,6 +34,7 @@
  *      tipo  : text | memo | number | decimal | bool | date | select
  *      req   : obligatorio
  *      size  : maxlength (text)
+ *      min/max: rango permitido (number/decimal)
  *      list  : se muestra como columna en la grilla de Buscar
  *      lookup: para 'select' → ['tabla'=>..,'pk'=>..,'den'=>..]
  *
@@ -42,6 +50,24 @@
 $PROVINCIA = ['tabla' => 'Tbl Provincias', 'pk' => 'CODPRO', 'den' => 'DENPRO'];
 
 return [
+
+    // ── Categorías de Cuentas Corrientes — Deudores (Frm CD Categorias) ──
+    //  La tabla guarda deudores ('D') y acreedores ('A') → scope por CODORI.
+    //  Reglas legacy: DENCAT único (global), máx 10 (deudores), no borrar si está
+    //  asignada a una cuenta corriente. ALICAT solo aplica a acreedores (no se edita acá).
+    'cat_deudores' => [
+        'tabla'  => 'Tbl Categorias Cuentas Corrientes', 'pk' => 'CODCAT', 'ult' => 'ULTCAT',
+        'titulo' => 'Categorías (Deudores)', 'icono' => 'bi-tags', 'orden' => 'DENCAT',
+        'fijo'   => ['CODORI' => 'D'],
+        'unico'  => ['DENCAT'],
+        'tope'   => 10,
+        'uso'    => [['tabla' => 'Tbl Cuentas Corrientes', 'col' => 'CODCAT',
+                      'msg' => 'No se puede eliminar: la categoría está asignada a una o más cuentas corrientes.']],
+        'campos' => [
+            ['col' => 'DENCAT', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+            ['col' => 'LDPCAT', 'label' => 'Descuento %', 'tipo' => 'decimal', 'req' => true, 'min' => 0, 'max' => 100, 'list' => true],
+        ],
+    ],
 
     // ── Ejemplo 1: maestro simple ───────────────────────────────────────
     'localidades' => [

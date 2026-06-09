@@ -108,7 +108,7 @@ return [
     ],
     'Deudores' => [
         ['head' => 'Actualizaciones'],
-        ['label' => 'Categorías', 'disabled' => true],
+        ['label' => 'Categorías', 'desc' => 'Categorías de cuentas corrientes (deudores)', 'icon' => 'bi-tags', 'url' => '/modules/abm/?m=cat_deudores'],
         ['label' => 'Transportes', 'disabled' => true],
         ['label' => 'Vendedores', 'disabled' => true],
         ['label' => 'Zonas', 'disabled' => true],

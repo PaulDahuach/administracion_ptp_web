@@ -44,8 +44,13 @@ function val_sql($c, $raw, &$err) {
     $vacio = ($v === '' || $v === null);
     if (!empty($c['req']) && $vacio) { $err = "Falta: {$c['label']}"; return null; }
     if ($vacio) return 'Null';
-    if ($tipo === 'number' || $tipo === 'select') return (string) intval($v);
-    if ($tipo === 'decimal') return (string) (float) str_replace(',', '.', $v);
+    if ($tipo === 'select') return (string) intval($v);
+    if ($tipo === 'number' || $tipo === 'decimal') {
+        $num = ($tipo === 'decimal') ? (float) str_replace(',', '.', $v) : intval($v);
+        if (isset($c['min']) && $num < $c['min']) { $err = "{$c['label']}: el mínimo es {$c['min']}"; return null; }
+        if (isset($c['max']) && $num > $c['max']) { $err = "{$c['label']}: el máximo es {$c['max']}"; return null; }
+        return (string) $num;
+    }
     if ($tipo === 'date') {
         $iso = to_iso_date($v);                 // 'YYYY-mm-dd'
         if ($iso === '') return 'Null';
@@ -66,6 +71,54 @@ function conv_fechas(&$row, $campos, $fmt) {
 
 function buscarHijo($def, $key) {
     foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) if ($h['key'] === $key) return $h;
+    return null;
+}
+
+/** Literal SQL de un valor 'fijo' (discriminador): entero o texto entre comillas. */
+function fijo_lit($v) {
+    if (is_int($v) || (is_string($v) && ctype_digit($v))) return (string) intval($v);
+    return "'" . db_esc($v) . "'";
+}
+
+/** Condición SQL de las columnas 'fijo' (scope del maestro), ej. M.[CODORI]='D'. '' si no hay. */
+function fijo_where($def, $alias) {
+    if (empty($def['fijo'])) return '';
+    $p = ($alias !== '' ? $alias . '.' : '');
+    $conds = [];
+    foreach ($def['fijo'] as $col => $val) $conds[] = $p . "[$col]=" . fijo_lit($val);
+    return implode(' AND ', $conds);
+}
+
+/** Busca la def de un campo por su columna (para conocer tipo/label). */
+function campo_def($def, $col) {
+    foreach ($def['campos'] as $c) if ($c['col'] === $col) return $c;
+    return ['col' => $col, 'tipo' => 'text', 'label' => $col];
+}
+
+/** Valida 'unico': que no exista otro registro con el mismo valor (global, como el legacy). */
+function check_unico($def, $id) {
+    if (empty($def['unico'])) return null;
+    $pk = $def['pk'];
+    foreach ($def['unico'] as $col) {
+        $campo = campo_def($def, $col);
+        $err = null;
+        $lit = val_sql($campo, (isset($_POST[$col]) ? $_POST[$col] : ''), $err);
+        if ($lit === null || $lit === 'Null') continue;   // vacío → no chequear
+        $excl = ($id !== '') ? " AND [$pk]<>" . intval($id) : '';
+        $r = db_row("SELECT [$pk] AS k FROM [{$def['tabla']}] WHERE [$col]=$lit$excl;");
+        if ($r) { $lbl = isset($campo['label']) ? $campo['label'] : $col; return "Ya existe un registro con esa $lbl."; }
+    }
+    return null;
+}
+
+/** Valida 'tope': cantidad máxima de registros dentro del scope 'fijo' (solo al dar de alta). */
+function check_tope($def) {
+    if (empty($def['tope'])) return null;
+    $w = fijo_where($def, '');
+    $where = ($w !== '') ? " WHERE $w" : '';
+    $r = db_row("SELECT COUNT(*) AS n FROM [{$def['tabla']}]$where;");
+    $n = $r ? intval($r['n']) : 0;
+    if ($n >= intval($def['tope'])) return "Cantidad máxima permitida: " . intval($def['tope']);
     return null;
 }
 
@@ -108,14 +161,18 @@ function listar($def) {
         }
     }
     $orden = (isset($def['orden']) ? $def['orden'] : $pk);
-    $rows = db_query("SELECT " . implode(', ', $sel) . " FROM [{$def['tabla']}] AS M$joins ORDER BY M.[$orden];");
+    $w = fijo_where($def, 'M');
+    $where = ($w !== '') ? " WHERE $w" : '';
+    $rows = db_query("SELECT " . implode(', ', $sel) . " FROM [{$def['tabla']}] AS M$joins$where ORDER BY M.[$orden];");
     if ($dateCols) foreach ($rows as &$r) conv_fechas($r, $dateCols, 'disp');
     ok($rows);
 }
 
 function obtener($def) {
     $id = intval((isset($_GET['id']) ? $_GET['id'] : 0));
-    $row = db_row("SELECT * FROM [{$def['tabla']}] WHERE [{$def['pk']}] = $id;");
+    $w = fijo_where($def, '');
+    $scope = ($w !== '') ? " AND $w" : '';
+    $row = db_row("SELECT * FROM [{$def['tabla']}] WHERE [{$def['pk']}] = $id$scope;");
     if (!$row) { fail('Registro no encontrado'); return; }
     conv_fechas($row, $def['campos'], 'iso');
     $row['__hijos'] = [];
@@ -158,10 +215,16 @@ function guardar($def) {
         if ($err) { fail($err); return; }
         $cols[] = $c['col']; $vals[] = $lit;
     }
+    $ue = check_unico($def, $id);
+    if ($ue) { fail($ue); return; }
     if ($id === '') {
+        $te = check_tope($def);
+        if ($te) { fail($te); return; }
         $pid = next_number($def['ult']);
-        $allCols = array_merge([$pk], $cols);
-        $allVals = array_merge([(string) $pid], $vals);
+        $fcols = []; $fvals = [];
+        if (!empty($def['fijo'])) foreach ($def['fijo'] as $fc => $fv) { $fcols[] = $fc; $fvals[] = fijo_lit($fv); }
+        $allCols = array_merge([$pk], $fcols, $cols);
+        $allVals = array_merge([(string) $pid], $fvals, $vals);
         db_exec("INSERT INTO [{$def['tabla']}] ([" . implode('],[', $allCols) . "]) VALUES (" . implode(',', $allVals) . ");");
         $nuevo = true;
     } else {
@@ -210,6 +273,11 @@ function borrar($def) {
     if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
     $id = intval((isset($_POST['__id']) ? $_POST['__id'] : (isset($_GET['id']) ? $_GET['id'] : 0)));
     if ($id <= 0) { fail('Falta id'); return; }
+    // Chequeo de uso (como DelData legacy): bloquear si el registro está referenciado.
+    foreach (((isset($def['uso']) ? $def['uso'] : [])) as $u) {
+        $r = db_row("SELECT TOP 1 [{$u['col']}] AS k FROM [{$u['tabla']}] WHERE [{$u['col']}] = $id;");
+        if ($r) { fail(isset($u['msg']) ? $u['msg'] : 'No se puede eliminar: el registro está en uso.', 409); return; }
+    }
     // Las sub-tablas son propiedad del padre: borrarlas primero.
     foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) {
         try { db_exec("DELETE FROM [{$h['tabla']}] WHERE [{$h['fk']}] = $id;"); } catch (Exception $e) {}
