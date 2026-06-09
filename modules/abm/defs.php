@@ -63,6 +63,7 @@ $VENDEDOR = ['tabla' => 'Tbl Vendedores', 'pk' => 'CODVEN', 'den' => 'DENVEN'];
 $TRANSPORTE = ['tabla' => 'Tbl Transportes', 'pk' => 'CODTRA', 'den' => 'DENTRA'];
 // Categoría de cliente: misma tabla que Categorías, scopeada a deudores.
 $CAT_CLIENTE = ['tabla' => 'Tbl Categorias Cuentas Corrientes', 'pk' => 'CODCAT', 'den' => 'DENCAT', 'where' => "CODORI='D'"];
+$BANCO = ['tabla' => 'Tbl Bancos', 'pk' => 'CODBAN', 'den' => 'DENBAN'];   // 143 → select buscable
 
 return [
 
@@ -211,6 +212,52 @@ return [
             ['col' => 'FUOCUE', 'label' => 'Fecha Última Operación', 'tipo' => 'date', 'ro' => true],
             ['col' => 'SOPCUE', 'label' => 'Saldo Operativo', 'tipo' => 'decimal', 'ro' => true],
             ['col' => 'SANCUE', 'label' => 'Saldo Anticipos', 'tipo' => 'decimal', 'ro' => true],
+        ],
+    ],
+
+    // ── Centros de Costo (Frm IC Centros de Costo) ──────────────────────
+    'centros_costo' => [
+        'tabla'  => 'Tbl Centros de Costo', 'pk' => 'CODCDC', 'ult' => 'ULTCDC',
+        'titulo' => 'Centros de Costo', 'icono' => 'bi-diagram-3', 'orden' => 'DENCDC',
+        'unico'  => ['DENCDC'],
+        'uso'    => [
+            ['tabla' => 'Tbl Modelos Imputaciones', 'col' => 'CODCDC', 'msg' => 'No se puede eliminar: el centro de costo se usa en modelos de imputación.'],
+            ['tabla' => 'Tbl Movimientos Imputaciones', 'col' => 'CODCDC', 'msg' => 'No se puede eliminar: el centro de costo tiene imputaciones asociadas.'],
+        ],
+        'campos' => [
+            ['col' => 'DENCDC', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+        ],
+    ],
+
+    // ── Bancos (Frm IC Bancos) ───────────────────────────────────────────
+    'bancos' => [
+        'tabla'  => 'Tbl Bancos', 'pk' => 'CODBAN', 'ult' => 'ULTBAN',
+        'titulo' => 'Bancos', 'icono' => 'bi-bank', 'orden' => 'DENBAN',
+        'unico'  => ['DENBAN'],
+        'uso'    => [
+            ['tabla' => 'Tbl Cuentas Bancarias', 'col' => 'CODBAN', 'msg' => 'No se puede eliminar: el banco se usa en cuentas bancarias.'],
+            ['tabla' => 'Tbl Cheques', 'col' => 'CODBAN', 'msg' => 'No se puede eliminar: el banco tiene cheques asociados.'],
+        ],
+        'campos' => [
+            ['col' => 'DENBAN', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+            ['col' => 'CITBAN', 'label' => 'C.U.I.T.', 'tipo' => 'text', 'cuit' => true, 'size' => 13, 'ancho' => 'narrow', 'list' => true],
+        ],
+    ],
+
+    // ── Cuentas Bancarias (Frm IC Cuentas Bancarias) ────────────────────
+    'cuentas_bancarias' => [
+        'tabla'  => 'Tbl Cuentas Bancarias', 'pk' => 'CODCBX', 'ult' => 'ULTCBX',
+        'titulo' => 'Cuentas Bancarias', 'icono' => 'bi-piggy-bank', 'orden' => 'DENCBX',
+        'unico'  => ['DENCBX'],
+        'uso'    => [
+            ['tabla' => 'Tbl Cuentas Contables', 'col' => 'CODCBX', 'msg' => 'No se puede eliminar: la cuenta bancaria está vinculada a una cuenta contable.'],
+            ['tabla' => 'Tbl Movimientos', 'col' => 'CODCBX', 'msg' => 'No se puede eliminar: la cuenta bancaria tiene movimientos asociados.'],
+        ],
+        'campos' => [
+            ['col' => 'DENCBX', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+            ['col' => 'CCDCBX', 'label' => 'Copias Constancia Depósito', 'tipo' => 'number', 'req' => true, 'min' => 0, 'max' => 3],
+            ['col' => 'CODBAN', 'label' => 'Banco', 'tipo' => 'select', 'lookup' => $BANCO, 'req' => true, 'list' => true],
+            ['col' => 'DISCBX', 'label' => 'Discontinuada', 'tipo' => 'bool'],
         ],
     ],
 

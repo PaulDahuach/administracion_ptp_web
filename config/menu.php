@@ -26,10 +26,10 @@
 return [
     'Imputaciones Contables' => [
         ['head' => 'Actualizaciones'],
-        ['label' => 'Bancos', 'disabled' => true],
+        ['label' => 'Bancos', 'desc' => 'Alta/edición de bancos (denominación, CUIT)', 'icon' => 'bi-bank', 'url' => '/modules/abm/?m=bancos'],
         ['label' => 'Operaciones', 'disabled' => true],
-        ['label' => 'Cuentas Bancarias', 'disabled' => true],
-        ['label' => 'Centros de Costo', 'disabled' => true],
+        ['label' => 'Cuentas Bancarias', 'desc' => 'Cuentas bancarias (banco, copias de constancia)', 'icon' => 'bi-piggy-bank', 'url' => '/modules/abm/?m=cuentas_bancarias'],
+        ['label' => 'Centros de Costo', 'desc' => 'Alta/edición de centros de costo', 'icon' => 'bi-diagram-3', 'url' => '/modules/abm/?m=centros_costo'],
         ['label' => 'Cuentas Contables', 'disabled' => true],
         ['label' => 'Imputaciones Contables', 'desc' => 'Asientos contables: manuales, cheques (cartera/propio/diferido) y OP Contado con IVA', 'icon' => 'bi-journal-text', 'url' => '/modules/asientos/'],
         ['head' => 'Procesos'],
