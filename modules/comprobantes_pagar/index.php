@@ -207,7 +207,7 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
           <span class="small ms-auto">Imputado <b id="impSum" class="cp-num">0.00</b> / Total <b id="impTot" class="cp-num">0.00</b> <span id="impOk"></span></span>
         </div>
         <div class="card-body">
-          <div class="small text-muted mb-2"><i class="bi bi-magic me-1"></i>El asiento se arma <b>automáticamente</b> (gasto + IVA Crédito + percepciones, porta <code>rutCuentas</code>). Cambiá la cuenta del gasto tipeando en ella.</div>
+          <div class="small text-muted mb-2"><i class="bi bi-magic me-1"></i>El asiento se arma <b>automáticamente</b> (gasto + IVA Crédito + percepciones). Cambiá la cuenta del gasto tipeando en ella.</div>
           <div class="row g-2 align-items-end mb-2" style="display:none">
             <div class="col"><label class="form-label mb-1 small">Cuenta</label>
               <div class="ac-box"><input type="text" id="impCtaQ" class="form-control form-control-sm" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="impCtaList"></div></div>
