@@ -66,7 +66,7 @@ return [
         ['label' => 'Subrubros', 'desc' => 'Subrubros por rubro (cuentas contables, utilidad)', 'icon' => 'bi-tags', 'url' => '/modules/abm/?m=subrubros'],
         ['label' => 'Líneas', 'desc' => 'Alta/edición de líneas', 'icon' => 'bi-bookmark', 'url' => '/modules/abm/?m=lineas'],
         ['label' => 'Unidades de Medida', 'desc' => 'Unidades de medida (decimales)', 'icon' => 'bi-rulers', 'url' => '/modules/abm/?m=unidades'],
-        ['label' => 'Productos', 'disabled' => true],
+        ['label' => 'Productos', 'desc' => 'Productos y servicios: clasificación, precios, stock, equivalencias, proveedores', 'icon' => 'bi-box-seam', 'url' => '/modules/productos/'],
         ['label' => 'Ajustes', 'disabled' => true],
         ['head' => 'Listados'],
         ['label' => 'Rubros', 'disabled' => true],

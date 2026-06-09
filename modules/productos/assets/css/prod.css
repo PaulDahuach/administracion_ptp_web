@@ -1,0 +1,44 @@
+/* Productos y Servicios. */
+.fc-card { border-radius:.5rem; margin-bottom:.75rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+.fc-card .card-header { font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+    padding:.4rem .75rem; display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.fc-card .card-header .text-muted { text-transform:none; }
+.fc-card .card-body { padding:.6rem .85rem; }
+
+/* cabecera: 2 columnas, label a la izquierda */
+.prod-grid2 { display:grid; grid-template-columns:1fr; gap:.15rem 2.5rem; }
+@media (min-width:992px) { .prod-grid2 { grid-template-columns:1fr 1fr; } }
+.pf { display:flex; align-items:center; gap:.6rem; margin-bottom:.45rem; }
+.pf > label { flex:0 0 10rem; text-align:right; font-size:.8rem; font-weight:600; color:var(--bs-secondary-color); }
+.pf > .form-control, .pf > .form-select, .pf > textarea { flex:1 1 auto; font-size:.82rem; padding:.25rem .5rem; height:auto; }
+.pf.pf-wide { grid-column:1 / -1; align-items:flex-start; }
+.pf-narrow { max-width:6rem; } .pf-mid { max-width:12rem !important; flex:0 0 auto !important; }
+.fc-num { text-align:right; }
+
+/* última compra read-only */
+.prod-ro { display:grid; grid-template-columns:auto 1fr; gap:.25rem 1rem; align-items:center; }
+.prod-ro > div { display:contents; }
+.prod-ro label { font-size:.78rem; font-weight:600; color:var(--bs-secondary-color); }
+.prod-ro span { font-size:.82rem; font-variant-numeric:tabular-nums; }
+
+/* tablas */
+.prod-tbl { font-size:.8rem; margin-bottom:0; }
+.prod-tbl thead th { font-size:.68rem; text-transform:uppercase; letter-spacing:.03em; color:var(--bs-secondary-color); white-space:nowrap; }
+.prod-tbl td, .prod-tbl th { padding:.25rem .4rem; vertical-align:middle; }
+.prod-tbl .text-end { font-variant-numeric:tabular-nums; }
+.prod-tbl input.form-control-sm, .prod-tbl select.form-select-sm { font-size:.78rem; padding:.1rem .3rem; }
+.prod-tbl .g-del { padding:.05rem .3rem; line-height:1; }
+
+/* autocomplete proveedor */
+.prov-cue { position:relative; }
+.prov-cue .ac-list { position:absolute; z-index:1000; top:100%; left:0; right:0; max-height:240px; overflow-y:auto;
+    background:var(--bs-body-bg); border:1px solid var(--bs-border-color); border-radius:.375rem; display:none; box-shadow:0 .5rem 1rem rgba(0,0,0,.15); }
+.prov-cue .ac-list.show { display:block; }
+.prov-cue .ac-item { padding:.3rem .5rem; cursor:pointer; font-size:.8rem; border-bottom:1px solid var(--bs-border-color-translucent); white-space:normal; }
+.prov-cue .ac-item:hover { background:var(--bs-tertiary-bg); }
+.prov-cue .ac-item .ac-code { color:var(--bs-secondary-color); font-size:.72rem; margin-right:.4rem; }
+
+/* modo solo-lectura: campos no editables se ven planos */
+.prod-form.mode-view .form-control:disabled, .prod-form.mode-view .form-select:disabled { background:var(--bs-body-bg); opacity:.9; }
+
+.fc-toast-container { position:fixed; bottom:1rem; right:1rem; z-index:1060; }
