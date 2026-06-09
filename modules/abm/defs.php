@@ -88,6 +88,49 @@ return [
         ],
     ],
 
+    // ── Vendedores (Frm CD Vendedores) ──────────────────────────────────
+    'vendedores' => [
+        'tabla'  => 'Tbl Vendedores', 'pk' => 'CODVEN', 'ult' => 'ULTVEN',
+        'titulo' => 'Vendedores', 'icono' => 'bi-person-badge', 'orden' => 'DENVEN',
+        'unico'  => ['DENVEN'],
+        'uso'    => [
+            ['tabla' => 'Tbl Cuentas Corrientes', 'col' => 'CODVEN', 'msg' => 'No se puede eliminar: el vendedor está asignado a una o más cuentas corrientes.'],
+            ['tabla' => 'Tbl Movimientos', 'col' => 'CODVEN', 'msg' => 'No se puede eliminar: el vendedor tiene movimientos asociados.'],
+        ],
+        'campos' => [
+            ['col' => 'DENVEN', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+        ],
+    ],
+
+    // ── Zonas (Frm CD Zonas) ─────────────────────────────────────────────
+    'zonas' => [
+        'tabla'  => 'Tbl Zonas', 'pk' => 'CODZON', 'ult' => 'ULTZON',
+        'titulo' => 'Zonas', 'icono' => 'bi-geo', 'orden' => 'DENZON',
+        'unico'  => ['DENZON'],
+        'uso'    => [
+            ['tabla' => 'Tbl Cuentas Corrientes', 'col' => 'CODZON', 'msg' => 'No se puede eliminar: la zona está asignada a una o más cuentas corrientes.'],
+            ['tabla' => 'Tbl Movimientos', 'col' => 'CODZON', 'msg' => 'No se puede eliminar: la zona tiene movimientos asociados.'],
+        ],
+        'campos' => [
+            ['col' => 'DENZON', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+        ],
+    ],
+
+    // ── Formas de Pago Cuenta Corriente (Frm CD Formas de Pago) ──────────
+    //  Comparte la Tbl Formas de Pago con otras condiciones; esta pantalla es solo
+    //  la de cuenta corriente → scope CODCDV=2 (como el WHERE del Form_Open legacy).
+    'formas_pago_ctacte' => [
+        'tabla'  => 'Tbl Formas de Pago', 'pk' => 'CODFDP', 'ult' => 'ULTFDP',
+        'titulo' => 'Formas de Pago Cta.Cte.', 'icono' => 'bi-wallet2', 'orden' => 'DENFDP',
+        'fijo'   => ['CODCDV' => 2],
+        'unico'  => ['DENFDP'],
+        'uso'    => [['tabla' => 'Tbl Movimientos', 'col' => 'CODFDP', 'msg' => 'No se puede eliminar: la forma de pago tiene movimientos asociados.']],
+        'campos' => [
+            ['col' => 'DENFDP', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+            ['col' => 'DVFFDP', 'label' => 'Plazo de Pago', 'tipo' => 'number', 'req' => true, 'min' => 0, 'max' => 365, 'suffix' => 'Días', 'list' => true],
+        ],
+    ],
+
     // ── Ejemplo 1: maestro simple ───────────────────────────────────────
     'localidades' => [
         'tabla'  => 'Tbl Localidades', 'pk' => 'CODLOC', 'ult' => 'ULTLOC',
