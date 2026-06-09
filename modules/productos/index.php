@@ -38,7 +38,7 @@ module_head('Productos y Servicios', 'bi-box-seam', $toolbar);
   <div class="row g-3">
     <!-- DATOS DEL PRODUCTO -->
     <div class="col-lg-5"><div class="card fc-card h-100">
-      <div class="card-header collapse-hd" data-bs-toggle="collapse" data-bs-target="#cMain"><span><i class="bi bi-box-seam me-1"></i>Producto <span class="text-muted ms-2" id="fCod">—</span></span><i class="bi bi-chevron-down collapse-icon"></i></div>
+      <div class="card-header collapse-hd" data-target="#cMain"><span><i class="bi bi-box-seam me-1"></i>Producto <span class="text-muted ms-2" id="fCod">—</span></span><i class="bi bi-chevron-down collapse-icon"></i></div>
       <div id="cMain" class="collapse show"><div class="card-body">
         <div class="pf"><label>Categoría <span class="text-danger">*</span></label><select id="f_codcat" class="form-select"></select></div>
         <div class="pf"><label>Rubro</label><select id="f_codrub" class="form-select"></select></div>
@@ -54,7 +54,7 @@ module_head('Productos y Servicios', 'bi-box-seam', $toolbar);
       </div></div></div></div>
     <!-- ÚLTIMA COMPRA (editable en alta; PLC/PLV también en edición) -->
     <div class="col-lg-3"><div class="card fc-card h-100">
-      <div class="card-header collapse-hd" data-bs-toggle="collapse" data-bs-target="#cUC"><span>Última Compra</span><i class="bi bi-chevron-down collapse-icon"></i></div>
+      <div class="card-header collapse-hd" data-target="#cUC"><span>Última Compra</span><i class="bi bi-chevron-down collapse-icon"></i></div>
       <div id="cUC" class="collapse show"><div class="card-body">
         <div class="pf"><label>Fecha</label><input id="f_fuc" type="date" class="form-control pf-mid"></div>
         <div class="pf"><label>Moneda</label><select id="f_codmon" class="form-select pf-mid"></select></div>
@@ -65,25 +65,25 @@ module_head('Productos y Servicios', 'bi-box-seam', $toolbar);
       </div></div></div></div>
     <!-- PRECIOS DE VENTA por categoría (derivado) -->
     <div class="col-lg-4"><div class="card fc-card h-100">
-      <div class="card-header collapse-hd" data-bs-toggle="collapse" data-bs-target="#cPre"><span>Precios de Venta</span><i class="bi bi-chevron-down collapse-icon"></i></div>
+      <div class="card-header collapse-hd" data-target="#cPre"><span>Precios de Venta</span><i class="bi bi-chevron-down collapse-icon"></i></div>
       <div id="cPre" class="collapse show"><div class="card-body p-0"><table class="table table-sm prod-tbl mb-0"><thead><tr><th>Categoría</th><th class="text-end">% Dto.</th><th class="text-end">Neto</th><th class="text-end">% Util.</th></tr></thead><tbody id="tbPrecios"></tbody></table></div></div></div></div>
   </div>
 
   <!-- FILA 2: Equivalencias · Proveedores -->
   <div class="row g-3">
     <div class="col-md-4"><div class="card fc-card h-100">
-      <div class="card-header collapse-hd" data-bs-toggle="collapse" data-bs-target="#cEq"><span><i class="bi bi-rulers me-1"></i>Equivalencias</span>
+      <div class="card-header collapse-hd" data-target="#cEq"><span><i class="bi bi-rulers me-1"></i>Equivalencias</span>
         <span class="hd-right"><button type="button" class="btn btn-outline-primary btn-sm prod-add" data-grid="equiv" disabled><i class="bi bi-plus-lg"></i></button><i class="bi bi-chevron-down collapse-icon"></i></span></div>
       <div id="cEq" class="collapse show"><div class="card-body p-0"><table class="table table-sm prod-tbl mb-0"><thead><tr><th>Unidad</th><th class="text-end">Factor</th><th style="width:2rem"></th></tr></thead><tbody id="tbEquiv"></tbody></table></div></div></div></div>
     <div class="col-md-8"><div class="card fc-card h-100">
-      <div class="card-header collapse-hd" data-bs-toggle="collapse" data-bs-target="#cPr"><span><i class="bi bi-truck me-1"></i>Proveedores</span>
+      <div class="card-header collapse-hd" data-target="#cPr"><span><i class="bi bi-truck me-1"></i>Proveedores</span>
         <span class="hd-right"><button type="button" class="btn btn-outline-primary btn-sm prod-add" data-grid="prov" disabled><i class="bi bi-plus-lg"></i></button><i class="bi bi-chevron-down collapse-icon"></i></span></div>
       <div id="cPr" class="collapse show"><div class="card-body p-0"><table class="table table-sm prod-tbl mb-0"><thead><tr><th>Proveedor</th><th>Cód. Externo</th><th>Últ. Compra</th><th class="text-end">Costo</th><th style="width:2rem"></th></tr></thead><tbody id="tbProv"></tbody></table></div></div></div></div>
   </div>
 
   <!-- FILA 3: Stock (a todo el ancho, abajo) -->
   <div class="card fc-card">
-    <div class="card-header collapse-hd" data-bs-toggle="collapse" data-bs-target="#cStk"><span><i class="bi bi-boxes me-1"></i>Stock</span><i class="bi bi-chevron-down collapse-icon"></i></div>
+    <div class="card-header collapse-hd" data-target="#cStk"><span><i class="bi bi-boxes me-1"></i>Stock</span><i class="bi bi-chevron-down collapse-icon"></i></div>
     <div id="cStk" class="collapse show"><div class="card-body p-0"><table class="table table-sm prod-tbl mb-0"><thead><tr>
       <th>Sucursal</th><th class="text-end">Mínimo</th><th class="text-end">Máximo</th><th class="text-end">Inicial</th><th class="text-end">Existente</th><th class="text-end">Comp.Compras</th><th class="text-end">Comp.Ventas</th><th class="text-end">Disponible</th>
     </tr></thead><tbody id="tbStock"></tbody></table></div></div></div>
@@ -112,5 +112,5 @@ module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/productos.js?v=3"></script>
+<script src="assets/js/productos.js?v=4"></script>
 ');

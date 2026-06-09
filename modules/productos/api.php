@@ -142,9 +142,9 @@ function guardar() {
         if ($nuevo) {
             if (db_row("SELECT CODPRO FROM [Tbl Productos] WHERE [CODPRO]='$e';")) { db_rollback(); fail('Ya existe un producto con ese código'); return; }
             // última compra: editable en alta (los valores que carga el usuario al dar de alta)
-            $codmon = trim(nz($_POST['codmon'], '')); if ($codmon === '') $codmon = 'P';
+            $codmon = isset($_POST['codmon']) ? trim($_POST['codmon']) : ''; if ($codmon === '') $codmon = 'P';
             $cot = $dec0('cot'); if ($cot === '0') $cot = '1';
-            $fucIso = trim(nz($_POST['fuc'], ''));
+            $fucIso = isset($_POST['fuc']) ? trim($_POST['fuc']) : '';
             $fuc = ($fucIso === '') ? 'Null' : '#' . date('m/d/Y', strtotime($fucIso)) . '#';
             $cols = "[CODPRO],[CODCAT],[CODMON],[COTPRO],[COSPRO],[FLTPRO],[FUCPRO]," . implode(',', array_map(function ($s) { return '[' . substr($s, 0, strpos($s, '=')) . ']'; }, $sets));
             $vals = "'$e',$codcat,'" . db_esc($codmon) . "',$cot," . $dec0('cos') . "," . $dec0('flt') . ",$fuc," . implode(',', array_map(function ($s) { return substr($s, strpos($s, '=') + 1); }, $sets));
@@ -186,6 +186,9 @@ function guardarEquiv($e) {
         if ($f == 0) $f = 1;
         db_exec("INSERT INTO [Tbl Productos Unidades] ([CODPRO],[CODUDM],[FCTPUM]) VALUES ('$e',$udm," . $f . ");");
     }
+    // unidad base del producto: siempre presente con factor 1 (como el legacy)
+    $base = intval(nz($_POST['codudm'], 0));
+    if ($base > 0 && !in_array($base, $seen, true)) db_exec("INSERT INTO [Tbl Productos Unidades] ([CODPRO],[CODUDM],[FCTPUM]) VALUES ('$e',$base,1);");
 }
 
 function guardarProvs($e) {
@@ -199,11 +202,19 @@ function guardarProvs($e) {
     foreach (db_query("SELECT CODCUE FROM [Tbl Productos Proveedores] WHERE CODPRO='$e';") as $x) $exist[(int) $x['CODCUE']] = true;
     // borrar los que ya no están
     foreach ($exist as $cc => $_) if (!isset($postCues[$cc])) db_exec("DELETE FROM [Tbl Productos Proveedores] WHERE CODPRO='$e' AND CODCUE=$cc;");
+    // última compra del producto (la heredan los proveedores nuevos, como CODCUE_AfterUpdate del legacy)
+    $p = db_row("SELECT CODMON, COTPRO, FLTPRO, COSPRO, PLCPRO, FUCPRO FROM [Tbl Productos] WHERE CODPRO='$e';");
+    $pm = $p ? "'" . db_esc(trim((string) nz($p['CODMON'], 'P'))) . "'" : "'P'";
+    $pcot = $p ? (string) (float) nz($p['COTPRO'], 1) : '1';
+    $pflt = $p ? (string) (float) nz($p['FLTPRO'], 0) : '0';
+    $pcos = $p ? (string) (float) nz($p['COSPRO'], 0) : '0';
+    $pplc = $p ? (string) (float) nz($p['PLCPRO'], 0) : '0';
+    $pfuc = ($p && $p['FUCPRO'] !== null && $p['FUCPRO'] !== '') ? ('#' . date('m/d/Y', strtotime(to_iso_date($p['FUCPRO']))) . '#') : 'Null';
     // upsert
     foreach ($postCues as $cc => $ext) {
         $ex = ($ext === '') ? 'Null' : "'" . db_esc($ext) . "'";
         if (isset($exist[$cc])) db_exec("UPDATE [Tbl Productos Proveedores] SET EXTPRO=$ex WHERE CODPRO='$e' AND CODCUE=$cc;");
-        else db_exec("INSERT INTO [Tbl Productos Proveedores] ([CODPRO],[CODCUE],[EXTPRO]) VALUES ('$e',$cc,$ex);");
+        else db_exec("INSERT INTO [Tbl Productos Proveedores] ([CODPRO],[CODCUE],[EXTPRO],[CODMON],[COTPRO],[FLTPRO],[COSPRO],[PLCPRO],[FUCPRO]) VALUES ('$e',$cc,$ex,$pm,$pcot,$pflt,$pcos,$pplc,$pfuc);");
     }
 }
 

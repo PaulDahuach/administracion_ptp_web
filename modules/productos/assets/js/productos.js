@@ -57,14 +57,20 @@ const PR = {
     },
 
     bind() {
+        // colapso manual de paneles (el botón + no debe dispararlo)
+        document.querySelectorAll('.collapse-hd').forEach(h => {
+            const tgt = document.querySelector(h.getAttribute('data-target')); if (!tgt) return;
+            h.addEventListener('click', e => { if (e.target.closest('.prod-add')) return; bootstrap.Collapse.getOrCreateInstance(tgt).toggle(); });
+            tgt.addEventListener('shown.bs.collapse', () => h.classList.remove('collapsed'));
+            tgt.addEventListener('hidden.bs.collapse', () => h.classList.add('collapsed'));
+        });
         if (!this.RO) {
             this.el('btnNuevo').addEventListener('click', () => this.nuevo());
             this.el('btnGuardar').addEventListener('click', () => this.guardar());
             this.el('btnCancelar').addEventListener('click', () => this.cancelar());
             this.el('btnEditar').addEventListener('click', () => this.editar());
             this.el('btnEliminar').addEventListener('click', () => this.eliminar());
-            document.querySelectorAll('.prod-add').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); b.dataset.grid === 'equiv' ? this.addEquiv({}) : this.addProv({}); }));
-            this.el('f_codmon').addEventListener('change', () => this.applyEnabled());
+            document.querySelectorAll('.prod-add').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); b.dataset.grid === 'equiv' ? this.addEquiv({ factor: 1 }) : this.addProv({}); }));
         }
         this.el('btnBuscar').addEventListener('click', () => new bootstrap.Modal(this.el('modalBuscar')).show());
         this.el('modalBuscar').addEventListener('shown.bs.modal', () => this.loadList());
@@ -140,7 +146,11 @@ const PR = {
             <td><input class="g-factor form-control form-control-sm text-end" type="number" step="any" value="${this.esc(x.factor || '')}"></td>
             <td><button type="button" class="btn btn-outline-danger btn-sm g-del">&times;</button></td>`;
         this.el('tbEquiv').appendChild(tr);
-        tr.querySelector('.g-del').addEventListener('click', () => tr.remove());
+        tr.querySelector('.g-del').addEventListener('click', () => {
+            const base = this.el('f_codudm').value;
+            if (base !== '' && tr.querySelector('.g-udm').value === base) { this.toast('No se puede borrar la unidad base del producto.', 'warning'); return; }
+            tr.remove();
+        });
         this.applyEnabled();
     },
     addProv(x) {
@@ -182,6 +192,9 @@ const PR = {
         const equiv = Array.from(this.el('tbEquiv').children).map(tr => ({ udm: tr.querySelector('.g-udm').value, factor: tr.querySelector('.g-factor').value })).filter(x => x.udm);
         const provs = Array.from(this.el('tbProv').children).map(tr => ({ cue: tr.querySelector('.g-cue').value, ext: tr.querySelector('.g-ext').value })).filter(x => x.cue);
         const stock = Array.from(this.el('tbStock').children).filter(tr => tr.dataset.suc).map(tr => ({ suc: tr.dataset.suc, min: tr.querySelector('.g-min').value, max: tr.querySelector('.g-max').value }));
+        // validaciones de subforms (como el legacy): sin unidades ni proveedores duplicados
+        const udms = equiv.map(x => x.udm); if (new Set(udms).size !== udms.length) { this.el('formErr').textContent = 'Hay unidades de equivalencia duplicadas.'; this.toast('Unidades de equivalencia duplicadas', 'danger'); return; }
+        const cues = provs.map(x => x.cue); if (new Set(cues).size !== cues.length) { this.el('formErr').textContent = 'Hay proveedores duplicados.'; this.toast('Proveedores duplicados', 'danger'); return; }
         const fd = new FormData();
         fd.append('__nuevo', this.mode === 'create' ? '1' : '0');
         fd.append('cod', this.mode === 'create' ? this.newCod : this.cur);
