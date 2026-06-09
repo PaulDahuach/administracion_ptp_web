@@ -212,11 +212,12 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
               <div class="ac-box"><input type="text" id="impCtaQ" class="form-control form-control-sm" placeholder="Código o denominación…" autocomplete="off"><div class="ac-list" id="impCtaList"></div></div>
               <input type="hidden" id="impCta"></div>
             <div class="col-md-3"><label class="form-label mb-1 small">Centro de costo</label><select id="impCdc" class="form-select form-select-sm"></select></div>
+            <div class="col-auto" style="width:104px"><label class="form-label mb-1 small" title="Para el export a Holistor: el renglón del gasto lleva su alícuota">Alíc. I.V.A.</label><select id="impAli" class="form-select form-select-sm"><option value="21">21%</option><option value="10.5">10,5%</option><option value="27">27%</option><option value="0">No grav.</option></select></div>
             <div class="col-auto" style="width:150px"><label class="form-label mb-1 small">Debe</label><input type="number" step="0.01" id="impDeb" class="form-control form-control-sm cp-num"></div>
             <div class="col-auto"><button type="button" id="btnAddImp" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Agregar</button></div>
             <div class="col-auto"><button type="button" id="btnSugIva" class="btn btn-sm btn-outline-secondary" title="Agrega la fila de IVA Crédito Fiscal por el IVA del comprobante">+ IVA Crédito</button></div>
           </div>
-          <table class="table table-sm mb-0"><thead><tr><th>Cuenta</th><th>Centro de costo</th><th class="cp-num" style="width:160px">Debe</th><th style="width:36px"></th></tr></thead><tbody id="impBody"></tbody></table>
+          <table class="table table-sm mb-0"><thead><tr><th>Cuenta</th><th>Centro de costo</th><th class="cp-num" style="width:64px">Alíc.</th><th class="cp-num" style="width:150px">Debe</th><th style="width:36px"></th></tr></thead><tbody id="impBody"></tbody></table>
         </div>
       </div>
 
@@ -252,5 +253,5 @@ module_head('Comprobantes a Pagar — Acreedores', 'bi-receipt-cutoff', $toolbar
 <?php module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/cp.js?v=19"></script>
+<script src="assets/js/cp.js?v=20"></script>
 '); ?>

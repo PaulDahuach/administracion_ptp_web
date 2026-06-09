@@ -53,8 +53,9 @@ function nd_iso($iso) {
     return $d ? (int) (new DateTime('1899-12-30'))->diff($d)->days : null;
 }
 
-/** Inserta una imputación contable (con centro de costo) + mayoriza el saldo cacheado. Mantiene ord/totDeb/totCre. */
-function nd_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $codcdc, $caccZ) {
+/** Inserta una imputación contable (con centro de costo + ALIMOV/IVAMOV/TOTMOV para el export Holistor) +
+ *  mayoriza el saldo cacheado. Mantiene ord/totDeb/totCre. La línea de gasto lleva ali/iva/tot; las demás Null. */
+function nd_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $codcdc, $caccZ, $ali = null, $iva = null, $tot = null) {
     $ord++;
     if ((string) $cuenta !== (string) $caccZ) { $totDeb += (float) $deb; $totCre += (float) $cre; }
     $cc  = db_esc((string) $cuenta);
@@ -63,8 +64,11 @@ function nd_imp(&$ord, &$totDeb, &$totCre, $nummov, $cuenta, $deb, $cre, $codcdc
     $debSql = ($deb > 0) ? round($deb, 2) : 'Null';
     $creSql = ($cre > 0) ? round($cre, 2) : 'Null';
     $cdc = (int) nz($codcdc, 1); if ($cdc <= 0) $cdc = 1;
-    db_exec("INSERT INTO [Tbl Movimientos Imputaciones] (NUMMOV, ORDMOV, CODCUE, DEBMOV, CREMOV, CODCDC, SOCMOV)
-        VALUES ($nummov, $ord, '$cc', $debSql, $creSql, $cdc, $soc);");
+    $aliSql = ($ali === null) ? 'Null' : (string) round((float) $ali, 2);
+    $ivaSql = ($iva === null) ? 'Null' : (string) round((float) $iva, 2);
+    $totSql = ($tot === null) ? 'Null' : (string) round((float) $tot, 2);
+    db_exec("INSERT INTO [Tbl Movimientos Imputaciones] (NUMMOV, ORDMOV, CODCUE, DEBMOV, CREMOV, CODCDC, SOCMOV, ALIMOV, IVAMOV, TOTMOV)
+        VALUES ($nummov, $ord, '$cc', $debSql, $creSql, $cdc, $soc, $aliSql, $ivaSql, $totSql);");
     if ($deb > 0) db_exec("UPDATE [Tbl Cuentas Contables] SET DEBCUE = DEBCUE + " . round($deb, 2) . " WHERE CODCUE='$cc';");
     if ($cre > 0) db_exec("UPDATE [Tbl Cuentas Contables] SET CRECUE = CRECUE + " . round($cre, 2) . " WHERE CODCUE='$cc';");
 }
@@ -190,7 +194,8 @@ function nd_insert($d, $estTrue) {
     foreach ($imps as $i) {
         $cre = round((float) nz($i['importe'], 0), 2); if ($cre == 0) continue;
         $cdc = (int) nz(isset($i['codcdc']) ? $i['codcdc'] : 1, 1);
-        nd_imp($ord, $totDeb, $totCre, $nummov, trim((string) $i['codcue']), 0, $cre, $cdc, $caccZ);   // HABER gasto/IVA (con centro de costo)
+        nd_imp($ord, $totDeb, $totCre, $nummov, trim((string) $i['codcue']), 0, $cre, $cdc, $caccZ,
+            isset($i['alimov']) ? $i['alimov'] : null, isset($i['ivamov']) ? $i['ivamov'] : null, isset($i['totmov']) ? $i['totmov'] : null);   // HABER gasto/IVA (+ ALIMOV/IVAMOV/TOTMOV Holistor)
     }
     $dif = round($totDeb - $totCre, 2);
     if (abs($dif) >= 0.005) { if ($dif > 0) nd_imp($ord, $totDeb, $totCre, $nummov, $caccZ, 0, $dif, 1, $caccZ); else nd_imp($ord, $totDeb, $totCre, $nummov, $caccZ, -$dif, 0, 1, $caccZ); }

@@ -130,7 +130,9 @@ const CP = {
         var imp = this.r2(this.el('impDeb').value);
         if (imp <= 0) { this.toast('Poné el importe a acreditar.', 'warning'); return; }
         var cdc = this.el('impCdc').value;
-        this.imps.push({ codcue: this.impSel.codcue, label: this.impSel.label, codcdc: cdc, cdcName: this.centros[cdc] || cdc, importe: imp });
+        var ali = parseFloat(this.el('impAli').value); if (isNaN(ali)) ali = 0;
+        var iva = Math.round(imp * ali) / 100, tot = Math.round((imp + iva) * 100) / 100;   // ALIMOV/IVAMOV/TOTMOV (export Holistor)
+        this.imps.push({ codcue: this.impSel.codcue, label: this.impSel.label, codcdc: cdc, cdcName: this.centros[cdc] || cdc, importe: imp, alimov: ali, ivamov: iva, totmov: tot });
         this.impSel = null; this.el('impCta').value = ''; this.el('impCtaQ').value = '';
         this.renderImps(); this.refresh();
     },
@@ -138,12 +140,13 @@ const CP = {
         if (this.totales.iva <= 0) { this.toast('No hay IVA para imputar.', 'info'); return; }
         if (this.imps.some(function (i) { return i.codcue === CP.ivaCta(); })) { this.toast('La fila de IVA Crédito ya está.', 'info'); return; }
         var cdc = this.el('impCdc').value;
-        this.imps.push({ codcue: this.ivaCta(), label: this.ivaCta() + ' · I.V.A. Crédito Fiscal', codcdc: cdc, cdcName: this.centros[cdc] || cdc, importe: this.totales.iva });
+        this.imps.push({ codcue: this.ivaCta(), label: this.ivaCta() + ' · I.V.A. Crédito Fiscal', codcdc: cdc, cdcName: this.centros[cdc] || cdc, importe: this.totales.iva, alimov: null, ivamov: null, totmov: null });
         this.renderImps(); this.refresh();
     },
     renderImps() {
         this.el('impBody').innerHTML = this.imps.map(function (i, k) {
-            return '<tr><td>' + CP.esc(i.label) + '</td><td>' + CP.esc(i.cdcName) + '</td><td class="cp-num">' + CP.n(i.importe) + '</td>' +
+            var aliTxt = (i.alimov === null || typeof i.alimov === 'undefined') ? '—' : (i.alimov > 0 ? CP.n(i.alimov) + '%' : 'No grav.');
+            return '<tr><td>' + CP.esc(i.label) + '</td><td>' + CP.esc(i.cdcName) + '</td><td class="cp-num">' + aliTxt + '</td><td class="cp-num">' + CP.n(i.importe) + '</td>' +
                 '<td><button type="button" class="btn btn-sm btn-outline-danger i-del" data-k="' + k + '"><i class="bi bi-x"></i></button></td></tr>';
         }).join('');
         Array.prototype.forEach.call(this.el('impBody').querySelectorAll('.i-del'), function (b) { b.addEventListener('click', function () { CP.imps.splice(+this.getAttribute('data-k'), 1); CP.renderImps(); CP.refresh(); }); });
@@ -249,7 +252,7 @@ const CP = {
             cec: this.el('cec').value, cei: this.el('cei').value, cep: this.el('cep').value, cen: this.el('cen').value, cef: this.el('cef').value,
             citmov: p.CITCUE, codcri: p.CODCRI, nogmov: t.nog, ip1mov: t.ip1, ip2mov: t.ip2, ap1mov: t.ap1, ap2mov: t.ap2, total: t.total,
             ivas: ivas,
-            imputaciones: this.imps.map(function (i) { return { codcue: i.codcue, codcdc: i.codcdc, importe: i.importe }; }),
+            imputaciones: this.imps.map(function (i) { return { codcue: i.codcue, codcdc: i.codcdc, importe: i.importe, alimov: i.alimov, ivamov: i.ivamov, totmov: i.totmov }; }),
             referencias: this.selectedRefs()
         };
         this.el('btnGrabar').disabled = true; this.el('btnGrabar').innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Grabando…';
