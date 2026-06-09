@@ -5,14 +5,12 @@
 .fc-card .card-header .text-muted { text-transform:none; }
 .fc-card .card-body { padding:.6rem .85rem; }
 
-/* cabecera: 2 columnas, label a la izquierda */
-.prod-grid2 { display:grid; grid-template-columns:1fr; gap:.15rem 2.5rem; }
-@media (min-width:992px) { .prod-grid2 { grid-template-columns:1fr 1fr; } }
-.pf { display:flex; align-items:center; gap:.6rem; margin-bottom:.45rem; }
-.pf > label { flex:0 0 10rem; text-align:right; font-size:.8rem; font-weight:600; color:var(--bs-secondary-color); }
-.pf > .form-control, .pf > .form-select, .pf > textarea { flex:1 1 auto; font-size:.82rem; padding:.25rem .5rem; height:auto; }
-.pf.pf-wide { grid-column:1 / -1; align-items:flex-start; }
-.pf-narrow { max-width:6rem; } .pf-mid { max-width:12rem !important; flex:0 0 auto !important; }
+/* cabecera: campos apilados, label a la izquierda (la columna es angosta, estilo legacy) */
+.pf { display:flex; align-items:center; gap:.55rem; margin-bottom:.4rem; }
+.pf > label { flex:0 0 8.5rem; text-align:right; font-size:.78rem; font-weight:600; color:var(--bs-secondary-color); line-height:1.15; }
+.pf > .form-control, .pf > .form-select, .pf > textarea { flex:1 1 auto; min-width:0; font-size:.82rem; padding:.25rem .5rem; height:auto; }
+.pf.pf-mem { align-items:flex-start; }
+.pf-narrow { max-width:5rem; } .pf-mid { max-width:11rem !important; flex:0 0 auto !important; }
 .fc-num { text-align:right; }
 
 /* última compra read-only */

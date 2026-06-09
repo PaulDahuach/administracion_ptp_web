@@ -27,30 +27,30 @@ $toolbar .= '</div>';
 module_head('Productos y Servicios', 'bi-box-seam', $toolbar);
 ?>
 <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-<link href="assets/css/prod.css?v=1" rel="stylesheet">
+<link href="assets/css/prod.css?v=2" rel="stylesheet">
 <script>window.PR_RO=<?= $ro ? 'true' : 'false' ?>; window.PR_LK=<?= json_encode($lk) ?>;</script>
 
 <div class="prod-form mode-view" id="mainForm">
-  <!-- CABECERA -->
-  <div class="card fc-card"><div class="card-header"><span><i class="bi bi-box-seam me-1"></i>Producto <span class="text-muted ms-2" id="fCod">—</span></span></div>
-    <div class="card-body prod-grid2">
-      <div class="pf"><label>Categoría <span class="text-danger">*</span></label><select id="f_codcat" class="form-select"></select></div>
-      <div class="pf"><label>Denominación <span class="text-danger">*</span></label><input id="f_den" class="form-control" maxlength="60"></div>
-      <div class="pf"><label>Rubro</label><select id="f_codrub" class="form-select"></select></div>
-      <div class="pf"><label>Subrubro</label><select id="f_codsub" class="form-select"></select></div>
-      <div class="pf"><label>Línea</label><select id="f_codlin" class="form-select"></select></div>
-      <div class="pf"><label>Unidad</label><select id="f_codudm" class="form-select"></select></div>
-      <div class="pf"><label>Decimales</label><input id="f_dec" type="number" min="0" max="4" class="form-control pf-narrow"></div>
-      <div class="pf"><label>Ubicación</label><input id="f_ubi" class="form-control" maxlength="30"></div>
-      <div class="pf"><label>Precio de Lista (venta)</label><input id="f_plv" type="number" step="0.01" class="form-control fc-num pf-mid"></div>
-      <div class="pf"><label>Discontinuado</label><input id="f_dis" type="checkbox" class="form-check-input"></div>
-      <div class="pf pf-wide"><label>Observaciones</label><textarea id="f_obs" class="form-control" rows="2"></textarea></div>
-    </div>
-  </div>
-
+  <!-- FILA 1: Datos · Última Compra · Precios de Venta (layout legacy) -->
   <div class="row g-3">
+    <!-- DATOS DEL PRODUCTO -->
+    <div class="col-lg-5"><div class="card fc-card h-100">
+      <div class="card-header"><span><i class="bi bi-box-seam me-1"></i>Producto <span class="text-muted ms-2" id="fCod">—</span></span></div>
+      <div class="card-body">
+        <div class="pf"><label>Categoría <span class="text-danger">*</span></label><select id="f_codcat" class="form-select"></select></div>
+        <div class="pf"><label>Rubro</label><select id="f_codrub" class="form-select"></select></div>
+        <div class="pf"><label>Subrubro</label><select id="f_codsub" class="form-select"></select></div>
+        <div class="pf"><label>Línea</label><select id="f_codlin" class="form-select"></select></div>
+        <div class="pf"><label>Denominación <span class="text-danger">*</span></label><input id="f_den" class="form-control" maxlength="60"></div>
+        <div class="pf"><label>Unidad</label><select id="f_codudm" class="form-select"></select></div>
+        <div class="pf"><label>Decimales</label><input id="f_dec" type="number" min="0" max="4" class="form-control pf-narrow"></div>
+        <div class="pf"><label>Ubicación</label><input id="f_ubi" class="form-control" maxlength="30"></div>
+        <div class="pf"><label>Precio de Lista (venta)</label><input id="f_plv" type="number" step="0.01" class="form-control fc-num pf-mid"></div>
+        <div class="pf"><label>Discontinuado</label><input id="f_dis" type="checkbox" class="form-check-input"></div>
+        <div class="pf pf-mem"><label>Observaciones</label><textarea id="f_obs" class="form-control" rows="2"></textarea></div>
+      </div></div></div>
     <!-- ÚLTIMA COMPRA (read-only) -->
-    <div class="col-md-4"><div class="card fc-card h-100"><div class="card-header"><span>Última Compra</span></div>
+    <div class="col-lg-3"><div class="card fc-card h-100"><div class="card-header"><span>Última Compra</span></div>
       <div class="card-body prod-ro">
         <div><label>Fecha</label><span id="uc_fecha">—</span></div>
         <div><label>Moneda</label><span id="uc_moneda">—</span></div>
@@ -60,26 +60,25 @@ module_head('Productos y Servicios', 'bi-box-seam', $toolbar);
         <div><label>Precio de Lista</label><span id="uc_lista" class="fc-num">—</span></div>
       </div></div></div>
     <!-- PRECIOS DE VENTA por categoría (derivado) -->
-    <div class="col-md-8"><div class="card fc-card h-100"><div class="card-header"><span>Precios de Venta por Categoría</span></div>
+    <div class="col-lg-4"><div class="card fc-card h-100"><div class="card-header"><span>Precios de Venta</span></div>
       <div class="card-body p-0"><table class="table table-sm prod-tbl mb-0"><thead><tr><th>Categoría</th><th class="text-end">% Dto.</th><th class="text-end">Neto</th><th class="text-end">% Util.</th></tr></thead><tbody id="tbPrecios"></tbody></table></div></div></div>
   </div>
 
-  <!-- STOCK -->
+  <!-- FILA 2: Equivalencias · Proveedores -->
+  <div class="row g-3">
+    <div class="col-md-4"><div class="card fc-card h-100"><div class="card-header"><span><i class="bi bi-rulers me-1"></i>Equivalencias</span>
+        <button type="button" class="btn btn-outline-primary btn-sm prod-add" data-grid="equiv" disabled><i class="bi bi-plus-lg"></i></button></div>
+      <div class="card-body p-0"><table class="table table-sm prod-tbl mb-0"><thead><tr><th>Unidad</th><th class="text-end">Factor</th><th style="width:2rem"></th></tr></thead><tbody id="tbEquiv"></tbody></table></div></div></div>
+    <div class="col-md-8"><div class="card fc-card h-100"><div class="card-header"><span><i class="bi bi-truck me-1"></i>Proveedores</span>
+        <button type="button" class="btn btn-outline-primary btn-sm prod-add" data-grid="prov" disabled><i class="bi bi-plus-lg"></i></button></div>
+      <div class="card-body p-0"><table class="table table-sm prod-tbl mb-0"><thead><tr><th>Proveedor</th><th>Cód. Externo</th><th>Últ. Compra</th><th class="text-end">Costo</th><th style="width:2rem"></th></tr></thead><tbody id="tbProv"></tbody></table></div></div></div>
+  </div>
+
+  <!-- FILA 3: Stock (a todo el ancho, abajo) -->
   <div class="card fc-card"><div class="card-header"><span><i class="bi bi-boxes me-1"></i>Stock</span></div>
     <div class="card-body p-0"><table class="table table-sm prod-tbl mb-0"><thead><tr>
       <th>Sucursal</th><th class="text-end">Mínimo</th><th class="text-end">Máximo</th><th class="text-end">Inicial</th><th class="text-end">Existente</th><th class="text-end">Comp.Compras</th><th class="text-end">Comp.Ventas</th><th class="text-end">Disponible</th>
     </tr></thead><tbody id="tbStock"></tbody></table></div></div>
-
-  <div class="row g-3">
-    <!-- EQUIVALENCIAS -->
-    <div class="col-md-5"><div class="card fc-card h-100"><div class="card-header"><span><i class="bi bi-rulers me-1"></i>Equivalencias</span>
-        <button type="button" class="btn btn-outline-primary btn-sm prod-add" data-grid="equiv" disabled><i class="bi bi-plus-lg"></i></button></div>
-      <div class="card-body p-0"><table class="table table-sm prod-tbl mb-0"><thead><tr><th>Unidad</th><th class="text-end">Factor</th><th style="width:2rem"></th></tr></thead><tbody id="tbEquiv"></tbody></table></div></div></div>
-    <!-- PROVEEDORES -->
-    <div class="col-md-7"><div class="card fc-card h-100"><div class="card-header"><span><i class="bi bi-truck me-1"></i>Proveedores</span>
-        <button type="button" class="btn btn-outline-primary btn-sm prod-add" data-grid="prov" disabled><i class="bi bi-plus-lg"></i></button></div>
-      <div class="card-body p-0"><table class="table table-sm prod-tbl mb-0"><thead><tr><th>Proveedor</th><th>Cód. Externo</th><th>Últ. Compra</th><th class="text-end">Costo</th><th style="width:2rem"></th></tr></thead><tbody id="tbProv"></tbody></table></div></div></div>
-  </div>
 
   <div class="text-danger small mt-2" id="formErr"></div>
 </div>
