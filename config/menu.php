@@ -67,7 +67,7 @@ return [
         ['label' => 'Líneas', 'desc' => 'Alta/edición de líneas', 'icon' => 'bi-bookmark', 'url' => '/modules/abm/?m=lineas'],
         ['label' => 'Unidades de Medida', 'desc' => 'Unidades de medida (decimales)', 'icon' => 'bi-rulers', 'url' => '/modules/abm/?m=unidades'],
         ['label' => 'Productos', 'desc' => 'Productos y servicios: clasificación, precios, stock, equivalencias, proveedores', 'icon' => 'bi-box-seam', 'url' => '/modules/productos/'],
-        ['label' => 'Ajustes', 'disabled' => true],
+        ['label' => 'Ajustes', 'desc' => 'Ajustes de stock: ingreso/egreso de existencias por concepto', 'icon' => 'bi-boxes', 'url' => '/modules/ajustes_stock/'],
         ['head' => 'Listados'],
         ['label' => 'Rubros', 'disabled' => true],
         ['label' => 'Líneas', 'disabled' => true],
