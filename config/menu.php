@@ -62,9 +62,10 @@ return [
     ],
     'Stock' => [
         ['head' => 'Actualizaciones'],
-        ['label' => 'Rubros', 'disabled' => true],
-        ['label' => 'Líneas', 'disabled' => true],
-        ['label' => 'Unidades de Medida', 'disabled' => true],
+        ['label' => 'Rubros', 'desc' => 'Rubros (cuentas contables compras/ventas, utilidad)', 'icon' => 'bi-tag', 'url' => '/modules/abm/?m=rubros'],
+        ['label' => 'Subrubros', 'desc' => 'Subrubros por rubro (cuentas contables, utilidad)', 'icon' => 'bi-tags', 'url' => '/modules/abm/?m=subrubros'],
+        ['label' => 'Líneas', 'desc' => 'Alta/edición de líneas', 'icon' => 'bi-bookmark', 'url' => '/modules/abm/?m=lineas'],
+        ['label' => 'Unidades de Medida', 'desc' => 'Unidades de medida (decimales)', 'icon' => 'bi-rulers', 'url' => '/modules/abm/?m=unidades'],
         ['label' => 'Productos', 'disabled' => true],
         ['label' => 'Ajustes', 'disabled' => true],
         ['head' => 'Listados'],

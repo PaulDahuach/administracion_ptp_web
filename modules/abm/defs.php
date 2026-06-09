@@ -69,6 +69,7 @@ $CAT_PROV = ['tabla' => 'Tbl Categorias Cuentas Corrientes', 'pk' => 'CODCAT', '
 $REGIMEN_IIBB = ['tabla' => 'Tbl Regimenes Retencion Ingresos Brutos', 'pk' => 'CODRRI', 'den' => 'DENRRI'];   // 2 regímenes
 // Cuenta contable de imputación de compras: 441 imputables, clave STRING (CODCUE, ej. "11101") → big + strkey.
 $CTA_CONTABLE_IMP = ['tabla' => 'Tbl Cuentas Contables', 'pk' => 'CODCUE', 'den' => 'DENCUE', 'cod' => 'CODCUE', 'where' => 'IMPCUE=True'];
+$RUBRO = ['tabla' => 'Tbl Rubros', 'pk' => 'CODRUB', 'den' => 'DENRUB'];
 
 return [
 
@@ -313,6 +314,66 @@ return [
             ['col' => 'CCDCBX', 'label' => 'Copias Constancia Depósito', 'tipo' => 'number', 'req' => true, 'min' => 0, 'max' => 3],
             ['col' => 'CODBAN', 'label' => 'Banco', 'tipo' => 'select', 'lookup' => $BANCO, 'req' => true, 'list' => true],
             ['col' => 'DISCBX', 'label' => 'Discontinuada', 'tipo' => 'bool'],
+        ],
+    ],
+
+    // ── Stock: Líneas (Frm SI Lineas) ───────────────────────────────────
+    'lineas' => [
+        'tabla'  => 'Tbl Lineas', 'pk' => 'CODLIN', 'ult' => 'ULTLIN',
+        'titulo' => 'Líneas', 'icono' => 'bi-bookmark', 'orden' => 'DENLIN',
+        'unico'  => ['DENLIN'],
+        'uso'    => [['tabla' => 'Tbl Productos', 'col' => 'CODLIN', 'msg' => 'No se puede eliminar: la línea está asignada a productos.']],
+        'campos' => [['col' => 'DENLIN', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true]],
+    ],
+
+    // ── Stock: Unidades de Medida (Frm SI Unidades de Medida) ───────────
+    'unidades' => [
+        'tabla'  => 'Tbl Unidades de Medida', 'pk' => 'CODUDM', 'ult' => 'ULTUDM',
+        'titulo' => 'Unidades de Medida', 'icono' => 'bi-rulers', 'orden' => 'DENUDM',
+        'unico'  => ['DENUDM'],
+        'uso'    => [
+            ['tabla' => 'Tbl Productos', 'col' => 'CODUDM', 'msg' => 'No se puede eliminar: la unidad está asignada a productos.'],
+            ['tabla' => 'Tbl Productos Unidades', 'col' => 'CODUDM', 'msg' => 'No se puede eliminar: la unidad se usa en equivalencias de productos.'],
+        ],
+        'campos' => [
+            ['col' => 'DENUDM', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+            ['col' => 'DECUDM', 'label' => 'Decimales', 'tipo' => 'number', 'req' => true, 'min' => 0, 'max' => 4, 'list' => true],
+        ],
+    ],
+
+    // ── Stock: Rubros (Frm SI Rubros) ───────────────────────────────────
+    //  Cuentas contables de imputación compras/ventas = clave string → autocomplete imputables.
+    //  Los Subrubros se editan como maestro aparte ('subrubros') porque tienen PK propia
+    //  referenciada por Productos (no sirve el patrón hijo borrar-reinsertar).
+    'rubros' => [
+        'tabla'  => 'Tbl Rubros', 'pk' => 'CODRUB', 'ult' => 'ULTRUB',
+        'titulo' => 'Rubros', 'icono' => 'bi-tag', 'orden' => 'DENRUB',
+        'unico'  => ['DENRUB'],
+        'uso'    => [
+            ['tabla' => 'Tbl Productos', 'col' => 'CODRUB', 'msg' => 'No se puede eliminar: el rubro está asignado a productos.'],
+            ['tabla' => 'Tbl SubRubros', 'col' => 'CODRUB', 'msg' => 'No se puede eliminar: el rubro tiene subrubros.'],
+        ],
+        'campos' => [
+            ['col' => 'DENRUB', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+            ['col' => 'CPARUB', 'label' => 'Cta. Contable Imput. Compras', 'tipo' => 'select', 'big' => true, 'strkey' => true, 'lookup' => $CTA_CONTABLE_IMP, 'search' => ['CODCUE', 'DENCUE']],
+            ['col' => 'VTARUB', 'label' => 'Cta. Contable Imput. Ventas', 'tipo' => 'select', 'big' => true, 'strkey' => true, 'lookup' => $CTA_CONTABLE_IMP, 'search' => ['CODCUE', 'DENCUE']],
+            ['col' => 'PUNRUB', 'label' => 'Utilidad Neta x Alta de Productos', 'tipo' => 'decimal', 'min' => 0, 'max' => 100, 'suffix' => '%'],
+            ['col' => 'DISRUB', 'label' => 'Discontinuado', 'tipo' => 'bool'],
+        ],
+    ],
+
+    // ── Stock: Subrubros (porta el subform de Frm SI Rubros como maestro propio) ──
+    'subrubros' => [
+        'tabla'  => 'Tbl SubRubros', 'pk' => 'CODSUB', 'ult' => 'ULTSUB',
+        'titulo' => 'Subrubros', 'icono' => 'bi-tags', 'orden' => 'DENSUB',
+        'uso'    => [['tabla' => 'Tbl Productos', 'col' => 'CODSUB', 'msg' => 'No se puede eliminar: el subrubro está asignado a productos.']],
+        'campos' => [
+            ['col' => 'CODRUB', 'label' => 'Rubro', 'tipo' => 'select', 'lookup' => $RUBRO, 'req' => true, 'list' => true],
+            ['col' => 'DENSUB', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+            ['col' => 'CPASUB', 'label' => 'Cta. Contable Imput. Compras', 'tipo' => 'select', 'big' => true, 'strkey' => true, 'lookup' => $CTA_CONTABLE_IMP, 'search' => ['CODCUE', 'DENCUE']],
+            ['col' => 'VTASUB', 'label' => 'Cta. Contable Imput. Ventas', 'tipo' => 'select', 'big' => true, 'strkey' => true, 'lookup' => $CTA_CONTABLE_IMP, 'search' => ['CODCUE', 'DENCUE']],
+            ['col' => 'PUNSUB', 'label' => 'Utilidad %', 'tipo' => 'decimal', 'min' => 0, 'max' => 100, 'suffix' => '%'],
+            ['col' => 'DISSUB', 'label' => 'Discontinuado', 'tipo' => 'bool'],
         ],
     ],
 
