@@ -113,7 +113,7 @@ return [
         ['label' => 'Transportes', 'desc' => 'Alta/edición de transportes (CUIT, localidad, contacto)', 'icon' => 'bi-truck', 'url' => '/modules/abm/?m=transportes'],
         ['label' => 'Vendedores', 'desc' => 'Alta/edición de vendedores', 'icon' => 'bi-person-badge', 'url' => '/modules/abm/?m=vendedores'],
         ['label' => 'Zonas', 'desc' => 'Alta/edición de zonas', 'icon' => 'bi-geo', 'url' => '/modules/abm/?m=zonas'],
-        ['label' => 'Cuentas Corrientes', 'disabled' => true],
+        ['label' => 'Cuentas Corrientes', 'desc' => 'Clientes: datos, categoría, condición de venta, saldos', 'icon' => 'bi-person-vcard', 'url' => '/modules/abm/?m=cc_deudores'],
         ['label' => 'Formas de Pago Cta.Cte.', 'desc' => 'Formas de pago de cuenta corriente (plazo en días)', 'icon' => 'bi-wallet2', 'url' => '/modules/abm/?m=formas_pago_ctacte'],
         ['label' => 'Operaciones Pendientes de Facturación', 'disabled' => true],
         ['head' => 'Emisiones'],

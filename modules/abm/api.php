@@ -32,7 +32,8 @@ try {
 
 // ─────────────────────────── helpers ───────────────────────────
 function opciones($lk) {
-    return db_query("SELECT [{$lk['pk']}] AS id, [{$lk['den']}] AS den FROM [{$lk['tabla']}] ORDER BY [{$lk['den']}];");
+    $w = isset($lk['where']) ? ' WHERE ' . $lk['where'] : '';   // scope opcional, ej. "CODORI='D'"
+    return db_query("SELECT [{$lk['pk']}] AS id, [{$lk['den']}] AS den FROM [{$lk['tabla']}]$w ORDER BY [{$lk['den']}];");
 }
 
 /** Literal SQL para un valor según tipo. Setea $err si falta un requerido. */
@@ -43,6 +44,7 @@ function val_sql($c, $raw, &$err) {
     }
     $v = is_string($raw) ? trim($raw) : $raw;
     $vacio = ($v === '' || $v === null);
+    if ($vacio && isset($c['default'])) { $v = $c['default']; $vacio = false; }   // valor por defecto si viene vacío
     if (!empty($c['req']) && $vacio) { $err = "Falta: {$c['label']}"; return null; }
     if ($vacio) return 'Null';
     if ($tipo === 'select') return (string) intval($v);
@@ -105,6 +107,8 @@ function campo_def($def, $col) {
 function check_unico($def, $id) {
     if (empty($def['unico'])) return null;
     $pk = $def['pk'];
+    $fw = fijo_where($def, '');
+    $scope = ($fw !== '') ? " AND $fw" : '';   // unicidad dentro del scope (ej. solo deudores)
     foreach ($def['unico'] as $u) {
         // entrada: 'COL'  o  ['col'=>'COL','except'=>'valor que puede repetirse', ej. CUIT dummy]
         $col = is_array($u) ? $u['col'] : $u;
@@ -114,7 +118,7 @@ function check_unico($def, $id) {
         if ($lit === null || $lit === 'Null') continue;   // vacío → no chequear
         if (is_array($u) && isset($u['except']) && trim($lit, "'") === $u['except']) continue;
         $excl = ($id !== '') ? " AND [$pk]<>" . intval($id) : '';
-        $r = db_row("SELECT [$pk] AS k FROM [{$def['tabla']}] WHERE [$col]=$lit$excl;");
+        $r = db_row("SELECT [$pk] AS k FROM [{$def['tabla']}] WHERE [$col]=$lit$excl$scope;");
         if ($r) { $lbl = isset($campo['label']) ? $campo['label'] : $col; return "Ya existe un registro con esa $lbl."; }
     }
     return null;
@@ -160,6 +164,23 @@ function cuit_valido($s) {
     return $ver === intval($s[10]);
 }
 
+/** Literal de un default de alta ('alta' del def): valor fijo o ['rec'=>'COL'] desde Rec Control. */
+function alta_lit($spec) {
+    if (is_array($spec) && isset($spec['rec'])) {
+        $r = db_row("SELECT [{$spec['rec']}] AS v FROM [Rec Control];");
+        $v = $r ? $r['v'] : null;
+        if ($v === null || $v === '') return 'Null';
+        if (isset($spec['tipo']) && $spec['tipo'] === 'date') {
+            $iso = to_iso_date($v);
+            if ($iso === '') return 'Null';
+            $p = explode('-', $iso);
+            return "#{$p[1]}/{$p[2]}/{$p[0]}#";
+        }
+        return is_numeric($v) ? (string) $v : "'" . db_esc($v) . "'";
+    }
+    return is_numeric($spec) ? (string) $spec : "'" . db_esc($spec) . "'";
+}
+
 // ─────────────────────────── maestro ───────────────────────────
 function defs($def) {
     $out = ['titulo' => $def['titulo'], 'pk' => $def['pk'], 'campos' => [], 'hijos' => []];
@@ -186,23 +207,26 @@ function defs($def) {
 
 function listar($def) {
     $pk = $def['pk'];
-    $sel = ["M.[$pk] AS [$pk]"]; $joins = ''; $i = 0;
+    $sel = ["M.[$pk] AS [$pk]"]; $joins = []; $i = 0;
     $dateCols = [];
     foreach ($def['campos'] as $c) {
         if (empty($c['list'])) continue;
         if ($c['tipo'] === 'select' && isset($c['lookup'])) {
             $a = 'j' . ($i++); $lk = $c['lookup'];
-            $joins .= " LEFT JOIN [{$lk['tabla']}] AS $a ON M.[{$c['col']}] = $a.[{$lk['pk']}]";
+            $joins[] = "LEFT JOIN [{$lk['tabla']}] AS $a ON M.[{$c['col']}] = $a.[{$lk['pk']}]";
             $sel[] = "$a.[{$lk['den']}] AS [{$c['col']}]";
         } else {
             $sel[] = "M.[{$c['col']}] AS [{$c['col']}]";
             if ($c['tipo'] === 'date') $dateCols[] = $c;
         }
     }
+    // ACE exige paréntesis anidados con 2+ LEFT JOIN: ((M LEFT JOIN j0..) LEFT JOIN j1..)
+    $from = "[{$def['tabla']}] AS M";
+    foreach ($joins as $j) $from = "($from $j)";
     $orden = (isset($def['orden']) ? $def['orden'] : $pk);
     $w = fijo_where($def, 'M');
     $where = ($w !== '') ? " WHERE $w" : '';
-    $rows = db_query("SELECT " . implode(', ', $sel) . " FROM [{$def['tabla']}] AS M$joins$where ORDER BY M.[$orden];");
+    $rows = db_query("SELECT " . implode(', ', $sel) . " FROM $from$where ORDER BY M.[$orden];");
     if ($dateCols) foreach ($rows as &$r) conv_fechas($r, $dateCols, 'disp');
     ok($rows);
 }
@@ -222,6 +246,12 @@ function obtener($def) {
             $d = db_row("SELECT [{$lk['den']}] AS den FROM [{$lk['tabla']}] WHERE [{$lk['pk']}] = $fid;");
             $row[$c['col'] . '__den'] = $d ? $d['den'] : '';
         }
+    }
+    // Campos read-only: formatear para mostrar (fechas dd/mm/aaaa, decimales es-AR).
+    foreach ($def['campos'] as $c) {
+        if (empty($c['ro']) || !array_key_exists($c['col'], $row)) continue;
+        if ($c['tipo'] === 'date') $row[$c['col']] = to_disp_date($row[$c['col']]);
+        elseif ($c['tipo'] === 'decimal') $row[$c['col']] = money($row[$c['col']]);
     }
     $row['__hijos'] = [];
     foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) $row['__hijos'][$h['key']] = childRows($h, $id);
@@ -258,6 +288,7 @@ function guardar($def) {
     $id = trim((isset($_POST['__id']) ? $_POST['__id'] : ''));
     $cols = []; $vals = [];
     foreach ($def['campos'] as $c) {
+        if (!empty($c['ro'])) continue;   // read-only: no se graba (saldos, fechas calculadas)
         $err = null;
         $lit = val_sql($c, (isset($_POST[$c['col']]) ? $_POST[$c['col']] : ''), $err);
         if ($err) { fail($err); return; }
@@ -271,6 +302,7 @@ function guardar($def) {
         $pid = next_number($def['ult']);
         $fcols = []; $fvals = [];
         if (!empty($def['fijo'])) foreach ($def['fijo'] as $fc => $fv) { $fcols[] = $fc; $fvals[] = fijo_lit($fv); }
+        if (!empty($def['alta'])) foreach ($def['alta'] as $ac => $as) { $fcols[] = $ac; $fvals[] = alta_lit($as); }
         $allCols = array_merge([$pk], $fcols, $cols);
         $allVals = array_merge([(string) $pid], $fvals, $vals);
         db_exec("INSERT INTO [{$def['tabla']}] ([" . implode('],[', $allCols) . "]) VALUES (" . implode(',', $allVals) . ");");

@@ -14,11 +14,19 @@
 .fc-form .form-label { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em;
     margin-bottom:.15rem; color:var(--bs-secondary-color); }
 .fc-form .form-control, .fc-form .form-select { font-size:.82rem; padding:.25rem .5rem; height:auto; }
-/* fila vertical estilo legacy: label a la izquierda */
-.fc-form .fc-flabel { font-size:.8rem; font-weight:600; color:var(--bs-secondary-color); padding-top:.35rem; padding-bottom:0; }
-.fc-form .fc-frow { max-width:46rem; }
+/* layout estilo legacy: label a la izquierda + 2 columnas en pantalla ancha (sin scroll).
+   Flujo column-major (multi-column): llena la columna izquierda de arriba a abajo y luego la derecha. */
+.fc-form #formFields { column-count:1; column-gap:2.5rem; }
+@media (min-width:992px) { .fc-form #formFields { column-count:2; } }
+.fc-form .fc-frow { break-inside:avoid; display:flex; align-items:center; gap:.6rem; margin-bottom:.45rem; }
+.fc-form .fc-flabel { flex:0 0 11rem; text-align:right; font-size:.8rem; font-weight:600;
+    color:var(--bs-secondary-color); line-height:1.15; }
+.fc-form .fc-field { flex:1 1 auto; min-width:0; }
+.fc-form .fc-field.fc-w-narrow { max-width:9rem; }
+.fc-form .fc-field.fc-w-mid { max-width:22rem; }
+.fc-form .fc-field.fc-w-wide { max-width:100%; }
 .fc-form .input-group-text { font-size:.82rem; padding:.25rem .55rem; }
-.fc-form #f__cod { max-width:8rem; font-family:monospace; }
+.fc-form #f__cod { font-family:monospace; }
 /* autocomplete (lookup grande, ej. Localidades) */
 .fc-form .ac-wrap { position:relative; }
 .fc-form .ac-list { position:absolute; z-index:1000; top:100%; left:0; right:0; max-height:280px; overflow-y:auto;

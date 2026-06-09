@@ -20,6 +20,7 @@ const App = {
 
     ctrl(c, idAttr) {
         const id = idAttr ? `id="${idAttr}"` : '';
+        if (c.ro) return `<input type="text" ${id} class="form-control hb-in" data-col="${c.col}" disabled>`;
         if (c.tipo === 'memo') return `<textarea ${id} class="form-control hb-in" data-col="${c.col}" rows="2"></textarea>`;
         if (c.tipo === 'bool') return `<div class="form-check"><input type="checkbox" ${id} class="form-check-input hb-in" data-col="${c.col}" value="1"></div>`;
         if (c.tipo === 'date') return `<input type="date" ${id} class="form-control hb-in" data-col="${c.col}">`;
@@ -40,12 +41,12 @@ const App = {
         return `<input type="${t}"${step}${mx} ${id} class="form-control hb-in" data-col="${c.col}">`;
     },
 
-    // Fila vertical estilo legacy: label a la izquierda (alineado a la derecha) + campo.
+    // Fila: label a la izquierda + campo. El contenedor las reparte en 2 columnas
+    // (flujo column-major: primero toda la columna izquierda, después la derecha).
     frow(labelHtml, ctlHtml, w) {
-        const field = (w === 'wide') ? 'col-sm-9' : (w === 'narrow') ? 'col-sm-3' : 'col-sm-6';
-        return `<div class="row mb-2 align-items-center fc-frow">
-            <label class="col-sm-3 col-form-label text-sm-end fc-flabel">${labelHtml}</label>
-            <div class="${field}">${ctlHtml}</div></div>`;
+        return `<div class="fc-frow">
+            <label class="fc-flabel">${labelHtml}</label>
+            <div class="fc-field fc-w-${w}">${ctlHtml}</div></div>`;
     },
 
     buildForm() {

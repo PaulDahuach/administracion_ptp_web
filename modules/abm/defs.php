@@ -37,6 +37,8 @@
  *      min/max: rango permitido (number/decimal)
  *      suffix: sufijo al lado del campo (ej. '%', 'Días')
  *      ancho : 'narrow' | 'mid' | 'wide' — fuerza el ancho (default según tipo)
+ *      req   : obligatorio · default: valor si viene vacío (ej. 0, dummy CUIT)
+ *      ro    : true → read-only (se muestra, no se graba; ej. saldos/fechas calculadas)
  *      cuit  : true → valida/normaliza C.U.I.T. (XX-XXXXXXXX-X)
  *      big   : true (en 'select') → autocomplete server-side (lookups grandes)
  *      list  : se muestra como columna en la grilla de Buscar
@@ -55,6 +57,12 @@ $PROVINCIA = ['tabla' => 'Tbl Provincias', 'pk' => 'CODPRO', 'den' => 'DENPRO'];
 $CAT_RESP_IVA = ['tabla' => 'Tbl Categorias Responsabilidad IVA', 'pk' => 'CODCRI', 'den' => 'DENCRI'];
 // Localidad: 19.502 filas → lookup 'big' (autocomplete). 'cod'=CPXLOC (cód. postal) se muestra al costado.
 $LOCALIDAD = ['tabla' => 'Tbl Localidades', 'pk' => 'CODLOC', 'den' => 'DENLOC', 'cod' => 'CPXLOC'];
+$COND_VENTA = ['tabla' => 'Tbl Condiciones de Venta', 'pk' => 'CODCDV', 'den' => 'DENCDV'];
+$ZONA = ['tabla' => 'Tbl Zonas', 'pk' => 'CODZON', 'den' => 'DENZON'];
+$VENDEDOR = ['tabla' => 'Tbl Vendedores', 'pk' => 'CODVEN', 'den' => 'DENVEN'];
+$TRANSPORTE = ['tabla' => 'Tbl Transportes', 'pk' => 'CODTRA', 'den' => 'DENTRA'];
+// Categoría de cliente: misma tabla que Categorías, scopeada a deudores.
+$CAT_CLIENTE = ['tabla' => 'Tbl Categorias Cuentas Corrientes', 'pk' => 'CODCAT', 'den' => 'DENCAT', 'where' => "CODORI='D'"];
 
 return [
 
@@ -157,6 +165,52 @@ return [
             ['col' => 'DEMTRA', 'label' => 'e-mail', 'tipo' => 'text', 'size' => 30],
             ['col' => 'CONTRA', 'label' => 'Contacto Comercial', 'tipo' => 'text', 'size' => 30],
             ['col' => 'OBSTRA', 'label' => 'Observaciones', 'tipo' => 'memo'],
+        ],
+    ],
+
+    // ── Cuentas Corrientes Deudoras (Frm CD Cuentas) ────────────────────
+    //  El maestro central de clientes. Scope CODORI='D'. Al alta: saldos en 0 y
+    //  FDACUE = fecha de apertura del ejercicio (Rec Control.FECAPE), como el legacy.
+    //  Saldos y fechas de operación son read-only (los mueve el ledger, no se editan).
+    //  Subform EXCLUSIONES: diferido (la tabla está vacía en este backend).
+    'cc_deudores' => [
+        'tabla'  => 'Tbl Cuentas Corrientes', 'pk' => 'CODCUE', 'ult' => 'ULTCUE',
+        'titulo' => 'Cuentas Corrientes (Deudores)', 'icono' => 'bi-person-vcard', 'orden' => 'DENCUE',
+        'fijo'   => ['CODORI' => 'D'],
+        'alta'   => ['SOPCUE' => 0, 'SANCUE' => 0, 'SACCUE' => 0, 'FDACUE' => ['rec' => 'FECAPE', 'tipo' => 'date']],
+        'unico'  => ['DENCUE'],   // único entre deudores (scope CODORI='D'). El CUIT puede repetirse (el legacy lo permite).
+        'uso'    => [
+            ['tabla' => 'Tbl Movimientos', 'col' => 'CODCUE', 'msg' => 'No se puede eliminar: la cuenta tiene movimientos asociados.'],
+            ['tabla' => 'Tbl Cuentas Corrientes Exclusiones', 'col' => 'CODCUE', 'msg' => 'No se puede eliminar: la cuenta tiene exclusiones de productos.'],
+        ],
+        'campos' => [
+            ['col' => 'CITCUE', 'label' => 'C.U.I.T.', 'tipo' => 'text', 'cuit' => true, 'size' => 13, 'ancho' => 'narrow', 'default' => '00-00000000-0', 'list' => true],
+            ['col' => 'RCCCUE', 'label' => 'Constancia', 'tipo' => 'bool'],
+            ['col' => 'CODCRI', 'label' => 'Cat. Resp. I.V.A.', 'tipo' => 'select', 'lookup' => $CAT_RESP_IVA, 'req' => true],
+            ['col' => 'DENCUE', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 50, 'list' => true],
+            ['col' => 'CODCAT', 'label' => 'Categoría Cliente', 'tipo' => 'select', 'lookup' => $CAT_CLIENTE, 'req' => true, 'list' => true],
+            ['col' => 'DCXCUE', 'label' => 'Calle', 'tipo' => 'text', 'req' => true, 'size' => 40],
+            ['col' => 'DNXCUE', 'label' => 'Número', 'tipo' => 'text', 'size' => 10, 'ancho' => 'narrow'],
+            ['col' => 'DPXCUE', 'label' => 'Piso', 'tipo' => 'text', 'size' => 10, 'ancho' => 'narrow'],
+            ['col' => 'DDXCUE', 'label' => 'Depto.', 'tipo' => 'text', 'size' => 10, 'ancho' => 'narrow'],
+            ['col' => 'CODLOC', 'label' => 'Localidad', 'tipo' => 'select', 'big' => true, 'lookup' => $LOCALIDAD, 'search' => ['DENLOC', 'CPXLOC'], 'req' => true, 'list' => true],
+            ['col' => 'TELCUE', 'label' => 'Teléfonos', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'FAXCUE', 'label' => 'Fax', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'DEMCUE', 'label' => 'e-mail', 'tipo' => 'text', 'size' => 50],
+            ['col' => 'CONCUE', 'label' => 'Contacto Comercial', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'CODCDV', 'label' => 'Condición de Venta', 'tipo' => 'select', 'lookup' => $COND_VENTA, 'req' => true],
+            ['col' => 'DVFCUE', 'label' => 'Plazo de Pago', 'tipo' => 'number', 'min' => 0, 'max' => 365, 'suffix' => 'Días', 'default' => 0],
+            ['col' => 'HPXCUE', 'label' => 'Historial Productos', 'tipo' => 'bool'],
+            ['col' => 'CODZON', 'label' => 'Zona', 'tipo' => 'select', 'lookup' => $ZONA],
+            ['col' => 'CODVEN', 'label' => 'Vendedor', 'tipo' => 'select', 'lookup' => $VENDEDOR],
+            ['col' => 'CODTRA', 'label' => 'Transporte', 'tipo' => 'select', 'lookup' => $TRANSPORTE],
+            ['col' => 'DHECUE', 'label' => 'Días y Horarios de Entrega', 'tipo' => 'memo'],
+            ['col' => 'SPICUE', 'label' => 'Percepción Ingresos Brutos', 'tipo' => 'bool'],
+            ['col' => 'OBSCUE', 'label' => 'Observaciones', 'tipo' => 'memo'],
+            ['col' => 'FDACUE', 'label' => 'Fecha de Alta', 'tipo' => 'date', 'ro' => true],
+            ['col' => 'FUOCUE', 'label' => 'Fecha Última Operación', 'tipo' => 'date', 'ro' => true],
+            ['col' => 'SOPCUE', 'label' => 'Saldo Operativo', 'tipo' => 'decimal', 'ro' => true],
+            ['col' => 'SANCUE', 'label' => 'Saldo Anticipos', 'tipo' => 'decimal', 'ro' => true],
         ],
     ],
 
