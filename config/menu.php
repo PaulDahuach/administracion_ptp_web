@@ -27,7 +27,7 @@ return [
     'Imputaciones Contables' => [
         ['head' => 'Actualizaciones'],
         ['label' => 'Bancos', 'desc' => 'Alta/edición de bancos (denominación, CUIT)', 'icon' => 'bi-bank', 'url' => '/modules/abm/?m=bancos'],
-        ['label' => 'Operaciones', 'disabled' => true],
+        ['label' => 'Operaciones', 'desc' => 'Config de operaciones (solo lectura): modelos de imputación, comprobantes', 'icon' => 'bi-gear-wide-connected', 'url' => '/modules/operaciones/'],
         ['label' => 'Cuentas Bancarias', 'desc' => 'Cuentas bancarias (banco, copias de constancia)', 'icon' => 'bi-piggy-bank', 'url' => '/modules/abm/?m=cuentas_bancarias'],
         ['label' => 'Centros de Costo', 'desc' => 'Alta/edición de centros de costo', 'icon' => 'bi-diagram-3', 'url' => '/modules/abm/?m=centros_costo'],
         ['label' => 'Cuentas Contables', 'desc' => 'Plan de cuentas: alta/edición jerárquica, flags, saldos', 'icon' => 'bi-diagram-3', 'url' => '/modules/cuentas_contables/'],

@@ -1,0 +1,18 @@
+/* Operaciones — visor read-only (mecánica Buscar + form). */
+.fc-card { border-radius:.5rem; margin-bottom:.75rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+.fc-card .card-header { font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+    padding:.4rem .75rem; display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.fc-card .card-body { padding:.6rem .85rem; }
+
+.modal .table tbody tr { cursor:pointer; }
+
+.op-datos, .op-flags { display:grid; grid-template-columns:auto 1fr; gap:.3rem 1.5rem; align-items:center; }
+.op-datos > div, .op-flags > div { display:contents; }   /* label|valor como celdas del grid (con gap) */
+.op-datos label, .op-flags label { font-size:.78rem; font-weight:600; color:var(--bs-secondary-color); margin:0; }
+.op-datos span, .op-flags span { font-size:.84rem; }
+
+.op-grid { font-size:.82rem; }
+.op-grid thead th { font-size:.72rem; text-transform:uppercase; letter-spacing:.03em; color:var(--bs-secondary-color); }
+.op-grid td, .op-grid th { padding:.3rem .5rem; vertical-align:middle; }
+.op-ccode { font-family:monospace; color:var(--bs-secondary-color); }
+.op-grid .text-end { font-variant-numeric:tabular-nums; }
