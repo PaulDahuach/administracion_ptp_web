@@ -90,6 +90,7 @@ const CP = {
         this.totales = { neto1: neto1, ali1: ali1, iva1: iva1, neto2: neto2, ali2: ali2, iva2: iva2, neto: neto, iva: iva, nog: nog, ip1: ip1, ip2: ip2, ap1: this.r2(this.el('ap1mov').value), ap2: this.r2(this.el('ap2mov').value), perc: perc, compTotal: compTotal, total: total };
         this.el('impTot').textContent = this.n(total); this.el('vtoTot').textContent = this.n(total);
         this.refresh();
+        this.scheduleAuto();
     },
     percepFromPct() {
         var neto1 = this.r2(this.el('netmov').value), neto2 = this.r2(this.el('net2mov').value), nog = this.r2(this.el('nogmov').value);
@@ -125,32 +126,44 @@ const CP = {
         this.el('vtoImp').value = Math.max(0, Math.round((t - as - vs) * 100) / 100) || '';
     },
 
-    // ---- Imputación ----
-    addImp() {
-        if (!this.impSel) { this.toast('Elegí una cuenta.', 'warning'); return; }
-        var deb = this.r2(this.el('impDeb').value);
-        if (deb <= 0) { this.toast('Poné el importe del Debe.', 'warning'); return; }
-        var cdc = this.el('impCdc').value;
-        var ali = parseFloat(this.el('impAli').value); if (isNaN(ali)) ali = 0;
-        var iva = Math.round(deb * ali) / 100, tot = Math.round((deb + iva) * 100) / 100;   // ALIMOV/IVAMOV/TOTMOV (export Holistor)
-        this.imps.push({ codcue: this.impSel.codcue, label: this.impSel.label, codcdc: cdc, cdcName: this.centros[cdc] || cdc, debmov: deb, alimov: ali, ivamov: iva, totmov: tot });
-        this.impSel = null; this.el('impCta').value = ''; this.el('impCtaQ').value = '';
-        this.renderImps(); this.refresh();
-    },
-    sugerirIva() {
-        if (this.totales.iva <= 0) { this.toast('No hay IVA para imputar.', 'info'); return; }
-        if (this.imps.some(function (i) { return i.codcue === CP.ivaCta(); })) { this.toast('La fila de IVA Crédito ya está.', 'info'); return; }
-        var cdc = this.el('impCdc').value;
-        this.imps.push({ codcue: this.ivaCta(), label: this.ivaCta() + ' · I.V.A. Crédito Fiscal', codcdc: cdc, cdcName: this.centros[cdc] || cdc, debmov: this.totales.iva, alimov: null, ivamov: null, totmov: null });
+    // ---- Imputación AUTOMÁTICA (porta Sub rutCuentas: gasto CPACUE + IVA + percep + balanceo) ----
+    scheduleAuto() { clearTimeout(this._autoT); this._autoT = setTimeout(function () { CP.autoImp(); }, 300); },
+    async autoImp() {
+        if (!this.el('codcue').value || this.readonly || this.grabado) { return; }
+        if (!this.gastoOv) this.gastoOv = {};
+        var seq = (this._autoSeq = (this._autoSeq || 0) + 1);
+        var t = this.totales, ivas = [];
+        if (t.neto1 > 0) ivas.push({ net: t.neto1, ali: t.ali1, iva: t.iva1 });
+        if (t.neto2 > 0) ivas.push({ net: t.neto2, ali: t.ali2, iva: t.iva2 });
+        var data = { codcue: this.el('codcue').value, total: t.total, ivas: ivas, nogmov: t.nog, ip1mov: t.ip1, ip2mov: t.ip2, productos: [] };
+        var fd = new FormData(); fd.append('action', 'auto_imputar'); fd.append('data', JSON.stringify(data));
+        var j = await this.api('auto_imputar', {}, { method: 'POST', body: fd });
+        if (seq !== this._autoSeq) { return; }
+        if (!j.ok || !j.data) { return; }
+        this.imps = j.data.map(function (r) {
+            if (r.kind === 'gasto' && CP.gastoOv[r.key]) { r.codcue = CP.gastoOv[r.key].codcue; r.label = CP.gastoOv[r.key].label; }
+            r.codcdc = 1; r.importe = r.debmov; return r;   // importe=debmov (la ND graba importe; la NC, debmov)
+        });
         this.renderImps(); this.refresh();
     },
     renderImps() {
+        var badge = { iva: 'IVA Crédito', piva: 'Percep. IVA', piibb: 'Percep. IIBB', bal: 'balanceo' };
+        var editable = !this.readonly && !this.grabado;
         this.el('impBody').innerHTML = this.imps.map(function (i, k) {
             var aliTxt = (i.alimov === null || typeof i.alimov === 'undefined') ? '—' : (i.alimov > 0 ? CP.n(i.alimov) + '%' : 'No grav.');
-            return '<tr><td>' + CP.esc(i.label) + '</td><td>' + CP.esc(i.cdcName) + '</td><td class="cp-num">' + aliTxt + '</td><td class="cp-num">' + CP.n(i.debmov) + '</td>' +
-                '<td><button type="button" class="btn btn-sm btn-outline-danger i-del" data-k="' + k + '"><i class="bi bi-x"></i></button></td></tr>';
+            var cuenta = (i.kind === 'gasto' && editable)
+                ? '<div class="ac-box"><input type="text" class="form-control form-control-sm imp-cta" data-k="' + k + '" value="' + CP.esc(i.label) + '" autocomplete="off" title="Cuenta del gasto — editable"><div class="ac-list imp-cta-list"></div></div>'
+                : CP.esc(i.label) + (badge[i.kind] ? ' <span class="badge ' + (i.kind === 'bal' ? 'bg-warning text-dark' : 'bg-secondary') + '">' + badge[i.kind] + '</span>' : '');
+            return '<tr><td>' + cuenta + '</td><td class="cp-num">' + aliTxt + '</td><td class="cp-num">' + CP.n(i.debmov) + '</td></tr>';
         }).join('');
-        Array.prototype.forEach.call(this.el('impBody').querySelectorAll('.i-del'), function (b) { b.addEventListener('click', function () { CP.imps.splice(+this.getAttribute('data-k'), 1); CP.renderImps(); CP.refresh(); }); });
+        Array.prototype.forEach.call(this.el('impBody').querySelectorAll('.imp-cta'), function (inp) {
+            var list = inp.parentNode.querySelector('.imp-cta-list');
+            CP.autocomplete(inp, list, 'cuentas', function (o) { return o.CODCUE + ' · ' + o.DENCUE; }, function (o) {
+                var k = +inp.getAttribute('data-k'), key = CP.imps[k].key, lbl = o.CODCUE + ' · ' + (o.DENCUE || '').trim();
+                if (!CP.gastoOv) CP.gastoOv = {}; CP.gastoOv[key] = { codcue: o.CODCUE, label: lbl };
+                CP.imps[k].codcue = o.CODCUE; CP.imps[k].label = lbl; inp.value = lbl;
+            });
+        });
     },
 
     // ---- Vencimientos ----
