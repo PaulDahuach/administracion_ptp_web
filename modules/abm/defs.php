@@ -382,8 +382,9 @@ return [
         'tabla'  => 'Tbl Localidades', 'pk' => 'CODLOC', 'ult' => 'ULTLOC',
         'titulo' => 'Localidades', 'icono' => 'bi-geo-alt', 'orden' => 'DENLOC',
         'campos' => [
-            ['col' => 'DENLOC', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 50, 'list' => true],
             ['col' => 'CPXLOC', 'label' => 'Código Postal', 'tipo' => 'text', 'size' => 10, 'list' => true],
+            ['col' => 'DENLOC', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 50, 'list' => true],
+            ['col' => 'PIULOC', 'label' => 'Prefijo InterUrbano', 'tipo' => 'text', 'size' => 8],
             ['col' => 'CODPRO', 'label' => 'Provincia', 'tipo' => 'select', 'lookup' => $PROVINCIA, 'req' => true, 'list' => true],
         ],
     ],
