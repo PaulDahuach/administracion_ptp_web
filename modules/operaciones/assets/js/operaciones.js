@@ -4,7 +4,15 @@ const OP = {
     el(id) { return document.getElementById(id); },
     esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; },
 
+    EMPTY: {
+        cod: '', den: '', origen: '', modulo: '', sys: 0,
+        ci_cod: '', ci_num: '—', ci_ult: '', ci_ccte: 0, ci_iden: 0, ci_pdv: 0,
+        ce_grav: 0, ce_cuit: 0, ce_rs: 0, ce_num: 0, ce_chq: 0, ce_cons: 0,
+        modelos: [], auxiliares: [],
+    },
+
     init() {
+        this.el('opDetail').innerHTML = this.detailHtml(this.EMPTY);   // form desplegado vacío (como el resto)
         this.el('btnBuscar').addEventListener('click', () => new bootstrap.Modal(this.el('modalBuscar')).show());
         this.el('modalBuscar').addEventListener('shown.bs.modal', () => this.loadList());
     },
@@ -40,9 +48,11 @@ const OP = {
     chk(v) { return v ? '<i class="bi bi-check-square-fill text-success"></i>' : '<i class="bi bi-square text-muted"></i>'; },
 
     detailHtml(d) {
-        let h = `<div class="card fc-card"><div class="card-header"><span><i class="bi bi-gear me-1"></i>${this.esc(d.cod)} — ${this.esc(d.den)}</span>`
+        const titulo = d.cod ? (this.esc(d.cod) + ' — ' + this.esc(d.den)) : 'Operación';
+        let h = `<div class="card fc-card"><div class="card-header"><span><i class="bi bi-gear me-1"></i>${titulo}</span>`
             + (d.sys ? '<span class="badge bg-secondary">Sistema</span>' : '') + `</div><div class="card-body op-datos">
-            <div><label>Origen</label><span>${this.esc(d.origen)}</span></div>
+            <div><label>Código</label><span>${this.esc(d.cod) || '—'}</span></div>
+            <div><label>Origen</label><span>${this.esc(d.origen) || '—'}</span></div>
             <div><label>Módulo</label><span>${this.esc(d.modulo) || '—'}</span></div>
           </div></div>`;
 
@@ -64,6 +74,8 @@ const OP = {
               <div><label>Cheques</label><span>${this.chk(d.ce_chq)}</span></div>
               <div><label>Constancia</label><span>${this.chk(d.ce_cons)}</span></div>
             </div></div></div></div>`;
+
+        if (!d.cod) return h;   // estado vacío: solo el form (datos + comprobantes)
 
         if (d.modelos.length) {
             h += d.modelos.map(m => `<div class="card fc-card"><div class="card-header"><span><i class="bi bi-diagram-2 me-1"></i>Modelo: ${this.esc(m.den)}</span></div>
