@@ -110,7 +110,7 @@ return [
     'Deudores' => [
         ['head' => 'Actualizaciones'],
         ['label' => 'Categorías', 'desc' => 'Categorías de cuentas corrientes (deudores)', 'icon' => 'bi-tags', 'url' => '/modules/abm/?m=cat_deudores'],
-        ['label' => 'Transportes', 'disabled' => true],
+        ['label' => 'Transportes', 'desc' => 'Alta/edición de transportes (CUIT, localidad, contacto)', 'icon' => 'bi-truck', 'url' => '/modules/abm/?m=transportes'],
         ['label' => 'Vendedores', 'desc' => 'Alta/edición de vendedores', 'icon' => 'bi-person-badge', 'url' => '/modules/abm/?m=vendedores'],
         ['label' => 'Zonas', 'desc' => 'Alta/edición de zonas', 'icon' => 'bi-geo', 'url' => '/modules/abm/?m=zonas'],
         ['label' => 'Cuentas Corrientes', 'disabled' => true],

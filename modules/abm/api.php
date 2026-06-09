@@ -21,6 +21,7 @@ try {
         case 'defs':         defs($def); break;
         case 'list':         listar($def); break;
         case 'get':          obtener($def); break;
+        case 'lookup':       lookup($def); break;
         case 'save':         guardar($def); break;
         case 'delete':       borrar($def); break;
         default: fail('Acción inválida: ' . $action);
@@ -56,6 +57,11 @@ function val_sql($c, $raw, &$err) {
         if ($iso === '') return 'Null';
         $p = explode('-', $iso);
         return "#{$p[1]}/{$p[2]}/{$p[0]}#";       // #mm/dd/YYYY# para Access
+    }
+    if (!empty($c['cuit'])) {
+        $dig = preg_replace('/[^0-9]/', '', $v);
+        if (strlen($dig) !== 11 || !cuit_valido($dig)) { $err = "{$c['label']}: C.U.I.T. inválido"; return null; }
+        $v = substr($dig, 0, 2) . '-' . substr($dig, 2, 8) . '-' . substr($dig, 10, 1);
     }
     return "'" . db_esc($v) . "'";  // text / memo
 }
@@ -99,11 +105,14 @@ function campo_def($def, $col) {
 function check_unico($def, $id) {
     if (empty($def['unico'])) return null;
     $pk = $def['pk'];
-    foreach ($def['unico'] as $col) {
+    foreach ($def['unico'] as $u) {
+        // entrada: 'COL'  o  ['col'=>'COL','except'=>'valor que puede repetirse', ej. CUIT dummy]
+        $col = is_array($u) ? $u['col'] : $u;
         $campo = campo_def($def, $col);
         $err = null;
         $lit = val_sql($campo, (isset($_POST[$col]) ? $_POST[$col] : ''), $err);
         if ($lit === null || $lit === 'Null') continue;   // vacío → no chequear
+        if (is_array($u) && isset($u['except']) && trim($lit, "'") === $u['except']) continue;
         $excl = ($id !== '') ? " AND [$pk]<>" . intval($id) : '';
         $r = db_row("SELECT [$pk] AS k FROM [{$def['tabla']}] WHERE [$col]=$lit$excl;");
         if ($r) { $lbl = isset($campo['label']) ? $campo['label'] : $col; return "Ya existe un registro con esa $lbl."; }
@@ -122,11 +131,41 @@ function check_tope($def) {
     return null;
 }
 
+/** Autocomplete server-side de un lookup 'big': busca por subcadena en su(s) columna(s). */
+function lookup($def) {
+    $col = (isset($_GET['col']) ? $_GET['col'] : '');
+    $q = trim((isset($_GET['q']) ? $_GET['q'] : ''));
+    $campo = campo_def($def, $col);
+    if (empty($campo['lookup'])) { fail('Campo lookup inválido: ' . $col); return; }
+    if (strlen($q) < 2) { ok([]); return; }
+    $lk = $campo['lookup'];
+    $busca = (isset($campo['search']) ? $campo['search'] : [$lk['den']]);
+    $s = db_esc($q);
+    $conds = [];
+    foreach ($busca as $sc) $conds[] = "[$sc] Like '%$s%'";
+    $sel = "[{$lk['pk']}] AS id, [{$lk['den']}] AS den";
+    if (isset($lk['cod'])) $sel .= ", [{$lk['cod']}] AS cod";
+    ok(db_query("SELECT TOP 30 $sel FROM [{$lk['tabla']}] WHERE (" . implode(' OR ', $conds) . ") ORDER BY [{$lk['den']}];"));
+}
+
+/** Validación de C.U.I.T. (11 dígitos + dígito verificador módulo 11). $s = solo dígitos. */
+function cuit_valido($s) {
+    if (strlen($s) !== 11) return false;
+    $mult = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+    $sum = 0;
+    for ($i = 0; $i < 10; $i++) $sum += intval($s[$i]) * $mult[$i];
+    $ver = 11 - ($sum % 11);
+    if ($ver === 11) $ver = 0;
+    elseif ($ver === 10) $ver = 9;
+    return $ver === intval($s[10]);
+}
+
 // ─────────────────────────── maestro ───────────────────────────
 function defs($def) {
     $out = ['titulo' => $def['titulo'], 'pk' => $def['pk'], 'campos' => [], 'hijos' => []];
     foreach ($def['campos'] as $c) {
-        if ($c['tipo'] === 'select' && isset($c['lookup'])) $c['options'] = opciones($c['lookup']);
+        // 'big' (ej. Localidades, 19k filas) → NO precargar opciones; el JS usa autocomplete server-side.
+        if ($c['tipo'] === 'select' && isset($c['lookup']) && empty($c['big'])) $c['options'] = opciones($c['lookup']);
         $out['campos'][] = $c;
     }
     foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) {
@@ -175,6 +214,15 @@ function obtener($def) {
     $row = db_row("SELECT * FROM [{$def['tabla']}] WHERE [{$def['pk']}] = $id$scope;");
     if (!$row) { fail('Registro no encontrado'); return; }
     conv_fechas($row, $def['campos'], 'iso');
+    // Denominación de los lookups 'big' (para mostrar en el input de autocomplete al cargar).
+    foreach ($def['campos'] as $c) {
+        if ($c['tipo'] === 'select' && !empty($c['big']) && isset($c['lookup'])
+            && isset($row[$c['col']]) && $row[$c['col']] !== null && $row[$c['col']] !== '') {
+            $lk = $c['lookup']; $fid = intval($row[$c['col']]);
+            $d = db_row("SELECT [{$lk['den']}] AS den FROM [{$lk['tabla']}] WHERE [{$lk['pk']}] = $fid;");
+            $row[$c['col'] . '__den'] = $d ? $d['den'] : '';
+        }
+    }
     $row['__hijos'] = [];
     foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) $row['__hijos'][$h['key']] = childRows($h, $id);
     ok($row);

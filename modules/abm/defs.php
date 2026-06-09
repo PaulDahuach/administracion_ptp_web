@@ -48,6 +48,9 @@
 
 // Lookups reutilizables (declarar una vez, usar en varios 'select').
 $PROVINCIA = ['tabla' => 'Tbl Provincias', 'pk' => 'CODPRO', 'den' => 'DENPRO'];
+$CAT_RESP_IVA = ['tabla' => 'Tbl Categorias Responsabilidad IVA', 'pk' => 'CODCRI', 'den' => 'DENCRI'];
+// Localidad: 19.502 filas → lookup 'big' (autocomplete). 'cod'=CPXLOC (cód. postal) se muestra al costado.
+$LOCALIDAD = ['tabla' => 'Tbl Localidades', 'pk' => 'CODLOC', 'den' => 'DENLOC', 'cod' => 'CPXLOC'];
 
 return [
 
@@ -128,6 +131,28 @@ return [
         'campos' => [
             ['col' => 'DENFDP', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
             ['col' => 'DVFFDP', 'label' => 'Plazo de Pago', 'tipo' => 'number', 'req' => true, 'min' => 0, 'max' => 365, 'suffix' => 'Días', 'list' => true],
+        ],
+    ],
+
+    // ── Transportes (Frm CD Transportes) ────────────────────────────────
+    //  CUIT validado (dígito verificador); el dummy "00-00000000-0" puede repetirse.
+    //  Localidad = lookup 'big' (autocomplete). Cat. Resp. IVA = select normal (6 opc).
+    'transportes' => [
+        'tabla'  => 'Tbl Transportes', 'pk' => 'CODTRA', 'ult' => 'ULTTRA',
+        'titulo' => 'Transportes', 'icono' => 'bi-truck', 'orden' => 'DENTRA',
+        'unico'  => ['DENTRA', ['col' => 'CITTRA', 'except' => '00-00000000-0']],
+        'uso'    => [['tabla' => 'Tbl Movimientos', 'col' => 'CODTRA', 'msg' => 'No se puede eliminar: el transporte tiene movimientos asociados.']],
+        'campos' => [
+            ['col' => 'CITTRA', 'label' => 'C.U.I.T.', 'tipo' => 'text', 'cuit' => true, 'size' => 13, 'list' => true],
+            ['col' => 'CODCRI', 'label' => 'Cat. Resp. I.V.A.', 'tipo' => 'select', 'lookup' => $CAT_RESP_IVA, 'req' => true],
+            ['col' => 'DENTRA', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+            ['col' => 'DOMTRA', 'label' => 'Domicilio', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'CODLOC', 'label' => 'Localidad', 'tipo' => 'select', 'big' => true, 'lookup' => $LOCALIDAD, 'search' => ['DENLOC', 'CPXLOC'], 'list' => true],
+            ['col' => 'TELTRA', 'label' => 'Teléfono', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'FAXTRA', 'label' => 'Fax', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'DEMTRA', 'label' => 'e-mail', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'CONTRA', 'label' => 'Contacto Comercial', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'OBSTRA', 'label' => 'Observaciones', 'tipo' => 'memo'],
         ],
     ],
 

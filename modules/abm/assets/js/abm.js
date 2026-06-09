@@ -23,6 +23,13 @@ const App = {
         if (c.tipo === 'memo') return `<textarea ${id} class="form-control hb-in" data-col="${c.col}" rows="2"></textarea>`;
         if (c.tipo === 'bool') return `<div class="form-check"><input type="checkbox" ${id} class="form-check-input hb-in" data-col="${c.col}" value="1"></div>`;
         if (c.tipo === 'date') return `<input type="date" ${id} class="form-control hb-in" data-col="${c.col}">`;
+        if (c.tipo === 'select' && c.big) {
+            // lookup grande (ej. Localidades): autocomplete server-side. Hidden = id; text = búsqueda.
+            return `<div class="ac-wrap">
+                <input type="hidden" ${id} data-col="${c.col}">
+                <input type="text" class="form-control ac-input" data-accol="${c.col}" autocomplete="off" placeholder="Buscar…">
+                <div class="ac-list"></div></div>`;
+        }
         if (c.tipo === 'select') {
             const opts = '<option value="">—</option>' + (c.options || []).map(o => `<option value="${this.esc(o.id)}">${this.esc(o.den)}</option>`).join('');
             return `<select ${id} class="form-select hb-in" data-col="${c.col}">${opts}</select>`;
@@ -52,6 +59,41 @@ const App = {
             rows.push(this.frow(this.esc(c.label) + req, ctl, w));
         });
         this.el('formFields').innerHTML = rows.join('');
+        this.bindAC();
+    },
+
+    acInput(col) { return this.el('formFields').querySelector('.ac-input[data-accol="' + col + '"]'); },
+
+    // Autocomplete: delegación de eventos para los campos lookup 'big'.
+    bindAC() {
+        const ff = this.el('formFields'); let timer;
+        ff.addEventListener('input', e => {
+            const inp = e.target.closest('.ac-input'); if (!inp) return;
+            const col = inp.dataset.accol;
+            const hid = this.el('f_' + col); if (hid) hid.value = '';   // al tipear se pierde la selección
+            clearTimeout(timer); const q = inp.value;
+            timer = setTimeout(() => this.acSearch(col, q, inp), 300);
+        });
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.ac-wrap')) ff.querySelectorAll('.ac-list').forEach(l => l.classList.remove('show'));
+        });
+    },
+
+    async acSearch(col, q, inp) {
+        const list = inp.parentNode.querySelector('.ac-list');
+        if (q.length < 2) { list.classList.remove('show'); return; }
+        const r = await this.api('lookup', { col, q });
+        if (!r.ok || !r.data.length) { list.innerHTML = ''; list.classList.remove('show'); return; }
+        list.innerHTML = r.data.map(o =>
+            `<div class="ac-item" data-id="${this.esc(o.id)}" data-den="${this.esc(o.den)}">` +
+            (o.cod != null && o.cod !== '' ? `<span class="ac-code">${this.esc(o.cod)}</span>` : '') +
+            `${this.esc(o.den)}</div>`).join('');
+        list.querySelectorAll('.ac-item').forEach(it => it.addEventListener('click', () => {
+            this.el('f_' + col).value = it.dataset.id;
+            inp.value = it.dataset.den;
+            list.classList.remove('show');
+        }));
+        list.classList.add('show');
     },
 
     buildHijos() {
@@ -172,13 +214,14 @@ const App = {
             const el = this.el('f_' + c.col); if (!el) return;
             if (c.tipo === 'bool') el.checked = !!d[c.col];
             else el.value = (d[c.col] === null || d[c.col] === undefined) ? '' : d[c.col];
+            if (c.tipo === 'select' && c.big) { const inp = this.acInput(c.col); if (inp) inp.value = (d[c.col + '__den'] != null ? d[c.col + '__den'] : ''); }
         });
         (this.DEF.hijos || []).forEach(h => this.renderHijo(h, (d.__hijos && d.__hijos[h.key]) || []));
     },
 
     clearForm() {
         const cod = this.el('f__cod'); if (cod) cod.value = '';
-        this.DEF.campos.forEach(c => { const el = this.el('f_' + c.col); if (!el) return; if (c.tipo === 'bool') el.checked = false; else el.value = ''; });
+        this.DEF.campos.forEach(c => { const el = this.el('f_' + c.col); if (!el) return; if (c.tipo === 'bool') el.checked = false; else el.value = ''; if (c.tipo === 'select' && c.big) { const inp = this.acInput(c.col); if (inp) inp.value = ''; } });
         (this.DEF.hijos || []).forEach(h => this.renderHijo(h, []));
         this.el('formErr').textContent = '';
     },
