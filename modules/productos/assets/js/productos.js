@@ -5,12 +5,48 @@ const PR = {
     esc(s) { if (s == null) return ''; const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; },
 
     init() {
+        this.cats = this.LK.catcli || []; this.curPunrub = 0; this.curPunsub = 0;
         this.opts('f_codcat', this.LK.cat); this.opts('f_codrub', this.LK.rub);
         this.opts('f_codlin', this.LK.lin); this.opts('f_codudm', this.LK.udm); this.opts('f_codmon', this.LK.mon);
         this.fillSub('');
-        this.el('f_codrub').addEventListener('change', () => { this.fillSub(this.el('f_codrub').value); this.el('f_codsub').value = ''; });
+        // eventos de cálculo (porta los AfterUpdate del Frm SI Productos)
+        this.el('f_codrub').addEventListener('change', () => {
+            const r = this.LK.rub.find(x => String(x.id) === this.el('f_codrub').value);
+            this.curPunrub = r ? (parseFloat(r.pun) || 0) : 0; this.curPunsub = 0;
+            this.fillSub(this.el('f_codrub').value); this.el('f_codsub').value = '';
+        });
+        this.el('f_codsub').addEventListener('change', () => {
+            const s = this.LK.sub.find(x => String(x.id) === this.el('f_codsub').value);
+            this.curPunsub = s ? (parseFloat(s.pun) || 0) : 0;
+        });
+        this.el('f_codmon').addEventListener('change', () => {
+            const m = this.LK.mon.find(x => String(x.id) === this.el('f_codmon').value);
+            if (m) this.el('f_cot').value = (m.cot != null ? m.cot : 1);
+            this.applyEnabled();
+        });
+        this.el('f_cos').addEventListener('change', () => { this.el('f_flt').value = '0'; this.el('f_plc').value = this.el('f_cos').value; this.updatePLV(); });
+        this.el('f_flt').addEventListener('change', () => { if (this.mode === 'create') this.el('f_plc').value = (parseFloat(this.el('f_cos').value) || 0) + (parseFloat(this.el('f_flt').value) || 0); this.updatePLV(); });
+        this.el('f_plc').addEventListener('change', () => this.updatePLV());
+        this.el('f_plv').addEventListener('change', () => this.recomputePrecios());
         this.bind();
         this.setMode('idle');
+    },
+
+    // PLVPRO = PLCPRO × (1 + utilidad%/100); utilidad = PUNSUB (subrubro) o PUNRUB (rubro)
+    updatePLV() {
+        const pun = (this.curPunsub && this.curPunsub != 0) ? this.curPunsub : (this.curPunrub || 0);
+        const plc = parseFloat(this.el('f_plc').value) || 0;
+        this.el('f_plv').value = Math.round(plc * (1 + pun / 100) * 10000) / 10000;
+        this.recomputePrecios();
+    },
+    // precios de venta por categoría de cliente (NETO = PLV − PLV×LDPCAT/100; %UTIL vs PLCPRO)
+    recomputePrecios() {
+        const plv = parseFloat(this.el('f_plv').value) || 0, plc = parseFloat(this.el('f_plc').value) || 0;
+        const fmt = (n, d) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+        this.el('tbPrecios').innerHTML = this.cats.map(c => {
+            const ldp = parseFloat(c.ldp) || 0, net = plv - plv * ldp / 100, gan = plc == 0 ? 0 : (net * 100 / plc) - 100;
+            return `<tr><td>${this.esc(c.den)}</td><td class="text-end">${fmt(ldp, 2)}</td><td class="text-end">${fmt(net, 4)}</td><td class="text-end">${fmt(gan, 2)}</td></tr>`;
+        }).join('') || '<tr><td colspan="4" class="text-muted small">Sin categorías.</td></tr>';
     },
     opts(id, rows, sel) {
         this.el(id).innerHTML = '<option value="">—</option>' + (rows || []).map(r => `<option value="${this.esc(r.id)}"${String(r.id) === String(sel) ? ' selected' : ''}>${this.esc(r.den)}</option>`).join('');
@@ -63,6 +99,8 @@ const PR = {
         this.el('fCod').textContent = d.cod;
         this.opts('f_codcat', this.LK.cat, d.codcat);
         this.opts('f_codrub', this.LK.rub, d.codrub); this.fillSub(d.codrub); this.el('f_codsub').value = d.codsub || '';
+        { const r = this.LK.rub.find(x => String(x.id) === String(d.codrub)); this.curPunrub = r ? (parseFloat(r.pun) || 0) : 0;
+          const s = this.LK.sub.find(x => String(x.id) === String(d.codsub)); this.curPunsub = s ? (parseFloat(s.pun) || 0) : 0; }
         this.opts('f_codlin', this.LK.lin, d.codlin); this.opts('f_codudm', this.LK.udm, d.codudm);
         this.el('f_den').value = d.den; this.el('f_dec').value = d.dec; this.el('f_ubi').value = d.ubi;
         this.el('f_plv').value = (d.plv != null ? d.plv : ''); this.el('f_obs').value = d.obs; this.el('f_dis').checked = !!d.dis;
@@ -70,8 +108,8 @@ const PR = {
         this.el('f_fuc').value = d.fuc || ''; this.opts('f_codmon', this.LK.mon, d.codmon);
         this.el('f_cot').value = (d.cot != null ? d.cot : ''); this.el('f_cos').value = (d.cos != null ? d.cos : '');
         this.el('f_flt').value = (d.flt != null ? d.flt : ''); this.el('f_plc').value = (d.plc != null ? d.plc : '');
-        // precios
-        this.el('tbPrecios').innerHTML = d.precios.map(p => `<tr><td>${this.esc(p.cat)}</td><td class="text-end">${this.esc(p.dto)}</td><td class="text-end">${this.esc(p.neto)}</td><td class="text-end">${this.esc(p.util)}</td></tr>`).join('') || '<tr><td colspan="4" class="text-muted small">Sin categorías.</td></tr>';
+        // precios (recalculados en JS desde PLV/PLC + descuentos de categoría)
+        this.recomputePrecios();
         // stock
         this.el('tbStock').innerHTML = d.stock.map(s => `<tr data-suc="${s.suc}">
             <td>${this.esc(s.sucDen)}</td>
@@ -89,6 +127,7 @@ const PR = {
         ['f_den', 'f_dec', 'f_ubi', 'f_plv', 'f_obs', 'f_fuc', 'f_cos', 'f_flt', 'f_plc'].forEach(i => this.el(i).value = '');
         ['f_codcat', 'f_codrub', 'f_codsub', 'f_codlin', 'f_codudm'].forEach(i => this.el(i).value = '');
         this.el('f_codmon').value = 'P'; this.el('f_cot').value = '1'; this.el('f_dis').checked = false;
+        this.curPunrub = 0; this.curPunsub = 0;
         this.el('tbPrecios').innerHTML = ''; this.el('tbStock').innerHTML = ''; this.el('tbEquiv').innerHTML = ''; this.el('tbProv').innerHTML = '';
         this.el('formErr').textContent = '';
     },

@@ -8,11 +8,13 @@ auth_require_login();
 $ro = db_readonly();
 $lk = array(
     'cat' => db_query("SELECT CODCAT AS id, DENCAT AS den, STKCAT AS stk FROM [Tbl Categorias Productos] ORDER BY CODCAT;"),
-    'rub' => db_query("SELECT CODRUB AS id, DENRUB AS den FROM [Tbl Rubros] ORDER BY DENRUB;"),
-    'sub' => db_query("SELECT CODSUB AS id, CODRUB AS rub, DENSUB AS den FROM [Tbl SubRubros] ORDER BY DENSUB;"),
+    'rub' => db_query("SELECT CODRUB AS id, DENRUB AS den, PUNRUB AS pun FROM [Tbl Rubros] ORDER BY DENRUB;"),
+    'sub' => db_query("SELECT CODSUB AS id, CODRUB AS rub, DENSUB AS den, PUNSUB AS pun FROM [Tbl SubRubros] ORDER BY DENSUB;"),
     'lin' => db_query("SELECT CODLIN AS id, DENLIN AS den FROM [Tbl Lineas] ORDER BY DENLIN;"),
     'udm' => db_query("SELECT CODUDM AS id, DENUDM AS den FROM [Tbl Unidades de Medida] ORDER BY DENUDM;"),
-    'mon' => db_query("SELECT CODMON AS id, DENMON AS den FROM [Tbl Monedas] ORDER BY DENMON;"),
+    'mon' => db_query("SELECT CODMON AS id, DENMON AS den, COTMON AS cot FROM [Tbl Monedas] ORDER BY DENMON;"),
+    // categorías de cliente (descuentos) para recalcular precios de venta en vivo
+    'catcli' => db_query("SELECT DENCAT AS den, LDPCAT AS ldp FROM [Tbl Categorias Cuentas Corrientes] WHERE CODORI='D' ORDER BY DENCAT;"),
 );
 
 $toolbar = '<div class="btn-group me-2">';
@@ -110,5 +112,5 @@ module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/productos.js?v=2"></script>
+<script src="assets/js/productos.js?v=3"></script>
 ');
