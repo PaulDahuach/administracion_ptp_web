@@ -20,8 +20,9 @@ const App = {
 
     ctrl(c, idAttr) {
         const id = idAttr ? `id="${idAttr}"` : '';
-        if (c.ro) return `<input type="text" ${id} class="form-control hb-in" data-col="${c.col}" disabled>`;
-        if (c.tipo === 'memo') return `<textarea ${id} class="form-control hb-in" data-col="${c.col}" rows="2"></textarea>`;
+        const numCls = (c.tipo === 'decimal') ? ' fc-num' : '';   // importes alineados a la derecha
+        if (c.ro) return `<input type="text" ${id} class="form-control hb-in${numCls}" data-col="${c.col}" disabled>`;
+        if (c.tipo === 'memo') { const mxm = c.size ? ` maxlength="${c.size}"` : ''; return `<textarea ${id}${mxm} class="form-control hb-in" data-col="${c.col}" rows="2"></textarea>`; }
         if (c.tipo === 'bool') return `<div class="form-check"><input type="checkbox" ${id} class="form-check-input hb-in" data-col="${c.col}" value="1"></div>`;
         if (c.tipo === 'date') return `<input type="date" ${id} class="form-control hb-in" data-col="${c.col}">`;
         if (c.tipo === 'select' && c.big) {
@@ -36,9 +37,9 @@ const App = {
             return `<select ${id} class="form-select hb-in" data-col="${c.col}">${opts}</select>`;
         }
         const t = (c.tipo === 'number' || c.tipo === 'decimal') ? 'number' : 'text';
-        const step = (c.tipo === 'decimal') ? ' step="any"' : '';
+        const step = (c.tipo === 'decimal') ? ' step="0.01"' : '';
         const mx = c.size ? ` maxlength="${c.size}"` : '';
-        return `<input type="${t}"${step}${mx} ${id} class="form-control hb-in" data-col="${c.col}">`;
+        return `<input type="${t}"${step}${mx} ${id} class="form-control hb-in${numCls}" data-col="${c.col}">`;
     },
 
     // Fila: label a la izquierda + campo. El contenedor las reparte en 2 columnas
@@ -57,7 +58,7 @@ const App = {
             if (c.suffix) ctl = `<div class="input-group">${ctl}<span class="input-group-text">${this.esc(c.suffix)}</span></div>`;
             const w = c.ancho ? c.ancho   // override por campo: 'narrow' | 'mid' | 'wide'
                 : (c.tipo === 'memo') ? 'wide'
-                : (c.tipo === 'number' || c.tipo === 'decimal' || c.tipo === 'bool') ? 'narrow' : 'mid';
+                : (c.tipo === 'date' || c.tipo === 'number' || c.tipo === 'decimal' || c.tipo === 'bool') ? 'narrow' : 'mid';
             rows.push(this.frow(this.esc(c.label) + req, ctl, w));
         });
         this.el('formFields').innerHTML = rows.join('');

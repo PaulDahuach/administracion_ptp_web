@@ -251,7 +251,7 @@ function obtener($def) {
     foreach ($def['campos'] as $c) {
         if (empty($c['ro']) || !array_key_exists($c['col'], $row)) continue;
         if ($c['tipo'] === 'date') $row[$c['col']] = to_disp_date($row[$c['col']]);
-        elseif ($c['tipo'] === 'decimal') $row[$c['col']] = money($row[$c['col']]);
+        elseif ($c['tipo'] === 'decimal') $row[$c['col']] = number_format((float) $row[$c['col']], 2, '.', ',');  // convención app: punto decimal, coma miles
     }
     $row['__hijos'] = [];
     foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) $row['__hijos'][$h['key']] = childRows($h, $id);
