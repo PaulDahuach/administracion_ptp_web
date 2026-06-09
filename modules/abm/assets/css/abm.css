@@ -14,6 +14,11 @@
 .fc-form .form-label { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em;
     margin-bottom:.15rem; color:var(--bs-secondary-color); }
 .fc-form .form-control, .fc-form .form-select { font-size:.82rem; padding:.25rem .5rem; height:auto; }
+/* fila vertical estilo legacy: label a la izquierda */
+.fc-form .fc-flabel { font-size:.8rem; font-weight:600; color:var(--bs-secondary-color); padding-top:.35rem; padding-bottom:0; }
+.fc-form .fc-frow { max-width:46rem; }
+.fc-form .input-group-text { font-size:.82rem; padding:.25rem .55rem; }
+.fc-form #f__cod { max-width:8rem; font-family:monospace; }
 
 /* grilla de hijos */
 .fc-grid { width:100%; font-size:.78rem; margin-bottom:0; border-collapse:collapse; }

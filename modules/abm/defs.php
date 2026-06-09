@@ -65,7 +65,26 @@ return [
                       'msg' => 'No se puede eliminar: la categoría está asignada a una o más cuentas corrientes.']],
         'campos' => [
             ['col' => 'DENCAT', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
-            ['col' => 'LDPCAT', 'label' => 'Descuento %', 'tipo' => 'decimal', 'req' => true, 'min' => 0, 'max' => 100, 'list' => true],
+            ['col' => 'LDPCAT', 'label' => 'Descuento', 'tipo' => 'decimal', 'req' => true, 'min' => 0, 'max' => 100, 'suffix' => '%', 'list' => true],
+        ],
+    ],
+
+    // ── Categorías de Cuentas Corrientes — Acreedores ───────────────────
+    //  No existía en el legacy (los acreedores nunca se cargaron a mano) → pantalla
+    //  nueva, por si alguna vez hace falta. Misma tabla, scope CODORI='A'. Acá lo
+    //  relevante es la alícuota de IVA (ALICAT, ej. 21/27); el "descuento" (LDPCAT)
+    //  es un concepto de deudores, no se edita (queda Null). Sin tope (el máx 10 del
+    //  legacy era solo para deudores).
+    'cat_acreedores' => [
+        'tabla'  => 'Tbl Categorias Cuentas Corrientes', 'pk' => 'CODCAT', 'ult' => 'ULTCAT',
+        'titulo' => 'Categorías (Acreedores)', 'icono' => 'bi-tags', 'orden' => 'DENCAT',
+        'fijo'   => ['CODORI' => 'A'],
+        'unico'  => ['DENCAT'],
+        'uso'    => [['tabla' => 'Tbl Cuentas Corrientes', 'col' => 'CODCAT',
+                      'msg' => 'No se puede eliminar: la categoría está asignada a una o más cuentas de proveedor.']],
+        'campos' => [
+            ['col' => 'DENCAT', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30, 'list' => true],
+            ['col' => 'ALICAT', 'label' => 'Alícuota IVA', 'tipo' => 'decimal', 'req' => true, 'min' => 0, 'max' => 100, 'suffix' => '%', 'list' => true],
         ],
     ],
 

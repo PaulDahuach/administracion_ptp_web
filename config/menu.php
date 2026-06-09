@@ -87,6 +87,7 @@ return [
     ],
     'Acreedores' => [
         ['head' => 'Actualizaciones'],
+        ['label' => 'Categorías', 'desc' => 'Categorías de cuentas corrientes (acreedores · alícuota IVA)', 'icon' => 'bi-tags', 'url' => '/modules/abm/?m=cat_acreedores'],
         ['label' => 'Cuentas Corrientes', 'disabled' => true],
         ['label' => 'Remitos', 'desc' => 'Mercadería recibida del proveedor (entrada de stock)', 'icon' => 'bi-box-arrow-in-down', 'url' => '/modules/remitos_acr/'],
         ['label' => 'Comprobantes a Pagar', 'desc' => 'Registrar factura del proveedor (gasto/servicio)', 'icon' => 'bi-receipt-cutoff', 'url' => '/modules/comprobantes_pagar/'],

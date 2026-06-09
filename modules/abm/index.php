@@ -26,19 +26,18 @@ $toolbar .= '</div>';
 module_head($def['titulo'], (isset($def['icono']) ? $def['icono'] : 'bi-table'), $toolbar);
 ?>
 <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-<link href="assets/css/abm.css" rel="stylesheet">
+<link href="assets/css/abm.css?v=2" rel="stylesheet">
 <script>window.ABM_M = <?= json_encode($m) ?>; window.ABM_RO = <?= $ro ? 'true' : 'false' ?>;</script>
 
 <div class="fc-form mode-view" id="mainForm" data-keynav data-keynav-submit="#btnGuardar">
   <div class="card fc-card">
     <div class="card-header" data-bs-toggle="collapse" data-bs-target="#cMain">
-      <span><i class="bi <?= h((isset($def['icono']) ? $def['icono'] : 'bi-table')) ?> me-1"></i><?= h($def['titulo']) ?>
-        <span class="text-muted ms-2" style="text-transform:none">Código: <span id="fCodigo">—</span></span></span>
+      <span><i class="bi <?= h((isset($def['icono']) ? $def['icono'] : 'bi-table')) ?> me-1"></i><?= h($def['titulo']) ?></span>
       <i class="bi bi-chevron-down collapse-icon"></i>
     </div>
     <div id="cMain" class="collapse show">
       <div class="card-body">
-        <div class="row g-2" id="formFields"></div>
+        <div id="formFields"></div>
         <div class="text-danger small mt-2" id="formErr"></div>
       </div>
     </div>
@@ -88,5 +87,5 @@ module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/abm.js"></script>
+<script src="assets/js/abm.js?v=2"></script>
 ');

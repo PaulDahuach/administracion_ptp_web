@@ -33,12 +33,25 @@ const App = {
         return `<input type="${t}"${step}${mx} ${id} class="form-control hb-in" data-col="${c.col}">`;
     },
 
+    // Fila vertical estilo legacy: label a la izquierda (alineado a la derecha) + campo.
+    frow(labelHtml, ctlHtml, w) {
+        const field = (w === 'wide') ? 'col-sm-9' : (w === 'narrow') ? 'col-sm-3' : 'col-sm-6';
+        return `<div class="row mb-2 align-items-center fc-frow">
+            <label class="col-sm-3 col-form-label text-sm-end fc-flabel">${labelHtml}</label>
+            <div class="${field}">${ctlHtml}</div></div>`;
+    },
+
     buildForm() {
-        this.el('formFields').innerHTML = this.DEF.campos.map(c => {
-            const wide = (c.tipo === 'memo') ? 'col-12' : 'col-md-4';
+        const rows = [this.frow('Código', '<input type="text" id="f__cod" class="form-control" disabled>', 'narrow')];
+        this.DEF.campos.forEach(c => {
             const req = c.req ? ' <span class="text-danger">*</span>' : '';
-            return `<div class="${wide}"><label class="form-label">${this.esc(c.label)}${req}</label>${this.ctrl(c, 'f_' + c.col)}</div>`;
-        }).join('');
+            let ctl = this.ctrl(c, 'f_' + c.col);
+            if (c.suffix) ctl = `<div class="input-group">${ctl}<span class="input-group-text">${this.esc(c.suffix)}</span></div>`;
+            const w = (c.tipo === 'memo') ? 'wide'
+                : (c.tipo === 'number' || c.tipo === 'decimal' || c.tipo === 'bool') ? 'narrow' : 'mid';
+            rows.push(this.frow(this.esc(c.label) + req, ctl, w));
+        });
+        this.el('formFields').innerHTML = rows.join('');
     },
 
     buildHijos() {
@@ -154,7 +167,7 @@ const App = {
     },
 
     populate(d) {
-        this.el('fCodigo').textContent = (d[this.DEF.pk] != null ? d[this.DEF.pk] : '—');
+        const cod = this.el('f__cod'); if (cod) cod.value = (d[this.DEF.pk] != null ? d[this.DEF.pk] : '');
         this.DEF.campos.forEach(c => {
             const el = this.el('f_' + c.col); if (!el) return;
             if (c.tipo === 'bool') el.checked = !!d[c.col];
@@ -164,7 +177,7 @@ const App = {
     },
 
     clearForm() {
-        this.el('fCodigo').textContent = '(nuevo)';
+        const cod = this.el('f__cod'); if (cod) cod.value = '';
         this.DEF.campos.forEach(c => { const el = this.el('f_' + c.col); if (!el) return; if (c.tipo === 'bool') el.checked = false; else el.value = ''; });
         (this.DEF.hijos || []).forEach(h => this.renderHijo(h, []));
         this.el('formErr').textContent = '';
