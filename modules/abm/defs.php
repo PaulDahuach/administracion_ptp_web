@@ -41,6 +41,7 @@
  *      ro    : true → read-only (se muestra, no se graba; ej. saldos/fechas calculadas)
  *      cuit  : true → valida/normaliza C.U.I.T. (XX-XXXXXXXX-X)
  *      big   : true (en 'select') → autocomplete server-side (lookups grandes)
+ *      strkey: true (en 'select') → la clave foránea es texto, no entero (no intval; ej. cuenta contable)
  *      list  : se muestra como columna en la grilla de Buscar
  *      lookup: para 'select' → ['tabla'=>..,'pk'=>..,'den'=>..]
  *
@@ -64,6 +65,10 @@ $TRANSPORTE = ['tabla' => 'Tbl Transportes', 'pk' => 'CODTRA', 'den' => 'DENTRA'
 // Categoría de cliente: misma tabla que Categorías, scopeada a deudores.
 $CAT_CLIENTE = ['tabla' => 'Tbl Categorias Cuentas Corrientes', 'pk' => 'CODCAT', 'den' => 'DENCAT', 'where' => "CODORI='D'"];
 $BANCO = ['tabla' => 'Tbl Bancos', 'pk' => 'CODBAN', 'den' => 'DENBAN'];   // 143 → select buscable
+$CAT_PROV = ['tabla' => 'Tbl Categorias Cuentas Corrientes', 'pk' => 'CODCAT', 'den' => 'DENCAT', 'where' => "CODORI='A'"];
+$REGIMEN_IIBB = ['tabla' => 'Tbl Regimenes Retencion Ingresos Brutos', 'pk' => 'CODRRI', 'den' => 'DENRRI'];   // 2 regímenes
+// Cuenta contable de imputación de compras: 441 imputables, clave STRING (CODCUE, ej. "11101") → big + strkey.
+$CTA_CONTABLE_IMP = ['tabla' => 'Tbl Cuentas Contables', 'pk' => 'CODCUE', 'den' => 'DENCUE', 'cod' => 'CODCUE', 'where' => 'IMPCUE=True'];
 
 return [
 
@@ -207,6 +212,56 @@ return [
             ['col' => 'CODTRA', 'label' => 'Transporte', 'tipo' => 'select', 'lookup' => $TRANSPORTE],
             ['col' => 'DHECUE', 'label' => 'Días y Horarios de Entrega', 'tipo' => 'memo', 'size' => 50],
             ['col' => 'SPICUE', 'label' => 'Percepción Ingresos Brutos', 'tipo' => 'bool'],
+            ['col' => 'OBSCUE', 'label' => 'Observaciones', 'tipo' => 'memo'],
+            ['col' => 'FDACUE', 'label' => 'Fecha de Alta', 'tipo' => 'date', 'ro' => true],
+            ['col' => 'FUOCUE', 'label' => 'Fecha Última Operación', 'tipo' => 'date', 'ro' => true],
+            ['col' => 'SOPCUE', 'label' => 'Saldo Operativo', 'tipo' => 'decimal', 'ro' => true],
+            ['col' => 'SANCUE', 'label' => 'Saldo Anticipos', 'tipo' => 'decimal', 'ro' => true],
+        ],
+    ],
+
+    // ── Cuentas Corrientes Acreedoras (Frm CA Cuentas) ──────────────────
+    //  Espejo del de deudores (CODORI='A'). Particular: CPACUE (cuenta contable de
+    //  imputación de compras, clave string → autocomplete imputables); CITCUE único
+    //  entre acreedores (acá sí bloquea, salvo dummy); retención IIBB (VEICUE venc.
+    //  exención / SRICUE retención / CODRRI régimen). Sin Condición de Venta/Zona/
+    //  Vendedor/Transporte/Historial. Al alta: SOPCUE/SANCUE=0 + FDACUE=FECAPE (sin SACCUE).
+    //  OJO legacy (UX no portada): si CODCAT=1 (PRODUCTOS) deshabilita CPACUE; y el venc.
+    //  de exención (VEICUE) auto-togglea SRICUE/CODRRI. Acá van como campos planos.
+    'cc_acreedores' => [
+        'tabla'  => 'Tbl Cuentas Corrientes', 'pk' => 'CODCUE', 'ult' => 'ULTCUE',
+        'titulo' => 'Cuentas Corrientes (Acreedores)', 'icono' => 'bi-person-vcard', 'orden' => 'DENCUE',
+        'fijo'   => ['CODORI' => 'A'],
+        'alta'   => ['SOPCUE' => 0, 'SANCUE' => 0, 'FDACUE' => ['rec' => 'FECAPE', 'tipo' => 'date']],
+        'unico'  => ['DENCUE', ['col' => 'CITCUE', 'except' => '00-00000000-0']],
+        'uso'    => [
+            // (el legacy chequea Tbl Productos.CODPRV y Rec Control.CODPRV, columnas que no existen
+            //  en este backend; el vínculo proveedor↔producto vive en Tbl Productos Proveedores.CODCUE)
+            ['tabla' => 'Tbl Productos Proveedores', 'col' => 'CODCUE', 'msg' => 'No se puede eliminar: el proveedor está asignado a productos.'],
+            ['tabla' => 'Tbl Movimientos', 'col' => 'CODCUE', 'msg' => 'No se puede eliminar: la cuenta tiene movimientos asociados.'],
+        ],
+        'campos' => [
+            ['col' => 'CITCUE', 'label' => 'C.U.I.T.', 'tipo' => 'text', 'cuit' => true, 'size' => 13, 'ancho' => 'narrow', 'default' => '00-00000000-0', 'list' => true],
+            ['col' => 'CODCRI', 'label' => 'Cat. Resp. I.V.A.', 'tipo' => 'select', 'lookup' => $CAT_RESP_IVA, 'req' => true],
+            ['col' => 'DENCUE', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 50, 'list' => true],
+            ['col' => 'CODCAT', 'label' => 'Categoría Proveedor', 'tipo' => 'select', 'lookup' => $CAT_PROV, 'req' => true, 'list' => true],
+            ['col' => 'CPACUE', 'label' => 'Cta. Contable Imput. Compras', 'tipo' => 'select', 'big' => true, 'strkey' => true, 'lookup' => $CTA_CONTABLE_IMP, 'search' => ['CODCUE', 'DENCUE']],
+            ['col' => 'DCXCUE', 'label' => 'Calle', 'tipo' => 'text', 'req' => true, 'size' => 30],
+            ['col' => 'DNXCUE', 'label' => 'Número', 'tipo' => 'text', 'size' => 10, 'ancho' => 'narrow'],
+            ['col' => 'DPXCUE', 'label' => 'Piso', 'tipo' => 'text', 'size' => 5, 'ancho' => 'narrow'],
+            ['col' => 'DDXCUE', 'label' => 'Depto.', 'tipo' => 'text', 'size' => 5, 'ancho' => 'narrow'],
+            ['col' => 'CODLOC', 'label' => 'Localidad', 'tipo' => 'select', 'big' => true, 'lookup' => $LOCALIDAD, 'search' => ['DENLOC', 'CPXLOC'], 'req' => true, 'list' => true],
+            ['col' => 'TELCUE', 'label' => 'Teléfonos', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'FAXCUE', 'label' => 'Fax', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'DEMCUE', 'label' => 'e-mail', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'CONCUE', 'label' => 'Contacto Comercial', 'tipo' => 'text', 'size' => 30],
+            ['col' => 'DVFCUE', 'label' => 'Plazo de Pago', 'tipo' => 'number', 'min' => 0, 'max' => 365, 'suffix' => 'Días', 'default' => 0],
+            ['col' => 'APICUE', 'label' => 'Agente de Percepción I.V.A.', 'tipo' => 'bool'],
+            ['col' => 'APBCUE', 'label' => 'Agente de Percepción I.B.', 'tipo' => 'bool'],
+            ['col' => 'VEICUE', 'label' => 'Vencimiento Exención (Ret. IIBB)', 'tipo' => 'date'],
+            ['col' => 'SRICUE', 'label' => 'Retención IIBB', 'tipo' => 'bool'],
+            ['col' => 'CODRRI', 'label' => 'Régimen Retención IIBB', 'tipo' => 'select', 'lookup' => $REGIMEN_IIBB],
+            ['col' => 'EEHCUE', 'label' => 'Excluir de Export. I.V.A. a Holistor', 'tipo' => 'bool'],
             ['col' => 'OBSCUE', 'label' => 'Observaciones', 'tipo' => 'memo'],
             ['col' => 'FDACUE', 'label' => 'Fecha de Alta', 'tipo' => 'date', 'ro' => true],
             ['col' => 'FUOCUE', 'label' => 'Fecha Última Operación', 'tipo' => 'date', 'ro' => true],

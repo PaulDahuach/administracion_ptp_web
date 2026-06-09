@@ -47,7 +47,7 @@ function val_sql($c, $raw, &$err) {
     if ($vacio && isset($c['default'])) { $v = $c['default']; $vacio = false; }   // valor por defecto si viene vacío
     if (!empty($c['req']) && $vacio) { $err = "Falta: {$c['label']}"; return null; }
     if ($vacio) return 'Null';
-    if ($tipo === 'select') return (string) intval($v);
+    if ($tipo === 'select') return !empty($c['strkey']) ? "'" . db_esc($v) . "'" : (string) intval($v);   // strkey: FK con clave texto (ej. cuenta contable "11101")
     if ($tipo === 'number' || $tipo === 'decimal') {
         $num = ($tipo === 'decimal') ? (float) str_replace(',', '.', $v) : intval($v);
         if (isset($c['min']) && $num < $c['min']) { $err = "{$c['label']}: el mínimo es {$c['min']}"; return null; }
@@ -149,7 +149,8 @@ function lookup($def) {
     foreach ($busca as $sc) $conds[] = "[$sc] Like '%$s%'";
     $sel = "[{$lk['pk']}] AS id, [{$lk['den']}] AS den";
     if (isset($lk['cod'])) $sel .= ", [{$lk['cod']}] AS cod";
-    ok(db_query("SELECT TOP 30 $sel FROM [{$lk['tabla']}] WHERE (" . implode(' OR ', $conds) . ") ORDER BY [{$lk['den']}];"));
+    $extra = isset($lk['where']) ? ' AND (' . $lk['where'] . ')' : '';   // scope opcional (ej. solo imputables)
+    ok(db_query("SELECT TOP 30 $sel FROM [{$lk['tabla']}] WHERE (" . implode(' OR ', $conds) . ")$extra ORDER BY [{$lk['den']}];"));
 }
 
 /** Validación de C.U.I.T. (11 dígitos + dígito verificador módulo 11). $s = solo dígitos. */
@@ -242,7 +243,8 @@ function obtener($def) {
     foreach ($def['campos'] as $c) {
         if ($c['tipo'] === 'select' && !empty($c['big']) && isset($c['lookup'])
             && isset($row[$c['col']]) && $row[$c['col']] !== null && $row[$c['col']] !== '') {
-            $lk = $c['lookup']; $fid = intval($row[$c['col']]);
+            $lk = $c['lookup'];
+            $fid = !empty($c['strkey']) ? "'" . db_esc($row[$c['col']]) . "'" : intval($row[$c['col']]);
             $d = db_row("SELECT [{$lk['den']}] AS den FROM [{$lk['tabla']}] WHERE [{$lk['pk']}] = $fid;");
             $row[$c['col'] . '__den'] = $d ? $d['den'] : '';
         }
