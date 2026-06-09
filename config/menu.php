@@ -30,7 +30,7 @@ return [
         ['label' => 'Operaciones', 'disabled' => true],
         ['label' => 'Cuentas Bancarias', 'desc' => 'Cuentas bancarias (banco, copias de constancia)', 'icon' => 'bi-piggy-bank', 'url' => '/modules/abm/?m=cuentas_bancarias'],
         ['label' => 'Centros de Costo', 'desc' => 'Alta/edición de centros de costo', 'icon' => 'bi-diagram-3', 'url' => '/modules/abm/?m=centros_costo'],
-        ['label' => 'Cuentas Contables', 'disabled' => true],
+        ['label' => 'Cuentas Contables', 'desc' => 'Plan de cuentas: alta/edición jerárquica, flags, saldos', 'icon' => 'bi-diagram-3', 'url' => '/modules/cuentas_contables/'],
         ['label' => 'Imputaciones Contables', 'desc' => 'Asientos contables: manuales, cheques (cartera/propio/diferido) y OP Contado con IVA', 'icon' => 'bi-journal-text', 'url' => '/modules/asientos/'],
         ['head' => 'Procesos'],
         ['label' => 'Conciliación', 'disabled' => true],
