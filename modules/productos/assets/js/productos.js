@@ -6,7 +6,7 @@ const PR = {
 
     init() {
         this.opts('f_codcat', this.LK.cat); this.opts('f_codrub', this.LK.rub);
-        this.opts('f_codlin', this.LK.lin); this.opts('f_codudm', this.LK.udm);
+        this.opts('f_codlin', this.LK.lin); this.opts('f_codudm', this.LK.udm); this.opts('f_codmon', this.LK.mon);
         this.fillSub('');
         this.el('f_codrub').addEventListener('change', () => { this.fillSub(this.el('f_codrub').value); this.el('f_codsub').value = ''; });
         this.bind();
@@ -27,7 +27,8 @@ const PR = {
             this.el('btnCancelar').addEventListener('click', () => this.cancelar());
             this.el('btnEditar').addEventListener('click', () => this.editar());
             this.el('btnEliminar').addEventListener('click', () => this.eliminar());
-            document.querySelectorAll('.prod-add').forEach(b => b.addEventListener('click', () => b.dataset.grid === 'equiv' ? this.addEquiv({}) : this.addProv({})));
+            document.querySelectorAll('.prod-add').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); b.dataset.grid === 'equiv' ? this.addEquiv({}) : this.addProv({}); }));
+            this.el('f_codmon').addEventListener('change', () => this.applyEnabled());
         }
         this.el('btnBuscar').addEventListener('click', () => new bootstrap.Modal(this.el('modalBuscar')).show());
         this.el('modalBuscar').addEventListener('shown.bs.modal', () => this.loadList());
@@ -64,9 +65,11 @@ const PR = {
         this.opts('f_codrub', this.LK.rub, d.codrub); this.fillSub(d.codrub); this.el('f_codsub').value = d.codsub || '';
         this.opts('f_codlin', this.LK.lin, d.codlin); this.opts('f_codudm', this.LK.udm, d.codudm);
         this.el('f_den').value = d.den; this.el('f_dec').value = d.dec; this.el('f_ubi').value = d.ubi;
-        this.el('f_plv').value = (d.plv || '').replace(/,/g, ''); this.el('f_obs').value = d.obs; this.el('f_dis').checked = !!d.dis;
-        // última compra
-        ['fecha', 'moneda', 'cot', 'costo', 'flete', 'lista'].forEach(k => this.el('uc_' + k).textContent = d['uc_' + k] || '—');
+        this.el('f_plv').value = (d.plv != null ? d.plv : ''); this.el('f_obs').value = d.obs; this.el('f_dis').checked = !!d.dis;
+        // última compra (inputs)
+        this.el('f_fuc').value = d.fuc || ''; this.opts('f_codmon', this.LK.mon, d.codmon);
+        this.el('f_cot').value = (d.cot != null ? d.cot : ''); this.el('f_cos').value = (d.cos != null ? d.cos : '');
+        this.el('f_flt').value = (d.flt != null ? d.flt : ''); this.el('f_plc').value = (d.plc != null ? d.plc : '');
         // precios
         this.el('tbPrecios').innerHTML = d.precios.map(p => `<tr><td>${this.esc(p.cat)}</td><td class="text-end">${this.esc(p.dto)}</td><td class="text-end">${this.esc(p.neto)}</td><td class="text-end">${this.esc(p.util)}</td></tr>`).join('') || '<tr><td colspan="4" class="text-muted small">Sin categorías.</td></tr>';
         // stock
@@ -83,10 +86,9 @@ const PR = {
     },
     clearForm() {
         this.el('fCod').textContent = '(nuevo)';
-        ['f_den', 'f_dec', 'f_ubi', 'f_plv', 'f_obs'].forEach(i => this.el(i).value = '');
+        ['f_den', 'f_dec', 'f_ubi', 'f_plv', 'f_obs', 'f_fuc', 'f_cos', 'f_flt', 'f_plc'].forEach(i => this.el(i).value = '');
         ['f_codcat', 'f_codrub', 'f_codsub', 'f_codlin', 'f_codudm'].forEach(i => this.el(i).value = '');
-        this.el('f_dis').checked = false;
-        ['fecha', 'moneda', 'cot', 'costo', 'flete', 'lista'].forEach(k => this.el('uc_' + k).textContent = '—');
+        this.el('f_codmon').value = 'P'; this.el('f_cot').value = '1'; this.el('f_dis').checked = false;
         this.el('tbPrecios').innerHTML = ''; this.el('tbStock').innerHTML = ''; this.el('tbEquiv').innerHTML = ''; this.el('tbProv').innerHTML = '';
         this.el('formErr').textContent = '';
     },
@@ -148,8 +150,11 @@ const PR = {
         fd.append('codrub', this.el('f_codrub').value); fd.append('codsub', this.el('f_codsub').value);
         fd.append('codlin', this.el('f_codlin').value); fd.append('codudm', this.el('f_codudm').value);
         fd.append('dec', this.el('f_dec').value || '0'); fd.append('ubi', this.el('f_ubi').value);
-        fd.append('plv', this.el('f_plv').value); fd.append('obs', this.el('f_obs').value);
+        fd.append('plv', this.el('f_plv').value); fd.append('plc', this.el('f_plc').value); fd.append('obs', this.el('f_obs').value);
         fd.append('dis', this.el('f_dis').checked ? '1' : '');
+        // última compra (el server solo usa estos en alta, salvo PLC que va siempre)
+        fd.append('fuc', this.el('f_fuc').value); fd.append('codmon', this.el('f_codmon').value);
+        fd.append('cot', this.el('f_cot').value); fd.append('cos', this.el('f_cos').value); fd.append('flt', this.el('f_flt').value);
         fd.append('equiv', JSON.stringify(equiv)); fd.append('provs', JSON.stringify(provs)); fd.append('stock', JSON.stringify(stock));
         const j = await (await fetch('api.php?action=save', { method: 'POST', body: fd })).json();
         if (!j.ok) { this.el('formErr').textContent = j.error || 'Error al guardar'; this.toast(j.error || 'Error', 'danger'); return; }
@@ -179,9 +184,14 @@ const PR = {
     },
     applyEnabled() {
         const editing = (this.mode === 'create' || this.mode === 'edit') && !this.RO;
+        const create = (this.mode === 'create') && !this.RO;
         // categoría solo editable al crear
-        this.el('f_codcat').disabled = !(this.mode === 'create' && !this.RO);
+        this.el('f_codcat').disabled = !create;
         ['f_den', 'f_codrub', 'f_codsub', 'f_codlin', 'f_codudm', 'f_dec', 'f_ubi', 'f_plv', 'f_obs', 'f_dis'].forEach(i => this.el(i).disabled = !editing);
+        // última compra: editable solo al ALTA; PLC (compra) y PLV (venta) también en edición; cotización off si pesos
+        ['f_fuc', 'f_codmon', 'f_cos', 'f_flt'].forEach(i => this.el(i).disabled = !create);
+        this.el('f_cot').disabled = !create || this.el('f_codmon').value === 'P';
+        this.el('f_plc').disabled = !editing;
         document.querySelectorAll('.prod-add').forEach(b => b.disabled = !editing);
         document.querySelectorAll('#tbEquiv .g-udm, #tbEquiv .g-factor, #tbProv .g-ext, #tbStock .g-min, #tbStock .g-max').forEach(x => x.disabled = !editing);
         // proveedor autocomplete: solo en filas nuevas (sin cue ya fijado); las existentes quedan fijas

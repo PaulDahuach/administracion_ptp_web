@@ -92,11 +92,12 @@ function obtener() {
     ok(array(
         'cod' => $cod, 'codcat' => (int) $p['CODCAT'], 'codrub' => nz($p['CODRUB'], ''), 'codsub' => nz($p['CODSUB'], ''),
         'codlin' => nz($p['CODLIN'], ''), 'den' => trim((string) nz($p['DENPRO'], '')), 'dec' => (int) nz($p['DECPRO'], 0),
-        'codudm' => nz($p['CODUDM'], ''), 'ubi' => trim((string) nz($p['UBIPRO'], '')), 'plv' => m2($plv),
+        'codudm' => nz($p['CODUDM'], ''), 'ubi' => trim((string) nz($p['UBIPRO'], '')),
         'obs' => trim((string) nz($p['OBSPRO'], '')), 'dis' => es_true($p['DISPRO']) ? 1 : 0,
-        // última compra (read-only)
-        'uc_fecha' => to_disp_date($p['FUCPRO']), 'uc_moneda' => (isset($mon[trim((string) nz($p['CODMON'], ''))]) ? $mon[trim((string) nz($p['CODMON'], ''))] : ''),
-        'uc_cot' => m4($p['COTPRO']), 'uc_flete' => m2($p['FLTPRO']), 'uc_costo' => m2($p['COSPRO']), 'uc_lista' => m2($plc),
+        // última compra (editable en alta; PLC/PLV editables también en edición) — valores crudos
+        'fuc' => to_iso_date($p['FUCPRO']), 'codmon' => trim((string) nz($p['CODMON'], 'P')),
+        'cot' => (float) nz($p['COTPRO'], 1), 'flt' => (float) nz($p['FLTPRO'], 0),
+        'cos' => (float) nz($p['COSPRO'], 0), 'plc' => $plc, 'plv' => $plv,
         'precios' => $precios, 'stock' => $stock, 'equiv' => $equiv, 'provs' => $provs,
     ));
 }
@@ -125,14 +126,14 @@ function guardar() {
 
     // helpers de valor
     $intN = function ($k) { $v = isset($_POST[$k]) ? trim($_POST[$k]) : ''; return ($v === '') ? 'Null' : (string) intval($v); };
-    $decN = function ($k) { $v = isset($_POST[$k]) ? trim($_POST[$k]) : ''; return ($v === '') ? 'Null' : (string) (float) str_replace(',', '.', $v); };
+    $dec0 = function ($k) { $v = isset($_POST[$k]) ? trim($_POST[$k]) : ''; return ($v === '') ? '0' : (string) (float) str_replace(',', '.', $v); };   // NOT NULL → default 0
     $txt  = function ($k) { $v = isset($_POST[$k]) ? trim($_POST[$k]) : ''; return ($v === '') ? 'Null' : "'" . db_esc($v) . "'"; };
 
     $sets = array(
         "CODRUB=" . $intN('codrub'), "CODSUB=" . $intN('codsub'), "CODLIN=" . $intN('codlin'),
         "DENPRO='" . db_esc($den) . "'", "DECPRO=" . (string) intval(nz($_POST['dec'], 0)),
         "CODUDM=" . $intN('codudm'), "UBIPRO=" . $txt('ubi'),
-        "PLVPRO=" . (trim(nz($_POST['plv'], '')) === '' ? '0' : (string) (float) str_replace(',', '.', $_POST['plv'])),   // NOT NULL: default 0
+        "PLVPRO=" . $dec0('plv'), "PLCPRO=" . $dec0('plc'),   // precio venta + compra: editables en alta y edición (NOT NULL, default 0)
         "OBSPRO=" . $txt('obs'), "DISPRO=" . bsql(isset($_POST['dis']) ? $_POST['dis'] : ''),
     );
 
@@ -140,9 +141,13 @@ function guardar() {
     try {
         if ($nuevo) {
             if (db_row("SELECT CODPRO FROM [Tbl Productos] WHERE [CODPRO]='$e';")) { db_rollback(); fail('Ya existe un producto con ese código'); return; }
-            // defaults de alta para los NOT NULL de "última compra" (los setean luego las compras)
-            $cols = "[CODPRO],[CODCAT],[CODMON],[COTPRO],[COSPRO],[FLTPRO],[PLCPRO]," . implode(',', array_map(function ($s) { return '[' . substr($s, 0, strpos($s, '=')) . ']'; }, $sets));
-            $vals = "'$e',$codcat,'P',1,0,0,0," . implode(',', array_map(function ($s) { return substr($s, strpos($s, '=') + 1); }, $sets));
+            // última compra: editable en alta (los valores que carga el usuario al dar de alta)
+            $codmon = trim(nz($_POST['codmon'], '')); if ($codmon === '') $codmon = 'P';
+            $cot = $dec0('cot'); if ($cot === '0') $cot = '1';
+            $fucIso = trim(nz($_POST['fuc'], ''));
+            $fuc = ($fucIso === '') ? 'Null' : '#' . date('m/d/Y', strtotime($fucIso)) . '#';
+            $cols = "[CODPRO],[CODCAT],[CODMON],[COTPRO],[COSPRO],[FLTPRO],[FUCPRO]," . implode(',', array_map(function ($s) { return '[' . substr($s, 0, strpos($s, '=')) . ']'; }, $sets));
+            $vals = "'$e',$codcat,'" . db_esc($codmon) . "',$cot," . $dec0('cos') . "," . $dec0('flt') . ",$fuc," . implode(',', array_map(function ($s) { return substr($s, strpos($s, '=') + 1); }, $sets));
             db_exec("INSERT INTO [Tbl Productos] ($cols) VALUES ($vals);");
             // stock inicial si la categoría maneja stock
             $stk = db_row("SELECT STKCAT FROM [Tbl Categorias Productos] WHERE CODCAT=$codcat;");

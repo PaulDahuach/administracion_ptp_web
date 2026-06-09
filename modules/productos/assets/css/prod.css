@@ -4,6 +4,11 @@
     padding:.4rem .75rem; display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
 .fc-card .card-header .text-muted { text-transform:none; }
 .fc-card .card-body { padding:.6rem .85rem; }
+/* colapso de paneles */
+.fc-card .card-header.collapse-hd { cursor:pointer; user-select:none; }
+.fc-card .collapse-icon { font-size:.7rem; transition:transform .2s; color:var(--bs-secondary-color); }
+.fc-card .card-header.collapsed .collapse-icon { transform:rotate(-90deg); }
+.hd-right { display:flex; align-items:center; gap:.6rem; }
 
 /* cabecera: campos apilados, label a la izquierda (la columna es angosta, estilo legacy) */
 .pf { display:flex; align-items:center; gap:.55rem; margin-bottom:.4rem; }
