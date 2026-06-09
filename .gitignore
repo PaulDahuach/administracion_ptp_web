@@ -11,6 +11,9 @@ storage/
 log/
 *.log
 
+# ZIPs de deploy (se generan, no se versionan)
+deploy_*.zip
+
 # Sistema
 Thumbs.db
 .DS_Store
