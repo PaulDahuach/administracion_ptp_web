@@ -127,7 +127,7 @@ return [
         ['label' => 'Export. Retenciones I.V.A.', 'disabled' => true],
         ['label' => 'Export. Retenciones Ganancias', 'disabled' => true],
         ['label' => 'Export. Retenciones S.U.S.S.', 'disabled' => true],
-        ['label' => 'Export. I.V.A. Ventas a Holistor', 'disabled' => true],
+        ['label' => 'Export. I.V.A. Ventas a Holistor', 'desc' => 'Genera el .txt de IVA Ventas para importar en Holistor', 'icon' => 'bi-file-earmark-arrow-up', 'url' => '/modules/holistor_iva_ventas/'],
         ['head' => 'Listados'],
         ['label' => 'Categorías', 'disabled' => true],
         ['label' => 'Transportes', 'disabled' => true],
