@@ -52,7 +52,7 @@ return [
         ['label' => 'Pre-Conciliación', 'disabled' => true],
         ['label' => 'Valores a Depositar', 'desc' => 'Cheques de terceros a depositar, por fecha de acreditación (año/mes/día) — imprimible', 'icon' => 'bi-cash-stack', 'url' => '/modules/list_cheques_fecha/?tipo=vad'],
         ['label' => 'Cheques Diferidos a Devengar', 'desc' => 'Cheques diferidos por fecha de acreditación (año/mes/día) — imprimible', 'icon' => 'bi-calendar-check', 'url' => '/modules/list_cheques_fecha/?tipo=dif'],
-        ['label' => 'Parte Diario de Caja', 'disabled' => true],
+        ['label' => 'Parte Diario de Caja', 'desc' => 'Caja del día: movimientos + cheques de terceros + cierre (efectivo/cheques) — imprimible', 'icon' => 'bi-cash-coin', 'url' => '/modules/list_parte_caja/'],
         ['head' => 'Imputaciones Contables'],
         ['label' => 'x Operación', 'disabled' => true],
         ['label' => 'x Cuenta', 'desc' => 'Mayor por cuenta y período (Fec.Mov/Com)', 'icon' => 'bi-book', 'url' => '/modules/mayor/'],
