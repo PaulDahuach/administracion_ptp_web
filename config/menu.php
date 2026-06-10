@@ -47,7 +47,7 @@ return [
         ['label' => 'Saldos Periódicos', 'desc' => 'Saldos por cuenta acotados a un período (débitos/créditos/saldo + totales) — imprimible', 'icon' => 'bi-calendar-range', 'url' => '/modules/list_saldos_periodico/'],
         ['label' => 'Balance de Sumas y Saldos', 'desc' => 'Saldo anterior + débitos/créditos del período + saldo actual, por cuenta — imprimible', 'icon' => 'bi-journals', 'url' => '/modules/list_balance/'],
         ['label' => 'Balance (consulta)', 'desc' => 'Balance interactivo por cuenta y período', 'icon' => 'bi-table', 'url' => '/modules/balance/'],
-        ['label' => 'Movimientos Cheques', 'disabled' => true],
+        ['label' => 'Movimientos Cheques', 'desc' => 'Movimientos (debe/haber) por cheque: banco, librador, comprobante y cuenta — imprimible', 'icon' => 'bi-cash-coin', 'url' => '/modules/list_movim_cheques/'],
         ['label' => 'Movimientos Bancarios', 'disabled' => true],
         ['label' => 'Pre-Conciliación', 'disabled' => true],
         ['label' => 'Valores a Depositar', 'disabled' => true],

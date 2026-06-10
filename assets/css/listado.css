@@ -65,6 +65,7 @@ body { background: #e9edf2; }
 .lst-jer tr.parent td { font-weight: 700; }
 .lst-jer tr.tot td { font-weight: 700; border-top: 1px solid #000; }
 .lst-jer tbody tr:nth-child(even) td { background: transparent; }   /* sin cebra (la jerarquía ya guía) */
+.lst-jer .chq-h { background: #eef1f6; font-weight: 700; white-space: normal; border-top: 1px solid #000; }
 
 /* barra de filtro (período / rango) — fuera de la hoja, no se imprime. Siempre clara (como la preview). */
 .lst-filter { max-width: 216mm; margin: 0 auto .5rem; display: flex; align-items: center; gap: .4rem .6rem; flex-wrap: wrap; }
