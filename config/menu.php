@@ -49,7 +49,7 @@ return [
         ['label' => 'Balance (consulta)', 'desc' => 'Balance interactivo por cuenta y período', 'icon' => 'bi-table', 'url' => '/modules/balance/'],
         ['label' => 'Movimientos Cheques', 'desc' => 'Movimientos (debe/haber) por cheque: banco, librador, comprobante y cuenta — imprimible', 'icon' => 'bi-cash-coin', 'url' => '/modules/list_movim_cheques/'],
         ['label' => 'Movimientos Bancarios', 'desc' => 'Ledger por cuenta bancaria: saldo anterior + movimientos (debe/haber/saldo corrido) + subtotales — imprimible', 'icon' => 'bi-bank', 'url' => '/modules/list_movim_bancarios/'],
-        ['label' => 'Pre-Conciliación', 'disabled' => true],
+        ['label' => 'Pre-Conciliación', 'desc' => 'Movimientos no conciliados por cuenta bancaria hasta una fecha (saldo corrido desde la última conciliación) — imprimible', 'icon' => 'bi-check2-square', 'url' => '/modules/list_pre_conciliacion/'],
         ['label' => 'Valores a Depositar', 'desc' => 'Cheques de terceros a depositar, por fecha de acreditación (año/mes/día) — imprimible', 'icon' => 'bi-cash-stack', 'url' => '/modules/list_cheques_fecha/?tipo=vad'],
         ['label' => 'Cheques Diferidos a Devengar', 'desc' => 'Cheques diferidos por fecha de acreditación (año/mes/día) — imprimible', 'icon' => 'bi-calendar-check', 'url' => '/modules/list_cheques_fecha/?tipo=dif'],
         ['label' => 'Parte Diario de Caja', 'desc' => 'Caja del día: movimientos + cheques de terceros + cierre (efectivo/cheques) — imprimible', 'icon' => 'bi-cash-coin', 'url' => '/modules/list_parte_caja/'],
