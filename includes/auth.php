@@ -99,9 +99,11 @@ function auth_denied_opts() {
     return $cache;
 }
 
-/** ¿La opción (OPTMEN) está restringida para el usuario actual? */
+/** ¿La opción (OPTMEN) está restringida para el usuario actual? Los admins (config admin_users)
+ *  quedan exentos — análogo a la exención de categoría "ADMINISTRADOR" del rutAccesoUsuario legacy. */
 function auth_opt_denied($opt) {
     if ($opt === null || $opt === '') return false;
+    if (auth_is_admin()) return false;
     $d = auth_denied_opts();
     return isset($d[$opt]);
 }
