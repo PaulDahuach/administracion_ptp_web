@@ -397,12 +397,17 @@ function guardarHijos($def, $pid) {
     foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) {
         if (!array_key_exists($h['key'], $hijos)) continue;   // hijo no enviado → no tocar
         $rows = is_array($hijos[$h['key']]) ? $hijos[$h['key']] : [];
-        // 'check' (checklist M:N): borrar-reinsertar los ids tildados
+        // 'check' (checklist M:N): borrar-reinsertar los ids tildados. En transacción: es config de
+        // acceso (seguridad) → un fallo a mitad no debe dejar al usuario sin sus restricciones.
         if (isset($h['tipo']) && $h['tipo'] === 'check') {
-            db_exec("DELETE FROM [{$h['tabla']}] WHERE [{$h['fk']}]=$pid;");
-            $seen = array();
-            foreach ($rows as $v) { $iv = intval($v); if ($iv <= 0 || in_array($iv, $seen, true)) continue; $seen[] = $iv;
-                db_exec("INSERT INTO [{$h['tabla']}] ([{$h['fk']}],[{$h['col']}]) VALUES ($pid,$iv);"); }
+            db_begin();
+            try {
+                db_exec("DELETE FROM [{$h['tabla']}] WHERE [{$h['fk']}]=$pid;");
+                $seen = array();
+                foreach ($rows as $v) { $iv = intval($v); if ($iv <= 0 || in_array($iv, $seen, true)) continue; $seen[] = $iv;
+                    db_exec("INSERT INTO [{$h['tabla']}] ([{$h['fk']}],[{$h['col']}]) VALUES ($pid,$iv);"); }
+                db_commit();
+            } catch (Exception $e) { db_rollback(); throw $e; }
             continue;
         }
         $fk = $h['fk']; $kc = $h['clave']['col']; $tabla = $h['tabla'];
