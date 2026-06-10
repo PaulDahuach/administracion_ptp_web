@@ -16,6 +16,9 @@ body { background: #e9edf2; }
 .lst-emp { grid-area: emp; font-weight: 700; font-size: .95rem; }
 .lst-fecha { grid-area: fecha; text-align: right; font-size: .8rem; color: #555; white-space: nowrap; }
 .lst-tit { grid-area: tit; text-align: center; font-size: 1.05rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; margin-top: .15rem; }
+/* parámetros del reporte (USUARIO / CUENTAS / PERÍODO): izquierda, negrita, dos puntos alineados */
+.lst-params { display: grid; grid-template-columns: max-content max-content 1fr; gap: 0 .45rem; font-weight: 700; font-size: .82rem; margin: 0 0 .5rem; }
+.lst-params .v { font-weight: 700; }
 
 .lst-tbl { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .lst-tbl thead th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: #000; font-weight: 700;
@@ -67,6 +70,7 @@ body { background: #e9edf2; }
 .lst-filter { max-width: 216mm; margin: 0 auto .5rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .lst-filter label { font-size: .82rem; font-weight: 600; color: var(--bs-body-color); margin: 0; }
 .lst-filter .form-control { width: auto; max-width: 10rem; }
+.lst-filter .lst-cue { width: auto; max-width: 15rem; }
 
 @page { size: Letter; margin: 12mm 13mm; }
 @media print {
