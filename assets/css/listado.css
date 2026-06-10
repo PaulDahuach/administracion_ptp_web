@@ -23,7 +23,7 @@ body { background: #e9edf2; }
 .lst-tbl td { padding: .18rem .5rem; vertical-align: top; }
 /* listados simples (1 línea por fila): alto de fila exacto del Rpt legacy (257 twips = 0.453cm) */
 .lst-tbl.lst-tight td { padding: 0 .12rem; height: .453cm; line-height: .453cm; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lst-tbl.lst-tight th { padding: .12rem .12rem; }
+.lst-tbl.lst-tight th { padding: .12rem .12rem; white-space: normal; line-height: 1.05; font-size: .66rem; }
 .lst-tbl tbody tr:nth-child(even) td { background: #f4f4f4; }   /* cebra muy suave para leer mejor */
 .lst-tbl .r { text-align: right; }
 .lst-tbl .mono { font-variant-numeric: tabular-nums; }
@@ -52,6 +52,16 @@ body { background: #e9edf2; }
 .lst-ops table.sub { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .lst-ops table.sub td { border: 0; padding: 1px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lst-ops .mod-h { font-weight: 700; background: #f0f0f0; white-space: normal; }
+
+/* ── jerárquicos (Plan de Cuentas / Saldos Actuales) ── */
+.lst-jer { table-layout: fixed; width: 100%; font-size: 7.4pt; }
+.lst-tbl.lst-jer thead th { border: 1px solid #000; padding: 1px 2px; text-align: center; font-weight: 700; font-size: 6.6pt; line-height: 1.05; }
+.lst-jer td { padding: 0 3px; height: .42cm; line-height: .42cm; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lst-jer td.c { text-align: center; } .lst-jer td.r { text-align: right; }
+.lst-jer .cod { font-variant-numeric: tabular-nums; }
+.lst-jer tr.parent td { font-weight: 700; }
+.lst-jer tr.tot td { font-weight: 700; border-top: 1px solid #000; }
+.lst-jer tbody tr:nth-child(even) td { background: transparent; }   /* sin cebra (la jerarquía ya guía) */
 
 @page { size: Letter; margin: 12mm 13mm; }
 @media print {
