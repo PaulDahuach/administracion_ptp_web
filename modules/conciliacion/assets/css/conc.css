@@ -1,0 +1,30 @@
+/* Conciliación Bancaria. */
+.fc-card { border-radius:.5rem; margin-bottom:.75rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+.fc-card .card-header { font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+    padding:.4rem .75rem; display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.fc-card .card-body { padding:.6rem .85rem; }
+
+.conc-head { display:grid; grid-template-columns:1fr; gap:.1rem 2.5rem; }
+@media (min-width:992px) { .conc-head { grid-template-columns:1fr 1fr; } }
+.pf { display:flex; align-items:center; gap:.6rem; margin-bottom:.4rem; }
+.pf > label { flex:0 0 7rem; text-align:right; font-size:.8rem; font-weight:600; color:var(--bs-secondary-color); }
+.pf > .form-control, .pf > .form-select { flex:1 1 auto; min-width:0; font-size:.85rem; padding:.28rem .55rem; height:auto; }
+.pf-mid { max-width:12rem !important; flex:0 0 auto !important; }
+
+/* tarjetas de saldos */
+.conc-saldos label { font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; color:var(--bs-secondary-color); display:block; }
+.conc-big { font-size:1.05rem; font-weight:600; font-variant-numeric:tabular-nums; }
+.conc-post { border:1px solid var(--bs-primary); }
+.conc-post .conc-big { color:var(--bs-primary); }
+
+.conc-proc { text-transform:none; font-weight:400; font-size:.8rem; }
+.conc-proc b { font-variant-numeric:tabular-nums; }
+
+/* grilla */
+.conc-tbl { font-size:.8rem; margin-bottom:0; }
+.conc-tbl thead th { font-size:.68rem; text-transform:uppercase; letter-spacing:.03em; color:var(--bs-secondary-color); white-space:nowrap; }
+.conc-tbl td, .conc-tbl th { padding:.25rem .45rem; vertical-align:middle; }
+.conc-tbl .text-end { font-variant-numeric:tabular-nums; }
+.conc-tbl tbody tr:hover { background:var(--bs-tertiary-bg); }
+
+.fc-toast-container { position:fixed; bottom:1rem; right:1rem; z-index:1060; }

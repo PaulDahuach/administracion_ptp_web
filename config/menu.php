@@ -33,7 +33,7 @@ return [
         ['label' => 'Cuentas Contables', 'desc' => 'Plan de cuentas: alta/edición jerárquica, flags, saldos', 'icon' => 'bi-diagram-3', 'url' => '/modules/cuentas_contables/'],
         ['label' => 'Imputaciones Contables', 'desc' => 'Asientos contables: manuales, cheques (cartera/propio/diferido) y OP Contado con IVA', 'icon' => 'bi-journal-text', 'url' => '/modules/asientos/'],
         ['head' => 'Procesos'],
-        ['label' => 'Conciliación', 'disabled' => true],
+        ['label' => 'Conciliación', 'desc' => 'Conciliación bancaria: marca movimientos conciliados hasta una fecha de corte', 'icon' => 'bi-bank', 'url' => '/modules/conciliacion/'],
         ['label' => 'Cierre', 'desc' => 'Cierre diario de caja: posición de efectivo/cheques + cambio de fecha del sistema', 'icon' => 'bi-cash-coin', 'url' => '/modules/cierre/'],
         ['head' => 'Listados'],
         ['label' => 'Bancos', 'desc' => 'Movimientos y conciliación bancaria', 'icon' => 'bi-bank', 'url' => '/modules/bancos/'],
