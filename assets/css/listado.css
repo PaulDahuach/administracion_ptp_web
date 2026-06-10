@@ -39,6 +39,8 @@ body { background: #e9edf2; }
 .lst-ops { table-layout: fixed; width: 100%; font-size: 7pt; }
 .lst-ops th { border: 1px solid #000; padding: 1px 2px; text-align: center; font-size: 7pt; font-weight: 700; line-height: 1.1; }
 .lst-ops th.l { text-align: left; } .lst-ops th.r { text-align: right; }
+/* captions de las columnas de checkbox (3ª fila): más chicos para que entren */
+.lst-ops thead tr:last-child th { font-size: 5.3pt; letter-spacing: -.2px; padding: 1px 0; }
 .lst-ops td { border: 1px solid #ccc; padding: 1px 3px; vertical-align: top; overflow: hidden; }
 .lst-ops td.c { text-align: center; } .lst-ops td.r { text-align: right; }
 .lst-ops td.op-den { font-weight: 700; white-space: normal; }
