@@ -37,7 +37,7 @@ if ($lib === 'blanco') $conds[] = 'M.ESTMOV=True'; elseif ($lib === 'capacitacio
 $where = implode(' AND ', $conds);
 
 $rows = db_query("SELECT C.CODCHQ, B.DENBAN, C.SYNCHQ, C.FEXCHQ, C.FAXCHQ, C.LIBCHQ, C.CITCHQ, C.LOCCHQ,
-    M.FEXMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.CINMOV, M.DETMOV, MI.CODCUE, MI.CODCDC, MI.DEBMOV, MI.CREMOV
+    M.FEXMOV, M.NUMMOV, MI.ORDMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.CINMOV, M.DETMOV, MI.CODCUE, MI.CODCDC, MI.DEBMOV, MI.CREMOV
     FROM (([Tbl Cheques] AS C INNER JOIN [Tbl Bancos] AS B ON C.CODBAN=B.CODBAN)
       INNER JOIN [Tbl Movimientos Imputaciones] AS MI ON C.CODCHQ=MI.CODCHQ)
       INNER JOIN [Tbl Movimientos] AS M ON M.NUMMOV=MI.NUMMOV
@@ -46,8 +46,9 @@ $rows = db_query("SELECT C.CODCHQ, B.DENBAN, C.SYNCHQ, C.FEXCHQ, C.FAXCHQ, C.LIB
 // agrupar por cheque + cuenta contable (niv + denom) requiere las cuentas
 $cuentas = array(); foreach (db_query("SELECT CODCUE, DENCUE FROM [Tbl Cuentas Contables];") as $r) $cuentas[trim((string) $r['CODCUE'])] = trim((string) nz($r['DENCUE'], ''));
 $grp = array();   // CODCHQ => ['chq'=>..., 'movs'=>[...]]
-$totD = 0; $totH = 0;
+$totD = 0; $totH = 0; $seen = array();
 foreach ($rows as $r) {
+    $kk = $r['NUMMOV'] . '-' . $r['ORDMOV']; if (isset($seen[$kk])) continue; $seen[$kk] = 1;   // DISTINCTROW del legacy
     $k = (int) $r['CODCHQ'];
     if (!isset($grp[$k])) $grp[$k] = array('chq' => $r, 'movs' => array());
     $cc = trim((string) nz($r['CODCUE'], ''));

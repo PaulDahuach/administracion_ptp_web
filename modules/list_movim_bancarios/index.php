@@ -53,15 +53,15 @@ foreach (db_query("SELECT MI.CODCUE AS CC, SUM(IIf(IsNull(MI.DEBMOV),0,MI.DEBMOV
 
 // movimientos del período (por FAXMOV), con cheque (LEFT JOIN)
 $rows = db_query("SELECT MI.CODCUE, MI.FAXMOV, B.DENBAN AS CHQBAN, C.SYNCHQ, C.FEXCHQ, C.LIBCHQ, C.LOCCHQ,
-    M.NUMMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.CINMOV, M.DETMOV, MI.DEBMOV, MI.CREMOV
+    M.NUMMOV, MI.ORDMOV, M.CICMOV, M.CIIMOV, M.CIPMOV, M.CINMOV, M.DETMOV, MI.DEBMOV, MI.CREMOV
     FROM [Tbl Movimientos] AS M INNER JOIN (([Tbl Bancos] AS B RIGHT JOIN [Tbl Cheques] AS C ON B.CODBAN=C.CODBAN)
       RIGHT JOIN [Tbl Movimientos Imputaciones] AS MI ON C.CODCHQ=MI.CODCHQ) ON M.NUMMOV=MI.NUMMOV
     WHERE MI.FAXMOV >= $sd AND MI.FAXMOV <= $sh AND $rng$est
     ORDER BY MI.CODCUE, MI.FAXMOV, M.NUMMOV, MI.ORDMOV;");
 
-// agrupar por cuenta (preserva orden)
-$grp = array();
-foreach ($rows as $r) { $cc = trim((string) nz($r['CODCUE'], '')); if (!isset($grp[$cc])) $grp[$cc] = array(); $grp[$cc][] = $r; }
+// agrupar por cuenta (preserva orden) + dedup por imputación (NUMMOV+ORDMOV) = DISTINCTROW del legacy
+$grp = array(); $seen = array();
+foreach ($rows as $r) { $kk = $r['NUMMOV'] . '-' . $r['ORDMOV']; if (isset($seen[$kk])) continue; $seen[$kk] = 1; $cc = trim((string) nz($r['CODCUE'], '')); if (!isset($grp[$cc])) $grp[$cc] = array(); $grp[$cc][] = $r; }
 // cuentas a mostrar: TODAS las imputables del rango (aunque tengan 0, como el Rpt)
 $shown = array();
 foreach ($impList as $cc => $lbl) if (strcmp($cc, $desCue) >= 0 && strcmp($cc, $hasCue) <= 0) $shown[$cc] = $cuentas[$cc];

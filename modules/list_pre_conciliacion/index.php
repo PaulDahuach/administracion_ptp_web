@@ -45,15 +45,15 @@ $rng = "MI.CODCUE >= '" . db_esc($desCue) . "' AND MI.CODCUE <= '" . db_esc($has
 $cdc = array(); foreach (db_query("SELECT CODCDC, DENCDC FROM [Tbl Centros de Costo];") as $r) $cdc[(int) $r['CODCDC']] = trim((string) nz($r['DENCDC'], ''));
 
 // movimientos no conciliados hasta la fecha (FEXMOV), con cheque (RIGHT JOIN como el legacy)
-$rows = db_query("SELECT MI.CODCUE, M.FEXMOV, M.NUMMOV, MI.CODCDC, M.CICMOV, M.CIIMOV, M.CIPMOV, M.CINMOV, M.DETMOV,
+$rows = db_query("SELECT MI.CODCUE, M.FEXMOV, M.NUMMOV, MI.ORDMOV, MI.CODCDC, M.CICMOV, M.CIIMOV, M.CIPMOV, M.CINMOV, M.DETMOV,
     B.DENBAN AS CHQBAN, C.SYNCHQ, C.FEXCHQ, C.FAXCHQ, C.LIBCHQ, C.LOCCHQ, MI.DEBMOV, MI.CREMOV
     FROM [Tbl Movimientos] AS M INNER JOIN (([Tbl Bancos] AS B RIGHT JOIN [Tbl Cheques] AS C ON B.CODBAN=C.CODBAN)
       RIGHT JOIN [Tbl Movimientos Imputaciones] AS MI ON C.CODCHQ=MI.CODCHQ) ON M.NUMMOV=MI.NUMMOV
     WHERE $rng AND M.FEXMOV <= $sh AND MI.CONMOV=False$est
     ORDER BY MI.CODCUE, M.FEXMOV, M.NUMMOV, MI.ORDMOV;");
 
-$grp = array();
-foreach ($rows as $r) { $cc = trim((string) nz($r['CODCUE'], '')); if (!isset($grp[$cc])) $grp[$cc] = array(); $grp[$cc][] = $r; }
+$grp = array(); $seen = array();   // dedup por imputación (NUMMOV+ORDMOV) = DISTINCTROW del legacy
+foreach ($rows as $r) { $kk = $r['NUMMOV'] . '-' . $r['ORDMOV']; if (isset($seen[$kk])) continue; $seen[$kk] = 1; $cc = trim((string) nz($r['CODCUE'], '')); if (!isset($grp[$cc])) $grp[$cc] = array(); $grp[$cc][] = $r; }
 // mostrar cuentas conciliables del rango con movimientos no conciliados
 $shown = array();
 foreach ($impList as $cc => $lbl) if (isset($grp[$cc]) && (!isset($conc[$cc]) || $conc[$cc])) $shown[$cc] = $cuentas[$cc];
