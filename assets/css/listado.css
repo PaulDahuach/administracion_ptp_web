@@ -1,0 +1,28 @@
+/* Listados imprimibles (reportes tipo Rpt IC). Tabla limpia + estilo de impresión. */
+.lst-doc { background: var(--bs-body-bg); border-radius: .5rem; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); max-width: 1100px; margin: 0 auto; }
+.lst-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--bs-border-color); padding-bottom: .5rem; margin-bottom: .75rem; }
+.lst-emp { font-weight: 700; font-size: .95rem; }
+.lst-tit { font-size: .85rem; letter-spacing: .08em; color: var(--bs-secondary-color); text-transform: uppercase; }
+.lst-fecha { font-size: .8rem; color: var(--bs-secondary-color); white-space: nowrap; }
+
+.lst-tbl { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.lst-tbl thead th { text-align: left; font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color);
+    border-bottom: 1px solid var(--bs-border-color); padding: .3rem .5rem; }
+.lst-tbl td { padding: .2rem .5rem; border-bottom: 1px solid var(--bs-border-color-translucent); vertical-align: top; }
+.lst-tbl .r { text-align: right; }
+.lst-tbl .mono { font-variant-numeric: tabular-nums; }
+.lst-tot { margin-top: .6rem; font-weight: 700; font-size: .8rem; border-top: 2px solid var(--bs-border-color); padding-top: .4rem; }
+
+/* sub-bloques (ej. auxiliares / modelos de imputación dentro de una operación) */
+.lst-sub { margin: .1rem 0 .1rem .5rem; font-size: .78rem; }
+.lst-sub-h { font-size: .66rem; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color); }
+.lst-flags { font-family: monospace; font-size: .72rem; letter-spacing: .05em; }
+
+@media print {
+    .fc-topbar, .no-print { display: none !important; }
+    body, .container-fluid { padding: 0 !important; margin: 0 !important; background: #fff !important; }
+    .lst-doc { box-shadow: none; border-radius: 0; max-width: none; padding: 0; color: #000; background: #fff; }
+    .lst-tbl thead th, .lst-tit, .lst-fecha, .lst-sub-h { color: #000; }
+    .lst-tbl td, .lst-tbl thead th { border-color: #999; }
+    .lst-tbl { font-size: 9pt; }
+}
