@@ -72,8 +72,10 @@ body { background: #e9edf2; }
 .lst-filter .form-control, .lst-filter .form-select { background: #fff; color: #111; border-color: #ced4da; }
 .lst-filter .form-control { width: auto; max-width: 10rem; }
 .lst-filter .lst-cue { width: auto; max-width: 12rem; }
-/* grupos que no se parten al envolver (fechas juntas, cuentas juntas) */
-.lst-grp { display: inline-flex; align-items: center; gap: .4rem; flex: 0 0 auto; }
+/* grilla de campos: labels a la derecha · campos alineados verticalmente (col2 = Desde/Cuenta Desde) */
+.lst-fgrid { display: grid; grid-template-columns: max-content auto max-content auto; align-items: center; gap: .35rem .55rem; }
+.lst-fgrid label { text-align: right; }
+.lst-filter .iwk-combo { width: 12rem; }   /* combo buscable (reemplaza al select de cuenta) */
 
 @page { size: Letter; margin: 12mm 13mm; }
 @media print {

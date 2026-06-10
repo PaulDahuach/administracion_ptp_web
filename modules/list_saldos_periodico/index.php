@@ -62,10 +62,14 @@ $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm
 module_head('Listado de Saldos Periódicos', 'bi-calendar-range', $toolbar);
 $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) ? $_SESSION['uid'] : '');
 ?>
-<link href="../../assets/css/listado.css?v=21" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=23" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
-  <span class="lst-grp"><label>Desde</label><input type="date" name="desde" value="<?= h($desdeIso) ?>" class="form-control form-control-sm"><label>Hasta</label><input type="date" name="hasta" value="<?= h($hastaIso) ?>" class="form-control form-control-sm"></span>
-  <span class="lst-grp"><label>Cuenta Desde</label><select name="descue" class="form-select form-select-sm lst-cue"><?= cue_opts($impList, $desCue) ?></select><label>Hasta</label><select name="hascue" class="form-select form-select-sm lst-cue"><?= cue_opts($impList, $hasCue) ?></select></span>
+  <div class="lst-fgrid">
+    <label>Desde</label><input type="date" name="desde" value="<?= h($desdeIso) ?>" class="form-control form-control-sm">
+    <label>Hasta</label><input type="date" name="hasta" value="<?= h($hastaIso) ?>" class="form-control form-control-sm">
+    <label>Cuenta Desde</label><select name="descue" class="form-select form-select-sm lst-cue"><?= cue_opts($impList, $desCue) ?></select>
+    <label>Hasta</label><select name="hascue" class="form-select form-select-sm lst-cue"><?= cue_opts($impList, $hasCue) ?></select>
+  </div>
   <button class="btn btn-primary btn-sm"><i class="bi bi-search me-1"></i>Ver</button>
 </form>
 <div class="lst-doc">
@@ -99,4 +103,4 @@ $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) 
     </tbody>
   </table>
 </div>
-<?php module_foot(); ?>
+<?php module_foot('<script>document.addEventListener("DOMContentLoaded",function(){if(window.IWK&&IWK.combo){IWK.combo.enhanceForm(document.querySelector(".lst-filter"));}});</script>'); ?>
