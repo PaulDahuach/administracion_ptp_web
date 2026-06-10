@@ -100,6 +100,8 @@ function fijo_where($def, $alias) {
 /** Busca la def de un campo por su columna (para conocer tipo/label). */
 function campo_def($def, $col) {
     foreach ($def['campos'] as $c) if ($c['col'] === $col) return $c;
+    foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h)   // también campos de hijos (para lookup big en grilla)
+        foreach ($h['campos'] as $c) if ($c['col'] === $col) return $c;
     return ['col' => $col, 'tipo' => 'text', 'label' => $col];
 }
 
@@ -198,7 +200,8 @@ function defs($def) {
         }
         $campos = [];
         foreach ($h['campos'] as $c) {
-            if ($c['tipo'] === 'select' && isset($c['lookup'])) $c['options'] = opciones($c['lookup']);
+            // 'big' (ej. cuentas contables, 441) → NO precargar opciones; autocomplete server-side en la grilla
+            if ($c['tipo'] === 'select' && isset($c['lookup']) && empty($c['big'])) $c['options'] = opciones($c['lookup']);
             $campos[] = $c;
         }
         $out['hijos'][] = ['key' => $h['key'], 'titulo' => $h['titulo'], 'clave' => $clave, 'campos' => $campos];
@@ -277,17 +280,17 @@ function obtener($def) {
         elseif ($c['tipo'] === 'decimal') $row[$c['col']] = number_format((float) $row[$c['col']], 2, '.', ',');  // convención app: punto decimal, coma miles
     }
     $row['__hijos'] = [];
-    foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) $row['__hijos'][$h['key']] = childRows($h, $id);
+    foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) $row['__hijos'][$h['key']] = childRows($h, $idSql);
     ok($row);
 }
 
 /** Filas de un hijo: valor crudo por campo + nombre (_den) para los selects. */
 function childRows($h, $pid) {
     $fk = $h['fk']; $clave = $h['clave']; $kc = $clave['col'];
-    $sel = ["C.[$kc] AS __key"]; $joins = ''; $i = 0; $orderBy = "C.[$kc]";
+    $sel = ["C.[$kc] AS __key"]; $joins = []; $i = 0; $orderBy = "C.[$kc]";
     if ($clave['tipo'] === 'select') {
         $lk = $clave['lookup'];
-        $joins .= " LEFT JOIN [{$lk['tabla']}] AS k ON C.[$kc] = k.[{$lk['pk']}]";
+        $joins[] = "LEFT JOIN [{$lk['tabla']}] AS k ON C.[$kc] = k.[{$lk['pk']}]";
         $sel[] = "k.[{$lk['den']}] AS __keyden";
         $orderBy = "k.[{$lk['den']}]";
     }
@@ -296,11 +299,14 @@ function childRows($h, $pid) {
         $sel[] = "C.[{$c['col']}] AS [{$c['col']}]";
         if ($c['tipo'] === 'select' && isset($c['lookup'])) {
             $a = 'h' . ($i++); $lk = $c['lookup'];
-            $joins .= " LEFT JOIN [{$lk['tabla']}] AS $a ON C.[{$c['col']}] = $a.[{$lk['pk']}]";
+            $joins[] = "LEFT JOIN [{$lk['tabla']}] AS $a ON C.[{$c['col']}] = $a.[{$lk['pk']}]";
             $sel[] = "$a.[{$lk['den']}] AS [{$c['col']}__den]";
         } elseif ($c['tipo'] === 'date') { $dateCols[] = $c; }
     }
-    $rows = db_query("SELECT " . implode(', ', $sel) . " FROM [{$h['tabla']}] AS C$joins WHERE C.[$fk] = $pid ORDER BY $orderBy;");
+    // ACE exige paréntesis anidados con 2+ LEFT JOIN
+    $from = "[{$h['tabla']}] AS C";
+    foreach ($joins as $j) $from = "($from $j)";
+    $rows = db_query("SELECT " . implode(', ', $sel) . " FROM $from WHERE C.[$fk] = $pid ORDER BY $orderBy;");
     if ($dateCols) foreach ($rows as &$r) conv_fechas($r, $dateCols, 'iso');
     return $rows;
 }
@@ -358,6 +364,9 @@ function guardarHijos($def, $pid) {
         if (!array_key_exists($h['key'], $hijos)) continue;   // hijo no enviado → no tocar
         $rows = is_array($hijos[$h['key']]) ? $hijos[$h['key']] : [];
         $fk = $h['fk']; $kc = $h['clave']['col']; $tabla = $h['tabla'];
+        // 'entity': sub-entidad con PK propia (ej. Subrubros CODSUB) referenciada por otras tablas →
+        // sync por upsert (NO borrar-reinsertar, que rompería las FKs); baja bloqueada por 'uso'.
+        if ($h['clave']['tipo'] === 'entity') { guardarHijosEntity($h, $pid, $rows); continue; }
         db_exec("DELETE FROM [$tabla] WHERE [$fk]=$pid;");
         $line = 0; $seen = [];
         foreach ($rows as $r) {
@@ -376,6 +385,42 @@ function guardarHijos($def, $pid) {
             }
             db_exec("INSERT INTO [$tabla] ([" . implode('],[', $cols) . "]) VALUES (" . implode(',', $vals) . ");");
         }
+    }
+}
+
+/** Hijo 'entity': sub-entidad con PK propia auto-numerada (clave.ult). Upsert por __key + borra los
+ *  que ya no están (bloqueando si están en uso, como el Form_Delete del subform legacy). */
+function guardarHijosEntity($h, $pid, $rows) {
+    $fk = $h['fk']; $kc = $h['clave']['col']; $tabla = $h['tabla']; $ult = $h['clave']['ult'];
+    $exist = [];
+    foreach (db_query("SELECT [$kc] AS k FROM [$tabla] WHERE [$fk]=$pid;") as $x) $exist[(int) $x['k']] = true;
+    $post = [];
+    foreach ($rows as $r) {
+        $cols = []; $vals = [];
+        foreach ($h['campos'] as $c) {
+            $err = null; $lit = val_sql($c, (isset($r[$c['col']]) ? $r[$c['col']] : ''), $err);
+            if ($err) $lit = 'Null';
+            $cols[] = $c['col']; $vals[] = $lit;
+        }
+        $key = intval(isset($r['__key']) ? $r['__key'] : 0);
+        if ($key > 0) {   // existente → UPDATE (preserva el CODSUB que referencian los Productos)
+            $post[$key] = true;
+            $sets = []; foreach ($cols as $i => $col) $sets[] = "[$col]={$vals[$i]}";
+            if ($sets) db_exec("UPDATE [$tabla] SET " . implode(',', $sets) . " WHERE [$kc]=$key;");
+        } else {          // nuevo → INSERT con número propio
+            $nk = next_number($ult);
+            $allCols = array_merge([$fk, $kc], $cols); $allVals = array_merge([(string) $pid, (string) $nk], $vals);
+            db_exec("INSERT INTO [$tabla] ([" . implode('],[', $allCols) . "]) VALUES (" . implode(',', $allVals) . ");");
+        }
+    }
+    // borrar los quitados (bloquea si están en uso)
+    foreach ($exist as $k => $_) {
+        if (isset($post[$k])) continue;
+        foreach (((isset($h['uso']) ? $h['uso'] : [])) as $u) {
+            if (db_row("SELECT TOP 1 [{$u['col']}] AS x FROM [{$u['tabla']}] WHERE [{$u['col']}]=$k;"))
+                throw new Exception(isset($u['msg']) ? $u['msg'] : 'No se puede quitar un sub-registro en uso.');
+        }
+        db_exec("DELETE FROM [$tabla] WHERE [$kc]=$k;");
     }
 }
 

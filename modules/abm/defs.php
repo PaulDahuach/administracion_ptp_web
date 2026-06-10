@@ -360,6 +360,20 @@ return [
             ['col' => 'PUNRUB', 'label' => 'Utilidad Neta x Alta de Productos', 'tipo' => 'decimal', 'min' => 0, 'max' => 100, 'suffix' => '%'],
             ['col' => 'DISRUB', 'label' => 'Discontinuado', 'tipo' => 'bool'],
         ],
+        // Subform de Subrubros (como el Frm SI Rubros). Hijo 'entity': PK propia CODSUB (ULTSUB),
+        // upsert por __key, baja bloqueada si lo usan Productos. NO borrar-reinsertar.
+        'hijos' => [[
+            'key' => 'subrubros', 'titulo' => 'Subrubros', 'tabla' => 'Tbl SubRubros', 'fk' => 'CODRUB',
+            'clave' => ['tipo' => 'entity', 'col' => 'CODSUB', 'ult' => 'ULTSUB'],
+            'uso' => [['tabla' => 'Tbl Productos', 'col' => 'CODSUB', 'msg' => 'No se puede quitar un subrubro asignado a productos (Entidad Comprometida).']],
+            'campos' => [
+                ['col' => 'DENSUB', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 30],
+                ['col' => 'CPASUB', 'label' => 'Cta. Compras', 'tipo' => 'select', 'big' => true, 'strkey' => true, 'lookup' => $CTA_CONTABLE_IMP, 'search' => ['CODCUE', 'DENCUE']],
+                ['col' => 'VTASUB', 'label' => 'Cta. Ventas', 'tipo' => 'select', 'big' => true, 'strkey' => true, 'lookup' => $CTA_CONTABLE_IMP, 'search' => ['CODCUE', 'DENCUE']],
+                ['col' => 'PUNSUB', 'label' => '% Util', 'tipo' => 'decimal', 'min' => 0, 'max' => 100],
+                ['col' => 'DISSUB', 'label' => 'Discont.', 'tipo' => 'bool'],
+            ],
+        ]],
     ],
 
     // ── Stock: Subrubros (porta el subform de Frm SI Rubros como maestro propio) ──

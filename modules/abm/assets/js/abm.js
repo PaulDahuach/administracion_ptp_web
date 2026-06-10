@@ -28,7 +28,7 @@ const App = {
         if (c.tipo === 'select' && c.big) {
             // lookup grande (ej. Localidades): autocomplete server-side. Hidden = id; text = búsqueda.
             return `<div class="ac-wrap">
-                <input type="hidden" ${id} data-col="${c.col}">
+                <input type="hidden" ${id} class="hb-in" data-col="${c.col}">
                 <input type="text" class="form-control ac-input" data-accol="${c.col}" autocomplete="off" placeholder="Buscar…">
                 <div class="ac-list"></div></div>`;
         }
@@ -69,19 +69,19 @@ const App = {
     },
 
     acInput(col) { return this.el('formFields').querySelector('.ac-input[data-accol="' + col + '"]'); },
+    acHidden(inp) { const w = inp.closest('.ac-wrap'); return w ? w.querySelector('input[data-col]') : null; },   // hidden de ESTE ac-wrap (sirve para form y grilla)
 
-    // Autocomplete: delegación de eventos para los campos lookup 'big'.
-    bindAC() {
-        const ff = this.el('formFields'); let timer;
+    // Autocomplete 'big': delegación en un contenedor (formFields o hijosCont). Server-side.
+    bindAC(container) {
+        const ff = container || this.el('formFields'); let timer;
         ff.addEventListener('input', e => {
             const inp = e.target.closest('.ac-input'); if (!inp) return;
-            const col = inp.dataset.accol;
-            const hid = this.el('f_' + col); if (hid) hid.value = '';   // al tipear se pierde la selección
-            clearTimeout(timer); const q = inp.value;
+            const hid = this.acHidden(inp); if (hid) hid.value = '';   // al tipear se pierde la selección
+            clearTimeout(timer); const q = inp.value; const col = inp.dataset.accol;
             timer = setTimeout(() => this.acSearch(col, q, inp), 300);
         });
         document.addEventListener('click', e => {
-            if (!e.target.closest('.ac-wrap')) ff.querySelectorAll('.ac-list').forEach(l => l.classList.remove('show'));
+            if (!e.target.closest('.ac-wrap')) document.querySelectorAll('.ac-list').forEach(l => l.classList.remove('show'));
         });
     },
 
@@ -95,7 +95,7 @@ const App = {
             (o.cod != null && o.cod !== '' ? `<span class="ac-code">${this.esc(o.cod)}</span>` : '') +
             `${this.esc(o.den)}</div>`).join('');
         list.querySelectorAll('.ac-item').forEach(it => it.addEventListener('click', () => {
-            this.el('f_' + col).value = it.dataset.id;
+            const hid = this.acHidden(inp); if (hid) hid.value = it.dataset.id;
             inp.value = it.dataset.den;
             list.classList.remove('show');
         }));
@@ -114,6 +114,7 @@ const App = {
                 <button type="button" class="btn btn-outline-primary btn-sm mt-2 hb-add" data-key="${h.key}"><i class="bi bi-plus-lg me-1"></i>Agregar</button>
               </div></div></div>`;
         }).join('');
+        this.bindAC(this.el('hijosCont'));   // autocomplete 'big' en las grillas de hijos
     },
 
     hijoCols(h) {
@@ -124,8 +125,10 @@ const App = {
     },
 
     rowHtml(h, r) {
+        // 'entity': llevo la PK propia (CODSUB) en data-key para distinguir existentes (update) de nuevos (insert)
+        const dk = (h.clave.tipo === 'entity' && r && r.__key != null && r.__key !== '') ? ` data-key="${this.esc(r.__key)}"` : '';
         const cells = this.hijoCols(h).map(c => `<td>${this.ctrl(c)}</td>`).join('');
-        return `<tr>${cells}<td><button type="button" class="btn btn-outline-danger btn-sm btn-remove-row">&times;</button></td></tr>`;
+        return `<tr${dk}>${cells}<td><button type="button" class="btn btn-outline-danger btn-sm btn-remove-row">&times;</button></td></tr>`;
     },
 
     renderHijo(h, rows) {
@@ -144,6 +147,8 @@ const App = {
             const v = (col === claveCol) ? r.__key : r[col];
             if (el.type === 'checkbox') el.checked = !!v;
             else el.value = (v === null || v === undefined) ? '' : v;
+            // big: poblar el texto del autocomplete con la denominación
+            if (el.type === 'hidden') { const w = el.closest('.ac-wrap'); if (w) { const ai = w.querySelector('.ac-input'); if (ai) ai.value = (r[col + '__den'] != null ? r[col + '__den'] : ''); } }
         });
     },
 
@@ -260,6 +265,7 @@ const App = {
             this.el('tb_' + h.key).querySelectorAll('tr').forEach(tr => {
                 const o = {};
                 tr.querySelectorAll('.hb-in').forEach(el => { o[el.dataset.col] = (el.type === 'checkbox') ? (el.checked ? '1' : '') : el.value; });
+                if (h.clave.tipo === 'entity' && tr.dataset.key) o.__key = tr.dataset.key;
                 rows.push(o);
             });
             out[h.key] = rows;
