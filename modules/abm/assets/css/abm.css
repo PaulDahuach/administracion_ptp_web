@@ -17,7 +17,7 @@
 /* layout estilo legacy: label a la izquierda + 2 columnas en pantalla ancha (sin scroll).
    Flujo column-major (multi-column): llena la columna izquierda de arriba a abajo y luego la derecha. */
 .fc-form #formFields { column-count:1; column-gap:2.5rem; }
-@media (min-width:992px) { .fc-form #formFields { column-count:2; } }
+@media (min-width:992px) { .fc-form #formFields.fc-2col { column-count:2; } }
 .fc-form .fc-frow { break-inside:avoid; display:flex; align-items:center; gap:.6rem; margin-bottom:.45rem; }
 .fc-form .fc-flabel { flex:0 0 11rem; text-align:right; font-size:.8rem; font-weight:600;
     color:var(--bs-secondary-color); line-height:1.15; }

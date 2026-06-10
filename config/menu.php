@@ -171,7 +171,7 @@ return [
         ['label' => 'Claves de Acceso', 'disabled' => true],
         ['label' => 'Período de Control', 'disabled' => true],
         ['label' => 'Período Predeterminado en Listados', 'disabled' => true],
-        ['label' => 'Tipos de Movimientos Holistor', 'disabled' => true],
+        ['label' => 'Tipos de Movimientos Holistor', 'desc' => 'Tipos de movimiento para exportación a Holistor (código + denominación)', 'icon' => 'bi-upc', 'url' => '/modules/abm/?m=holistor'],
         ['head' => 'Procesos'],
         ['label' => 'Cotización u$s', 'disabled' => true],
         ['label' => 'Exportación Percepciones I.V.A. [Compras]', 'disabled' => true],

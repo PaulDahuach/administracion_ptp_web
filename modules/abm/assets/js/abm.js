@@ -51,7 +51,7 @@ const App = {
     },
 
     buildForm() {
-        const rows = [this.frow('Código', '<input type="text" id="f__cod" class="form-control" disabled>', 'narrow')];
+        const rows = [this.frow(this.esc(this.DEF.codlabel || 'Código'), '<input type="text" id="f__cod" class="form-control" disabled>', 'narrow')];
         this.DEF.campos.forEach(c => {
             const req = c.req ? ' <span class="text-danger">*</span>' : '';
             let ctl = this.ctrl(c, 'f_' + c.col);
@@ -62,6 +62,9 @@ const App = {
             rows.push(this.frow(this.esc(c.label) + req, ctl, w));
         });
         this.el('formFields').innerHTML = rows.join('');
+        // 2 columnas sólo en forms grandes (override por def 'cols'); chicos = 1 columna (vertical)
+        const twoCol = (this.DEF.cols === 2) || (this.DEF.cols !== 1 && this.DEF.campos.length >= 12);
+        this.el('formFields').classList.toggle('fc-2col', twoCol);
         this.bindAC();
     },
 
@@ -246,7 +249,7 @@ const App = {
     },
 
     // ---------- acciones ----------
-    nuevo() { this.currentId = null; this.clearForm(); this.setMode('create'); setTimeout(() => { const f = this.el('f_' + this.DEF.campos[0].col); if (f) f.focus(); }, 100); },
+    nuevo() { this.currentId = null; this.clearForm(); this.setMode('create'); setTimeout(() => { const f = this.DEF.strpk ? this.el('f__cod') : this.el('f_' + this.DEF.campos[0].col); if (f) f.focus(); }, 100); },
     editar() { if (this.currentId) this.setMode('edit'); },
     cancelar() { if (this.currentId) this.cargar(this.currentId); else { this.clearForm(); this.setMode('idle'); } },
 
@@ -268,6 +271,7 @@ const App = {
         this.el('formErr').textContent = '';
         const fd = new FormData();
         fd.append('__id', this.currentId || '');
+        if (this.DEF.strpk && !this.currentId) fd.append('__newpk', (this.el('f__cod').value || '').trim());
         this.DEF.campos.forEach(c => { const el = this.el('f_' + c.col); if (!el) return; fd.append(c.col, (c.tipo === 'bool') ? (el.checked ? '1' : '') : el.value); });
         fd.append('__hijos', JSON.stringify(this.collectHijos()));
         const j = await (await fetch('api.php?action=save&m=' + encodeURIComponent(this.M), { method: 'POST', body: fd })).json();
@@ -298,6 +302,8 @@ const App = {
             this.el('btnEliminar').disabled = (mode !== 'view');
         }
         this.el('mainForm').classList.toggle('mode-view', !editing);
+        const cod = this.el('f__cod');   // strpk: el código se edita sólo al crear
+        if (cod && this.DEF.strpk) cod.disabled = (mode !== 'create');
     },
 
     // ---------- utilidades ----------

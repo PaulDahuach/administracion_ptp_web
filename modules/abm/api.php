@@ -117,7 +117,7 @@ function check_unico($def, $id) {
         $lit = val_sql($campo, (isset($_POST[$col]) ? $_POST[$col] : ''), $err);
         if ($lit === null || $lit === 'Null') continue;   // vacío → no chequear
         if (is_array($u) && isset($u['except']) && trim($lit, "'") === $u['except']) continue;
-        $excl = ($id !== '') ? " AND [$pk]<>" . intval($id) : '';
+        $excl = ($id !== '') ? " AND [$pk]<>" . pk_lit($def, $id) : '';
         $r = db_row("SELECT [$pk] AS k FROM [{$def['tabla']}] WHERE [$col]=$lit$excl$scope;");
         if ($r) { $lbl = isset($campo['label']) ? $campo['label'] : $col; return "Ya existe un registro con esa $lbl."; }
     }
@@ -184,7 +184,7 @@ function alta_lit($spec) {
 
 // ─────────────────────────── maestro ───────────────────────────
 function defs($def) {
-    $out = ['titulo' => $def['titulo'], 'pk' => $def['pk'], 'buscable' => !empty($def['buscable']), 'campos' => [], 'hijos' => []];
+    $out = ['titulo' => $def['titulo'], 'pk' => $def['pk'], 'buscable' => !empty($def['buscable']), 'strpk' => !empty($def['strpk']), 'codlabel' => (isset($def['codlabel']) ? $def['codlabel'] : 'Código'), 'cols' => (isset($def['cols']) ? (int) $def['cols'] : 0), 'campos' => [], 'hijos' => []];
     foreach ($def['campos'] as $c) {
         // 'big' (ej. Localidades, 19k filas) → NO precargar opciones; el JS usa autocomplete server-side.
         if ($c['tipo'] === 'select' && isset($c['lookup']) && empty($c['big'])) $c['options'] = opciones($c['lookup']);
@@ -250,11 +250,14 @@ function listar($def) {
     ok($rows);
 }
 
+/** Literal de PK: entero (auto) o string entre comillas (strpk: código manual ej. Holistor "V01"). */
+function pk_lit($def, $raw) { return !empty($def['strpk']) ? "'" . db_esc(trim((string) $raw)) . "'" : (string) intval($raw); }
+
 function obtener($def) {
-    $id = intval((isset($_GET['id']) ? $_GET['id'] : 0));
+    $idSql = pk_lit($def, isset($_GET['id']) ? $_GET['id'] : '');
     $w = fijo_where($def, '');
     $scope = ($w !== '') ? " AND $w" : '';
-    $row = db_row("SELECT * FROM [{$def['tabla']}] WHERE [{$def['pk']}] = $id$scope;");
+    $row = db_row("SELECT * FROM [{$def['tabla']}] WHERE [{$def['pk']}] = $idSql$scope;");
     if (!$row) { fail('Registro no encontrado'); return; }
     conv_fechas($row, $def['campos'], 'iso');
     // Denominación de los lookups 'big' (para mostrar en el input de autocomplete al cargar).
@@ -319,19 +322,26 @@ function guardar($def) {
     if ($id === '') {
         $te = check_tope($def);
         if ($te) { fail($te); return; }
-        $pid = next_number($def['ult']);
+        if (!empty($def['strpk'])) {   // PK = código manual (ej. Holistor "V01")
+            $code = trim((isset($_POST['__newpk']) ? $_POST['__newpk'] : ''));
+            if ($code === '') { fail('Falta el código'); return; }
+            if (db_row("SELECT [$pk] FROM [{$def['tabla']}] WHERE [$pk]='" . db_esc($code) . "';")) { fail('Ya existe un registro con ese código'); return; }
+            $pid = $code; $pkLit = "'" . db_esc($code) . "'";
+        } else {
+            $pid = next_number($def['ult']); $pkLit = (string) $pid;
+        }
         $fcols = []; $fvals = [];
         if (!empty($def['fijo'])) foreach ($def['fijo'] as $fc => $fv) { $fcols[] = $fc; $fvals[] = fijo_lit($fv); }
         if (!empty($def['alta'])) foreach ($def['alta'] as $ac => $as) { $fcols[] = $ac; $fvals[] = alta_lit($as); }
         $allCols = array_merge([$pk], $fcols, $cols);
-        $allVals = array_merge([(string) $pid], $fvals, $vals);
+        $allVals = array_merge([$pkLit], $fvals, $vals);
         db_exec("INSERT INTO [{$def['tabla']}] ([" . implode('],[', $allCols) . "]) VALUES (" . implode(',', $allVals) . ");");
         $nuevo = true;
     } else {
-        $pid = intval($id);
+        $pid = !empty($def['strpk']) ? $id : intval($id);
         $sets = [];
         foreach ($cols as $k => $col) $sets[] = "[$col]={$vals[$k]}";
-        db_exec("UPDATE [{$def['tabla']}] SET " . implode(',', $sets) . " WHERE [$pk]=$pid;");
+        db_exec("UPDATE [{$def['tabla']}] SET " . implode(',', $sets) . " WHERE [$pk]=" . pk_lit($def, $id) . ";");
         $nuevo = false;
     }
     guardarHijos($def, $pid);
@@ -371,19 +381,20 @@ function guardarHijos($def, $pid) {
 
 function borrar($def) {
     if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
-    $id = intval((isset($_POST['__id']) ? $_POST['__id'] : (isset($_GET['id']) ? $_GET['id'] : 0)));
-    if ($id <= 0) { fail('Falta id'); return; }
+    $idRaw = (isset($_POST['__id']) ? $_POST['__id'] : (isset($_GET['id']) ? $_GET['id'] : ''));
+    if (trim((string) $idRaw) === '' || (empty($def['strpk']) && intval($idRaw) <= 0)) { fail('Falta id'); return; }
+    $idSql = pk_lit($def, $idRaw);
     // Chequeo de uso (como DelData legacy): bloquear si el registro está referenciado.
     foreach (((isset($def['uso']) ? $def['uso'] : [])) as $u) {
-        $r = db_row("SELECT TOP 1 [{$u['col']}] AS k FROM [{$u['tabla']}] WHERE [{$u['col']}] = $id;");
+        $r = db_row("SELECT TOP 1 [{$u['col']}] AS k FROM [{$u['tabla']}] WHERE [{$u['col']}] = $idSql;");
         if ($r) { fail(isset($u['msg']) ? $u['msg'] : 'No se puede eliminar: el registro está en uso.', 409); return; }
     }
     // Las sub-tablas son propiedad del padre: borrarlas primero.
     foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) {
-        try { db_exec("DELETE FROM [{$h['tabla']}] WHERE [{$h['fk']}] = $id;"); } catch (Exception $e) {}
+        try { db_exec("DELETE FROM [{$h['tabla']}] WHERE [{$h['fk']}] = $idSql;"); } catch (Exception $e) {}
     }
     try {
-        db_exec("DELETE FROM [{$def['tabla']}] WHERE [{$def['pk']}] = $id;");
+        db_exec("DELETE FROM [{$def['tabla']}] WHERE [{$def['pk']}] = $idSql;");
         ok(true);
     } catch (Exception $e) {
         fail('No se puede eliminar: el registro está en uso por otros datos.', 409);

@@ -377,6 +377,16 @@ return [
         ],
     ],
 
+    // ── Varios: Tipos de Movimientos Holistor (PK STRING manual, ej. "V01"/"CBU") ──
+    'holistor' => [
+        'tabla'  => 'Tbl Holistor', 'pk' => 'CODHOL', 'strpk' => true, 'codlabel' => 'Código',
+        'titulo' => 'Tipos de Movimientos Holistor', 'icono' => 'bi-upc', 'orden' => 'DENHOL',
+        'uso'    => [['tabla' => 'Tbl Cuentas Contables', 'col' => 'CODHOL', 'msg' => 'No se puede eliminar: el tipo está asignado a cuentas contables.']],
+        'campos' => [
+            ['col' => 'DENHOL', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 50, 'list' => true],
+        ],
+    ],
+
     // ── Ejemplo 1: maestro simple ───────────────────────────────────────
     'localidades' => [
         'tabla'  => 'Tbl Localidades', 'pk' => 'CODLOC', 'ult' => 'ULTLOC',
