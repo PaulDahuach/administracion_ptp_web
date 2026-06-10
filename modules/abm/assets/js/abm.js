@@ -175,8 +175,8 @@ const App = {
     },
 
     // ---------- listado (Buscar) ----------
-    async loadList() {
-        const j = await this.api('list');
+    async loadList(q) {
+        const j = await this.api('list', this.DEF.buscable ? { q: (q || '') } : {});
         if (!j.ok) return;
         const rows = j.data || [];
         const listCols = this.DEF.campos.filter(c => c.list);
@@ -190,6 +190,8 @@ const App = {
         else {
             this.dt = $('#grdBuscar').DataTable({
                 data: data, pageLength: 25, order: [[1, 'asc']],
+                // en modo buscable el filtrado es server-side → desactivo el buscador cliente de DataTables
+                searching: !this.DEF.buscable,
                 language: { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-AR.json' },
                 createdRow: function (row, d) {
                     row.addEventListener('click', () => {
@@ -198,8 +200,22 @@ const App = {
                     });
                 }
             });
+            if (this.DEF.buscable) this.mountServerSearch();
         }
-        setTimeout(() => $('#modalBuscar .dataTables_filter input').trigger('focus'), 150);
+        if (!this.DEF.buscable) setTimeout(() => $('#modalBuscar .dataTables_filter input').trigger('focus'), 150);
+    },
+
+    // Buscador server-side para maestros 'buscable': un input propio arriba de la grilla que recarga del servidor.
+    mountServerSearch() {
+        const self = this; let t;
+        const wrap = document.createElement('div');
+        wrap.className = 'mb-2';
+        wrap.innerHTML = '<input type="search" class="form-control form-control-sm" id="srvSearch" placeholder="Buscar (código postal, denominación, código)…" autocomplete="off">';
+        const cont = this.el('grdBuscar').closest('.modal-body') || this.el('grdBuscar').parentNode;
+        cont.insertBefore(wrap, cont.firstChild);
+        const inp = wrap.querySelector('#srvSearch');
+        inp.addEventListener('input', function () { clearTimeout(t); const v = this.value; t = setTimeout(() => self.loadList(v), 300); });
+        setTimeout(() => inp.focus(), 150);
     },
 
     // ---------- cargar / poblar ----------

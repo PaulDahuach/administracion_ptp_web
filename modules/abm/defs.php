@@ -381,6 +381,7 @@ return [
     'localidades' => [
         'tabla'  => 'Tbl Localidades', 'pk' => 'CODLOC', 'ult' => 'ULTLOC',
         'titulo' => 'Localidades', 'icono' => 'bi-geo-alt', 'orden' => 'DENLOC',
+        'buscable' => true,   // 19.502 filas → Buscar server-side (TOP 50 sin término, TOP 200 filtrado)
         'campos' => [
             ['col' => 'CPXLOC', 'label' => 'Código Postal', 'tipo' => 'text', 'size' => 10, 'list' => true],
             ['col' => 'DENLOC', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 50, 'list' => true],

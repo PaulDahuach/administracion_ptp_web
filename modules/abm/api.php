@@ -184,7 +184,7 @@ function alta_lit($spec) {
 
 // ─────────────────────────── maestro ───────────────────────────
 function defs($def) {
-    $out = ['titulo' => $def['titulo'], 'pk' => $def['pk'], 'campos' => [], 'hijos' => []];
+    $out = ['titulo' => $def['titulo'], 'pk' => $def['pk'], 'buscable' => !empty($def['buscable']), 'campos' => [], 'hijos' => []];
     foreach ($def['campos'] as $c) {
         // 'big' (ej. Localidades, 19k filas) → NO precargar opciones; el JS usa autocomplete server-side.
         if ($c['tipo'] === 'select' && isset($c['lookup']) && empty($c['big'])) $c['options'] = opciones($c['lookup']);
@@ -225,9 +225,27 @@ function listar($def) {
     $from = "[{$def['tabla']}] AS M";
     foreach ($joins as $j) $from = "($from $j)";
     $orden = (isset($def['orden']) ? $def['orden'] : $pk);
-    $w = fijo_where($def, 'M');
-    $where = ($w !== '') ? " WHERE $w" : '';
-    $rows = db_query("SELECT " . implode(', ', $sel) . " FROM $from$where ORDER BY M.[$orden];");
+    $conds = [];
+    $w = fijo_where($def, 'M'); if ($w !== '') $conds[] = $w;
+    // 'buscable': maestros grandes (ej. Localidades 19k) → filtra server-side, TOP acotado, NO precarga todo
+    $top = '';
+    if (!empty($def['buscable'])) {
+        $q = trim(isset($_GET['q']) ? $_GET['q'] : '');
+        if ($q !== '') {
+            $top = 'TOP 200 ';
+            $qs = db_esc($q); $oc = [];
+            foreach ($def['campos'] as $c) {
+                if (empty($c['list']) || $c['tipo'] === 'select' || $c['tipo'] === 'bool' || $c['tipo'] === 'date') continue;
+                $oc[] = "M.[{$c['col']}] Like '%$qs%'";
+            }
+            if (is_numeric($q)) $oc[] = "M.[$pk] = " . intval($q);
+            if ($oc) $conds[] = '(' . implode(' OR ', $oc) . ')';
+        } else {
+            $top = 'TOP 50 ';   // sin término: sólo las primeras 50 (evita bajar 19k)
+        }
+    }
+    $where = count($conds) ? ' WHERE ' . implode(' AND ', $conds) : '';
+    $rows = db_query("SELECT $top" . implode(', ', $sel) . " FROM $from$where ORDER BY M.[$orden];");
     if ($dateCols) foreach ($rows as &$r) conv_fechas($r, $dateCols, 'disp');
     ok($rows);
 }
