@@ -18,6 +18,9 @@
 .lst-tbl thead th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: #000; font-weight: 700;
     border: 1px solid #000; padding: .25rem .5rem; }   /* caption con borde sólido negro (OldBorderStyle=1 del legacy) */
 .lst-tbl td { padding: .18rem .5rem; vertical-align: top; }
+/* listados simples (1 línea por fila): alto de fila exacto del Rpt legacy (257 twips = 0.453cm) */
+.lst-tbl.lst-tight td { padding: 0 .12rem; height: .453cm; line-height: .453cm; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lst-tbl.lst-tight th { padding: .12rem .12rem; }
 .lst-tbl tbody tr:nth-child(even) td { background: #f4f4f4; }   /* cebra muy suave para leer mejor */
 .lst-tbl .r { text-align: right; }
 .lst-tbl .mono { font-variant-numeric: tabular-nums; }

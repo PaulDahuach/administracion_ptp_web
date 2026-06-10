@@ -10,7 +10,7 @@ $rows = db_query("SELECT DENBAN, CITBAN, CODBAN FROM [Tbl Bancos] ORDER BY DENBA
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Bancos', 'bi-bank', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=4" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=6" rel="stylesheet">
 
 <div class="lst-doc">
   <div class="lst-head">
@@ -18,8 +18,9 @@ module_head('Listado de Bancos', 'bi-bank', $toolbar);
     <div class="lst-tit">BANCOS</div>
     <div class="lst-fecha"><?= date('d/m/Y H:i:s') ?></div>
   </div>
-  <table class="lst-tbl">
-    <thead><tr><th>Denominación</th><th class="r">C.U.I.T. Nº</th><th class="r" style="width:7rem">Código</th></tr></thead>
+  <table class="lst-tbl lst-tight" style="table-layout:fixed; width:19.0cm">
+    <colgroup><col style="width:15.397cm"><col style="width:2.19cm"><col style="width:1.40cm"></colgroup>
+    <thead><tr><th>Denominación</th><th class="r">C.U.I.T. Nº</th><th class="r">Código</th></tr></thead>
     <tbody>
       <?php foreach ($rows as $r): ?>
       <tr>
