@@ -10,11 +10,12 @@ $rows = db_query("SELECT DENBAN, CITBAN, CODBAN FROM [Tbl Bancos] ORDER BY DENBA
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Bancos', 'bi-bank', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=3" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=4" rel="stylesheet">
 
 <div class="lst-doc">
   <div class="lst-head">
-    <div><div class="lst-emp"><?= h(sys('empresa', 'PROCESADORA TEXTIL PARQUE S.A.')) ?></div><div class="lst-tit">BANCOS</div></div>
+    <div class="lst-emp"><?= h(sys('empresa', 'PROCESADORA TEXTIL PARQUE S.A.')) ?></div>
+    <div class="lst-tit">BANCOS</div>
     <div class="lst-fecha"><?= date('d/m/Y H:i:s') ?></div>
   </div>
   <table class="lst-tbl">
