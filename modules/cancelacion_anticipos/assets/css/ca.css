@@ -1,0 +1,39 @@
+/* Cancelación de Anticipos. */
+.fc-card { border-radius:.5rem; margin-bottom:.75rem; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+.fc-card .card-header { font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+    padding:.4rem .75rem; display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.fc-card .card-body { padding:.6rem .85rem; }
+
+.ca-head { display:grid; grid-template-columns:1fr 1fr; gap:.1rem 2rem; align-items:start; }
+@media (max-width:991px) { .ca-head { grid-template-columns:1fr; } }
+.pf { display:flex; align-items:center; gap:.6rem; margin-bottom:.45rem; }
+.pf > label { flex:0 0 6.5rem; text-align:right; font-size:.8rem; font-weight:600; color:var(--bs-secondary-color); }
+.pf > .form-control, .pf > .ac-wrap { flex:1 1 auto; min-width:0; }
+.pf .form-control { font-size:.85rem; padding:.28rem .55rem; height:auto; }
+.pf-mid .form-control, .pf-mid.pf > .form-control { max-width:12rem; }
+.pf-prov, .pf-wide { grid-column:1 / -1; }
+.ca-saldos { grid-column:1 / -1; display:flex; gap:2.5rem; margin-top:.3rem; }
+.ca-saldos label { font-size:.7rem; text-transform:uppercase; letter-spacing:.03em; color:var(--bs-secondary-color); display:block; }
+.ca-saldos span { font-size:1rem; font-weight:600; font-variant-numeric:tabular-nums; }
+
+.ca-tot { text-transform:none; font-weight:600; font-variant-numeric:tabular-nums; }
+.ca-tbl { font-size:.8rem; margin-bottom:0; }
+.ca-tbl thead th { font-size:.68rem; text-transform:uppercase; letter-spacing:.03em; color:var(--bs-secondary-color); white-space:nowrap; }
+.ca-tbl td, .ca-tbl th { padding:.25rem .45rem; vertical-align:middle; }
+.ca-tbl .text-end { font-variant-numeric:tabular-nums; }
+.ca-tbl input.imp { font-size:.8rem; padding:.12rem .35rem; }
+
+.ca-bar { font-size:.9rem; padding:.4rem .85rem; border-radius:.4rem; font-variant-numeric:tabular-nums; }
+.ca-bar.ok { background:rgba(25,135,84,.15); color:var(--bs-success); }
+.ca-bar.bad { background:rgba(220,53,69,.12); color:var(--bs-danger); }
+
+/* autocomplete */
+.ac-wrap { position:relative; }
+.ac-wrap .ac-list { position:absolute; z-index:1000; top:100%; left:0; right:0; max-height:260px; overflow-y:auto;
+    background:var(--bs-body-bg); border:1px solid var(--bs-border-color); border-radius:.375rem; display:none; box-shadow:0 .5rem 1rem rgba(0,0,0,.15); }
+.ac-wrap .ac-list.show { display:block; }
+.ac-wrap .ac-item { padding:.3rem .5rem; cursor:pointer; font-size:.82rem; border-bottom:1px solid var(--bs-border-color-translucent); }
+.ac-wrap .ac-item:hover { background:var(--bs-tertiary-bg); }
+.ac-wrap .ac-item .ac-code { color:var(--bs-secondary-color); font-size:.72rem; margin-right:.4rem; }
+
+.fc-toast-container { position:fixed; bottom:1rem; right:1rem; z-index:1060; }

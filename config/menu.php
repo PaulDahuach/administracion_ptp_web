@@ -94,7 +94,7 @@ return [
         ['label' => 'Notas de Crédito', 'desc' => 'NC del proveedor (ajuste de cuenta corriente · sin AFIP)', 'icon' => 'bi-file-earmark-minus', 'url' => '/modules/notas_credito_acr/'],
         ['label' => 'Notas de Débito', 'desc' => 'ND del proveedor (debita la cta cte · referencia comprobantes · sin AFIP)', 'icon' => 'bi-file-earmark-plus', 'url' => '/modules/notas_debito_acr/'],
         ['label' => 'Órdenes de Pago', 'desc' => 'Pago a proveedores (cancelación)', 'icon' => 'bi-cash-stack', 'url' => '/modules/ordenes_pago/'],
-        ['label' => 'Cancelación de Anticipos', 'disabled' => true],
+        ['label' => 'Cancelación de Anticipos', 'desc' => 'Aplica anticipos/acreditaciones del proveedor contra comprobantes pendientes', 'icon' => 'bi-arrow-left-right', 'url' => '/modules/cancelacion_anticipos/'],
         ['head' => 'Procesos'],
         ['label' => 'Export. Quincenal Ag.Rec. IIBB - Retenciones', 'disabled' => true],
         ['head' => 'Listados'],
