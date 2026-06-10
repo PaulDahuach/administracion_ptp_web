@@ -39,8 +39,8 @@ $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm
 module_head('Listado de Saldos Actuales', 'bi-clipboard-data', $toolbar);
 $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) ? $_SESSION['uid'] : '');
 ?>
-<link href="../../assets/css/listado.css?v=16" rel="stylesheet">
-<div class="lst-doc">
+<link href="../../assets/css/listado.css?v=17" rel="stylesheet">
+<div class="lst-doc lst-doc-wide">
   <div class="lst-head">
     <div class="lst-emp"><?= h(sys('empresa', 'PROCESADORA TEXTIL PARQUE S.A.')) ?></div>
     <div class="lst-tit">SALDOS ACTUALES CUENTAS CONTABLES</div>
@@ -48,9 +48,9 @@ $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) 
   </div>
   <table class="lst-tbl lst-jer">
     <colgroup>
-      <col style="width:7.0cm">
-      <col style="width:2.7cm"><col style="width:2.7cm"><col style="width:2.7cm">
-      <col style="width:1.5cm"><col style="width:1.4cm"><col style="width:1.0cm">
+      <col style="width:6.8cm">
+      <col style="width:3.0cm"><col style="width:3.0cm"><col style="width:3.0cm">
+      <col style="width:1.4cm"><col style="width:1.2cm"><col style="width:1.0cm">
     </colgroup>
     <thead>
       <tr><th rowspan="2">Cuenta</th><th colspan="3">Operativo</th><th colspan="3">Última Conciliación</th></tr>

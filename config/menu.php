@@ -44,7 +44,7 @@ return [
         ['label' => 'Plan de Cuentas', 'desc' => 'Plan de cuentas jerárquico con flags y cuenta bancaria — imprimible', 'icon' => 'bi-list-nested', 'url' => '/modules/list_plan_cuentas/'],
         ['label' => 'Plan de Cuentas (consulta)', 'desc' => 'Árbol de cuentas clickeable (→ mayor por cuenta)', 'icon' => 'bi-diagram-3', 'url' => '/modules/plan_cuentas/'],
         ['label' => 'Saldos Actuales', 'desc' => 'Saldos actuales por cuenta (débitos/créditos/saldo + conciliación + totales) — imprimible', 'icon' => 'bi-clipboard-data', 'url' => '/modules/list_saldos/'],
-        ['label' => 'Saldos Periódicos', 'disabled' => true],
+        ['label' => 'Saldos Periódicos', 'desc' => 'Saldos por cuenta acotados a un período (débitos/créditos/saldo + totales) — imprimible', 'icon' => 'bi-calendar-range', 'url' => '/modules/list_saldos_periodico/'],
         ['label' => 'Balance de Sumas y Saldos', 'desc' => 'Balance contable por período', 'icon' => 'bi-table', 'url' => '/modules/balance/'],
         ['label' => 'Movimientos Cheques', 'disabled' => true],
         ['label' => 'Movimientos Bancarios', 'disabled' => true],

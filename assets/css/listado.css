@@ -63,6 +63,11 @@ body { background: #e9edf2; }
 .lst-jer tr.tot td { font-weight: 700; border-top: 1px solid #000; }
 .lst-jer tbody tr:nth-child(even) td { background: transparent; }   /* sin cebra (la jerarquía ya guía) */
 
+/* barra de filtro (período) — fuera de la hoja, no se imprime */
+.lst-filter { max-width: 216mm; margin: 0 auto .5rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.lst-filter label { font-size: .82rem; font-weight: 600; color: var(--bs-body-color); margin: 0; }
+.lst-filter .form-control { width: auto; max-width: 10rem; }
+
 @page { size: Letter; margin: 12mm 13mm; }
 @media print {
     .fc-topbar, .no-print { display: none !important; }
