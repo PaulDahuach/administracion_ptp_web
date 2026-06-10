@@ -105,7 +105,11 @@ $saludo = $hh < 13 ? 'Buen día' : ($hh < 20 ? 'Buenas tardes' : 'Buenas noches'
         $vmenu = array();
         foreach ($menu as $section => $cards) {
             $vis = array();
-            foreach ($cards as $c) { if (empty($c['admin']) || $isAdmin) $vis[] = $c; }
+            foreach ($cards as $c) {
+                if (!empty($c['admin']) && !$isAdmin) continue;                    // tarjeta admin-only
+                if (!empty($c['opt']) && auth_opt_denied($c['opt'])) continue;     // restricción de usuario (Tbl Usuarios Menu)
+                $vis[] = $c;
+            }
             // Descartar sub-encabezados que quedaron sin opciones (p.ej. tras filtrar admin).
             $clean = array(); $nv = count($vis);
             for ($i = 0; $i < $nv; $i++) {
