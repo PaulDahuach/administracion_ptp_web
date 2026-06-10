@@ -18,7 +18,7 @@ $toolbar .= '</div><button id="btnBuscar" class="btn btn-outline-light btn-sm"><
 module_head('Cancelación de Anticipos', 'bi-arrow-left-right', $toolbar);
 ?>
 <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-<link href="assets/css/ca.css?v=1" rel="stylesheet">
+<link href="assets/css/ca.css?v=2" rel="stylesheet">
 <script>window.CA_RO=<?= $ro ? 'true' : 'false' ?>; window.CA_FECHA=<?= json_encode($fechaIso) ?>;</script>
 
 <div id="mainForm" class="mode-idle">
@@ -34,12 +34,12 @@ module_head('Cancelación de Anticipos', 'bi-arrow-left-right', $toolbar);
 
   <div class="card fc-card"><div class="card-header"><span><i class="bi bi-cash-stack me-1"></i>Anticipos / Acreditaciones</span><span class="ca-tot" id="totAnt"></span></div>
     <div class="card-body p-0"><table class="table table-sm ca-tbl mb-0"><thead><tr>
-      <th>Comp. Interno</th><th>Comp. Externo</th><th>Detalle</th><th class="text-end">Saldo</th><th class="text-end" style="width:9rem">Importe</th>
+      <th style="width:2.5rem"></th><th>Comp. Interno</th><th>Comp. Externo</th><th>Detalle</th><th class="text-end">Saldo</th><th class="text-end" style="width:9rem">Importe</th>
     </tr></thead><tbody id="tbAnt"></tbody></table></div></div>
 
   <div class="card fc-card"><div class="card-header"><span><i class="bi bi-receipt me-1"></i>Comprobantes pendientes (Referencias)</span><span class="ca-tot" id="totRef"></span></div>
     <div class="card-body p-0"><table class="table table-sm ca-tbl mb-0"><thead><tr>
-      <th>Vencimiento</th><th>Comp. Interno</th><th>Comp. Externo</th><th>Detalle</th><th class="text-end">Saldo</th><th class="text-end" style="width:9rem">Importe</th>
+      <th style="width:2.5rem"></th><th>Vencimiento</th><th>Comp. Interno</th><th>Comp. Externo</th><th>Detalle</th><th class="text-end">Saldo</th><th class="text-end" style="width:9rem">Importe</th>
     </tr></thead><tbody id="tbRef"></tbody></table></div></div>
 
   <div class="ca-bar" id="caBar"></div>
@@ -74,5 +74,5 @@ module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/ca.js?v=1"></script>
+<script src="assets/js/ca.js?v=2"></script>
 ');

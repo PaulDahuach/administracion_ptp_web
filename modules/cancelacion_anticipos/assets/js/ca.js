@@ -19,9 +19,9 @@ const CA = {
         const inp = this.el('f_prov');
         inp.addEventListener('input', () => { this.el('f_cue').value = ''; clearTimeout(t); const q = inp.value; t = setTimeout(() => this.provSearch(q), 280); });
         document.addEventListener('click', e => { if (!e.target.closest('.ac-wrap')) document.querySelectorAll('.ac-list').forEach(l => l.classList.remove('show')); });
-        // recalc al tipear importes
-        this.el('tbAnt').addEventListener('input', e => { if (e.target.classList.contains('imp')) this.recalc(); });
-        this.el('tbRef').addEventListener('input', e => { if (e.target.classList.contains('imp')) this.recalc(); });
+        // checkbox: auto-completa el importe (no se tipea a mano)
+        this.el('tbAnt').addEventListener('change', e => { if (e.target.classList.contains('chk')) this.onAntCheck(e.target); });
+        this.el('tbRef').addEventListener('change', e => { if (e.target.classList.contains('chk')) this.onRefCheck(e.target); });
         this.setMode('idle');
     },
 
@@ -42,15 +42,40 @@ const CA = {
         const d = j.data;
         this.el('sAnt').textContent = d.sancue; this.el('sOper').textContent = d.sopcue;
         this.el('tbAnt').innerHTML = d.anticipos.map(a => `<tr data-num="${a.nummov}" data-saldo="${a.saldo}">
+            <td class="text-center"><input type="checkbox" class="chk"></td>
             <td>${this.esc(a.interno)}</td><td>${this.esc(a.externo)}</td><td class="small">${this.esc(a.detalle)}</td>
             <td class="text-end">${this.fmt(a.saldo)}</td>
-            <td><input type="number" step="0.01" class="form-control form-control-sm text-end imp" value=""></td></tr>`).join('')
-            || '<tr><td colspan="5" class="text-muted small p-2">Sin anticipos disponibles.</td></tr>';
+            <td><input type="text" class="form-control form-control-sm text-end imp" value="" disabled></td></tr>`).join('')
+            || '<tr><td colspan="6" class="text-muted small p-2">Sin anticipos disponibles.</td></tr>';
         this.el('tbRef').innerHTML = d.comprobantes.map(c => `<tr data-num="${c.nummov}" data-fvx="${c.fvx}" data-saldo="${c.saldo}">
+            <td class="text-center"><input type="checkbox" class="chk"></td>
             <td>${this.esc(c.vencimiento)}</td><td>${this.esc(c.interno)}</td><td>${this.esc(c.externo)}</td><td class="small">${this.esc(c.detalle)}</td>
             <td class="text-end">${this.fmt(c.saldo)}</td>
-            <td><input type="number" step="0.01" class="form-control form-control-sm text-end imp" value=""></td></tr>`).join('')
-            || '<tr><td colspan="6" class="text-muted small p-2">Sin comprobantes pendientes.</td></tr>';
+            <td><input type="text" class="form-control form-control-sm text-end imp" value="" disabled></td></tr>`).join('')
+            || '<tr><td colspan="7" class="text-muted small p-2">Sin comprobantes pendientes.</td></tr>';
+        this.recalc();
+    },
+
+    sumChecked(id) { let s = 0; this.el(id).querySelectorAll('tr[data-num]').forEach(t => { if (t.querySelector('.chk').checked) s += this.num(t.querySelector('.imp').value); }); return Math.round(s * 100) / 100; },
+
+    onAntCheck(chk) {   // anticipo: tildar = aplicar el saldo completo
+        const tr = chk.closest('tr');
+        tr.querySelector('.imp').value = chk.checked ? this.num(tr.dataset.saldo).toFixed(2) : '';
+        this.recalc();
+    },
+    onRefCheck(chk) {   // comprobante: tildar = saldo, o la diferencia restante hasta el total de anticipos
+        const tr = chk.closest('tr');
+        if (chk.checked) {
+            const room = Math.round((this.sumChecked('tbAnt') - this.sumChecked('tbRef')) * 100) / 100;
+            if (room <= 0.005) {
+                chk.checked = false;
+                this.toast(this.sumChecked('tbAnt') <= 0 ? 'Primero tildá un anticipo' : 'Ya está balanceado: destildá un comprobante o sumá un anticipo', 'warning');
+                return;
+            }
+            tr.querySelector('.imp').value = Math.min(this.num(tr.dataset.saldo), room).toFixed(2);
+        } else {
+            tr.querySelector('.imp').value = '';
+        }
         this.recalc();
     },
 
