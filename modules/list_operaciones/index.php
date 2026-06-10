@@ -46,7 +46,7 @@ function flags_externo($r) {
     return $f;
 }
 ?>
-<link href="../../assets/css/listado.css?v=2" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=3" rel="stylesheet">
 <div class="lst-doc">
   <div class="lst-head">
     <div><div class="lst-emp"><?= h(sys('empresa', 'PROCESADORA TEXTIL PARQUE S.A.')) ?></div><div class="lst-tit">OPERACIONES</div></div>

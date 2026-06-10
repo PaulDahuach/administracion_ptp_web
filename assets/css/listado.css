@@ -1,3 +1,8 @@
+/* Univers Condensed self-hosteada (la del Rpt legacy): se sirve desde el sitio si el cliente
+   no la tiene instalada. Rutas relativas a este CSS (/assets/css → /assets/fonts). */
+@font-face { font-family:'Univers Condensed'; src:url('../fonts/UniversCondensed.woff2') format('woff2'), url('../fonts/UniversCondensed.woff') format('woff'); font-weight:normal; font-style:normal; font-display:swap; }
+@font-face { font-family:'Univers Condensed'; src:url('../fonts/UniversCondensed-Bold.woff2') format('woff2'), url('../fonts/UniversCondensed-Bold.woff') format('woff'); font-weight:bold; font-style:normal; font-display:swap; }
+
 /* Listados imprimibles (reportes tipo Rpt IC). Fuente del legacy: Univers Condensed
    (fallback Arial Narrow / Roboto Condensed, siempre presentes en Windows). */
 .lst-doc { background: var(--bs-body-bg); border-radius: .5rem; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); max-width: 1100px; margin: 0 auto;
