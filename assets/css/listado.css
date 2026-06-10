@@ -34,6 +34,24 @@ body { background: #e9edf2; }
 .lst-sub { margin: .1rem 0 .1rem .5rem; font-size: .78rem; }
 .lst-sub-h { font-size: .66rem; text-transform: uppercase; letter-spacing: .03em; color: #555; }
 
+/* ── Operaciones: reporte tabular ancho con checkboxes + auxiliares/modelos en columnas ── */
+.lst-doc-wide { padding: 12mm 8mm; }
+.lst-ops { table-layout: fixed; width: 100%; font-size: 7.4pt; }
+.lst-ops th { border: 1px solid #000; padding: 1px 2px; text-align: center; font-size: 6.8pt; line-height: 1.1; }
+.lst-ops th.l { text-align: left; } .lst-ops th.r { text-align: right; }
+.lst-ops td { border: 1px solid #ccc; padding: 1px 3px; vertical-align: top; overflow: hidden; }
+.lst-ops td.c { text-align: center; } .lst-ops td.r { text-align: right; }
+.lst-ops td.op-den { font-weight: 700; white-space: normal; }
+/* checkbox dibujado (☑/☐) */
+.cbx { display: inline-block; width: 10px; height: 10px; border: 1px solid #000; box-sizing: border-box; line-height: 9px; text-align: center; font-size: 8px; font-weight: 700; }
+.cbx.on::before { content: "\2713"; }
+/* sub-tablas (auxiliares / modelos) sin bordes externos, alineadas por colgroup fijo */
+.lst-ops td.nest { padding: 0; }
+.lst-ops table.sub { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.lst-ops table.sub td { border: 0; border-bottom: 1px solid #eee; padding: 1px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lst-ops table.sub tr:last-child td { border-bottom: 0; }
+.lst-ops .mod-h { font-weight: 700; background: #f0f0f0; white-space: normal; }
+
 @page { size: Letter; margin: 12mm 13mm; }
 @media print {
     .fc-topbar, .no-print { display: none !important; }
