@@ -41,7 +41,7 @@ $rows = db_query("SELECT C.CODCHQ, B.DENBAN, C.SYNCHQ, C.FEXCHQ, C.FAXCHQ, C.LIB
     FROM (([Tbl Cheques] AS C INNER JOIN [Tbl Bancos] AS B ON C.CODBAN=B.CODBAN)
       INNER JOIN [Tbl Movimientos Imputaciones] AS MI ON C.CODCHQ=MI.CODCHQ)
       INNER JOIN [Tbl Movimientos] AS M ON M.NUMMOV=MI.NUMMOV
-    WHERE $where ORDER BY C.CODCHQ, M.FEXMOV, M.NUMMOV, MI.ORDMOV;");
+    WHERE $where ORDER BY B.DENBAN, C.SYNCHQ, M.FEXMOV, M.NUMMOV, MI.ORDMOV;");   // = los 5 BreakLevel del diseño (todos asc)
 
 // agrupar por cheque + cuenta contable (niv + denom) requiere las cuentas
 $cuentas = array(); foreach (db_query("SELECT CODCUE, DENCUE FROM [Tbl Cuentas Contables];") as $r) $cuentas[trim((string) $r['CODCUE'])] = trim((string) nz($r['DENCUE'], ''));
