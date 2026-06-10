@@ -48,7 +48,7 @@ return [
         ['label' => 'Balance de Sumas y Saldos', 'desc' => 'Saldo anterior + débitos/créditos del período + saldo actual, por cuenta — imprimible', 'icon' => 'bi-journals', 'url' => '/modules/list_balance/'],
         ['label' => 'Balance (consulta)', 'desc' => 'Balance interactivo por cuenta y período', 'icon' => 'bi-table', 'url' => '/modules/balance/'],
         ['label' => 'Movimientos Cheques', 'desc' => 'Movimientos (debe/haber) por cheque: banco, librador, comprobante y cuenta — imprimible', 'icon' => 'bi-cash-coin', 'url' => '/modules/list_movim_cheques/'],
-        ['label' => 'Movimientos Bancarios', 'disabled' => true],
+        ['label' => 'Movimientos Bancarios', 'desc' => 'Ledger por cuenta bancaria: saldo anterior + movimientos (debe/haber/saldo corrido) + subtotales — imprimible', 'icon' => 'bi-bank', 'url' => '/modules/list_movim_bancarios/'],
         ['label' => 'Pre-Conciliación', 'disabled' => true],
         ['label' => 'Valores a Depositar', 'desc' => 'Cheques de terceros a depositar, por fecha de acreditación (año/mes/día) — imprimible', 'icon' => 'bi-cash-stack', 'url' => '/modules/list_cheques_fecha/?tipo=vad'],
         ['label' => 'Cheques Diferidos a Devengar', 'desc' => 'Cheques diferidos por fecha de acreditación (año/mes/día) — imprimible', 'icon' => 'bi-calendar-check', 'url' => '/modules/list_cheques_fecha/?tipo=dif'],
