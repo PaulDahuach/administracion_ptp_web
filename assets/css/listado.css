@@ -41,7 +41,7 @@ body { background: #e9edf2; }
 .lst-tbl.lst-ops thead th { text-align: center; padding: 1px 1px; }   /* captions centrados + padding chico (la base .lst-tbl thead th ponía .5rem y desbordaba las columnas angostas) */
 /* captions de las columnas de checkbox (3ª fila): más chicos para que entren */
 .lst-tbl.lst-ops thead tr:last-child th { font-size: 5.3pt; letter-spacing: -.2px; padding: 1px 0; }
-.lst-ops td { border: 1px solid #ccc; padding: 1px 3px; vertical-align: top; overflow: hidden; }
+.lst-ops td { border: 0; padding: 1px 3px; vertical-align: top; overflow: hidden; }
 .lst-ops td.c { text-align: center; } .lst-ops td.r { text-align: right; }
 .lst-ops td.op-den { font-weight: 700; white-space: normal; }
 /* checkbox dibujado (☑/☐) */
@@ -50,8 +50,7 @@ body { background: #e9edf2; }
 /* sub-tablas (auxiliares / modelos) sin bordes externos, alineadas por colgroup fijo */
 .lst-ops td.nest { padding: 0; }
 .lst-ops table.sub { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.lst-ops table.sub td { border: 0; border-bottom: 1px solid #eee; padding: 1px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lst-ops table.sub tr:last-child td { border-bottom: 0; }
+.lst-ops table.sub td { border: 0; padding: 1px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lst-ops .mod-h { font-weight: 700; background: #f0f0f0; white-space: normal; }
 
 @page { size: Letter; margin: 12mm 13mm; }
