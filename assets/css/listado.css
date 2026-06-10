@@ -1,5 +1,7 @@
-/* Listados imprimibles (reportes tipo Rpt IC). Tabla limpia + estilo de impresión. */
-.lst-doc { background: var(--bs-body-bg); border-radius: .5rem; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); max-width: 1100px; margin: 0 auto; }
+/* Listados imprimibles (reportes tipo Rpt IC). Fuente del legacy: Univers Condensed
+   (fallback Arial Narrow / Roboto Condensed, siempre presentes en Windows). */
+.lst-doc { background: var(--bs-body-bg); border-radius: .5rem; padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.1); max-width: 1100px; margin: 0 auto;
+    font-family: "Univers Condensed", "Arial Narrow", "Roboto Condensed", "Liberation Sans Narrow", sans-serif; }
 .lst-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid var(--bs-border-color); padding-bottom: .5rem; margin-bottom: .75rem; }
 .lst-emp { font-weight: 700; font-size: .95rem; }
 .lst-tit { font-size: .85rem; letter-spacing: .08em; color: var(--bs-secondary-color); text-transform: uppercase; }
