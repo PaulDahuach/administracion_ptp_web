@@ -194,5 +194,6 @@ return [
         ['head' => 'Sistema (versión web)'],
         ['label' => 'Pendientes de CAE', 'desc' => 'Comprobantes electrónicos sin CAE (AFIP caído) + reintento', 'icon' => 'bi-hourglass-split', 'url' => '/modules/cae_pendientes/'],
         ['label' => 'Estadísticas de Uso', 'desc' => 'Adopción: páginas, usuarios y máquinas', 'icon' => 'bi-graph-up-arrow', 'url' => '/modules/uso/', 'admin' => true],
+        ['label' => 'Performance', 'desc' => 'Tiempos por módulo/query — detectar cuellos de botella y cuelgues', 'icon' => 'bi-speedometer2', 'url' => '/modules/perf/', 'admin' => true],
     ],
 ];

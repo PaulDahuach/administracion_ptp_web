@@ -8,6 +8,8 @@
  * PHP 7.4 / Windows / driver Microsoft.ACE.OLEDB.12.0.
  */
 
+require_once __DIR__ . '/perf.php';   // instrumentación de tiempos (logs/perf-*.csv); no afecta la app
+
 /** Carga (una vez) la configuración del sistema. */
 function sys($key = null, $default = null) {
     static $cfg = null;
@@ -55,7 +57,9 @@ function db_connect() {
         if ($pass !== '') {
             $dsn .= 'Jet OLEDB:Database Password=' . $pass . ';';
         }
+        $__t = microtime(true);
         $conn->Open($dsn);
+        if (function_exists('perf_record')) perf_record('CONNECT (Open)', (microtime(true) - $__t) * 1000, 0, 'c');
     }
     return $conn;
 }
@@ -82,20 +86,23 @@ function ado_val($raw) {
  */
 function db_query($sql) {
     $conn = db_connect();
+    $__t = microtime(true);
     $rs = $conn->Execute($sql);
     $rows = [];
-    if ($rs === null) return $rows;
-    $count = $rs->Fields->Count;
-    while (!$rs->EOF) {
-        $row = [];
-        for ($i = 0; $i < $count; $i++) {
-            $f = $rs->Fields[$i];
-            $row[$f->Name] = ado_val($f->Value);
+    if ($rs !== null) {
+        $count = $rs->Fields->Count;
+        while (!$rs->EOF) {
+            $row = [];
+            for ($i = 0; $i < $count; $i++) {
+                $f = $rs->Fields[$i];
+                $row[$f->Name] = ado_val($f->Value);
+            }
+            $rows[] = $row;
+            $rs->MoveNext();
         }
-        $rows[] = $row;
-        $rs->MoveNext();
+        $rs->Close();
     }
-    $rs->Close();
+    if (function_exists('perf_record')) perf_record($sql, (microtime(true) - $__t) * 1000, count($rows), 'q');
     return $rows;
 }
 
@@ -122,7 +129,9 @@ function db_exec($sql) {
     }
     $conn = db_connect();
     $affected = 0;
+    $__t = microtime(true);
     $conn->Execute($sql, $affected);
+    if (function_exists('perf_record')) perf_record($sql, (microtime(true) - $__t) * 1000, (int) $affected, 'x');
     return (int) $affected;
 }
 
