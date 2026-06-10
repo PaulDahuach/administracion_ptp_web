@@ -66,11 +66,14 @@ body { background: #e9edf2; }
 .lst-jer tr.tot td { font-weight: 700; border-top: 1px solid #000; }
 .lst-jer tbody tr:nth-child(even) td { background: transparent; }   /* sin cebra (la jerarquía ya guía) */
 
-/* barra de filtro (período) — fuera de la hoja, no se imprime */
-.lst-filter { max-width: 216mm; margin: 0 auto .5rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.lst-filter label { font-size: .82rem; font-weight: 600; color: var(--bs-body-color); margin: 0; }
+/* barra de filtro (período / rango) — fuera de la hoja, no se imprime. Siempre clara (como la preview). */
+.lst-filter { max-width: 216mm; margin: 0 auto .5rem; display: flex; align-items: center; gap: .4rem .6rem; flex-wrap: wrap; }
+.lst-filter label { font-size: .82rem; font-weight: 600; color: #333; margin: 0; }
+.lst-filter .form-control, .lst-filter .form-select { background: #fff; color: #111; border-color: #ced4da; }
 .lst-filter .form-control { width: auto; max-width: 10rem; }
-.lst-filter .lst-cue { width: auto; max-width: 15rem; }
+.lst-filter .lst-cue { width: auto; max-width: 12rem; }
+/* grupos que no se parten al envolver (fechas juntas, cuentas juntas) */
+.lst-grp { display: inline-flex; align-items: center; gap: .4rem; flex: 0 0 auto; }
 
 @page { size: Letter; margin: 12mm 13mm; }
 @media print {
