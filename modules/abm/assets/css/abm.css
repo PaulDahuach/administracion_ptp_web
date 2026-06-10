@@ -57,5 +57,14 @@
 .fc-form.mode-view .fc-grid thead th:last-child { display:none; }
 .fc-form.mode-view .fc-grid td:last-child { visibility:hidden; }
 
+/* checklist (hijo 'check', ej. restricciones de acceso) */
+.chk-list { columns:2; column-gap:2rem; }
+@media (max-width:991px) { .chk-list { columns:1; } }
+.chk-grp { break-inside:avoid; margin-bottom:.6rem; }
+.chk-grp-h { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--bs-secondary-color); border-bottom:1px solid var(--bs-border-color-translucent); margin-bottom:.2rem; }
+.chk-item { display:block; font-size:.82rem; padding:.1rem 0; cursor:pointer; }
+.chk-item input { margin-right:.4rem; }
+.fc-form.mode-view .chk-item input { pointer-events:none; }
+
 .modal .table tbody tr { cursor:pointer; }
 .fc-toast-container { position:fixed; bottom:1rem; right:1rem; z-index:1060; }

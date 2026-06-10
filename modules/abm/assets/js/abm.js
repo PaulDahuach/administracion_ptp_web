@@ -22,6 +22,7 @@ const App = {
         const id = idAttr ? `id="${idAttr}"` : '';
         const numCls = (c.tipo === 'decimal') ? ' fc-num' : '';   // importes alineados a la derecha
         if (c.ro) return `<input type="text" ${id} class="form-control hb-in${numCls}" data-col="${c.col}" disabled>`;
+        if (c.tipo === 'password') return `<input type="password" ${id} class="form-control hb-in" data-col="${c.col}" autocomplete="new-password" placeholder="${idAttr ? '' : ''}">`;
         if (c.tipo === 'memo') { const mxm = c.size ? ` maxlength="${c.size}"` : ''; return `<textarea ${id}${mxm} class="form-control hb-in" data-col="${c.col}" rows="2"></textarea>`; }
         if (c.tipo === 'bool') return `<div class="form-check"><input type="checkbox" ${id} class="form-check-input hb-in" data-col="${c.col}" value="1"></div>`;
         if (c.tipo === 'date') return `<input type="date" ${id} class="form-control hb-in" data-col="${c.col}">`;
@@ -102,8 +103,20 @@ const App = {
         list.classList.add('show');
     },
 
+    checkHijoHtml(h) {
+        const groups = {};
+        (h.options || []).forEach(o => { const g = (o.grp == null ? '' : o.grp); (groups[g] = groups[g] || []).push(o); });
+        const body = Object.keys(groups).map(g => `<div class="chk-grp">${g ? `<div class="chk-grp-h">${this.esc(g)}</div>` : ''}` +
+            groups[g].map(o => `<label class="chk-item"><input type="checkbox" class="hc-chk" data-key="${h.key}" value="${this.esc(o.id)}"> ${this.esc(o.den)}</label>`).join('') + '</div>').join('');
+        return `<div class="card fc-card"><div class="card-header collapsed" data-bs-toggle="collapse" data-bs-target="#c_${h.key}">
+            <span><i class="bi bi-shield-lock me-1"></i>${this.esc(h.titulo)} <span class="badge bg-secondary ms-1" id="badge_${h.key}">0</span></span>
+            <i class="bi bi-chevron-down collapse-icon"></i></div>
+          <div id="c_${h.key}" class="collapse"><div class="card-body chk-list">${body}</div></div></div>`;
+    },
+
     buildHijos() {
         this.el('hijosCont').innerHTML = (this.DEF.hijos || []).map(h => {
+            if (h.tipo === 'check') return this.checkHijoHtml(h);
             const cols = this.hijoCols(h);
             const head = cols.map(c => `<th>${this.esc(c.label)}</th>`).join('') + '<th style="width:2.5rem"></th>';
             return `<div class="card fc-card"><div class="card-header collapsed" data-bs-toggle="collapse" data-bs-target="#c_${h.key}">
@@ -115,6 +128,11 @@ const App = {
               </div></div></div>`;
         }).join('');
         this.bindAC(this.el('hijosCont'));   // autocomplete 'big' en las grillas de hijos
+        this.el('hijosCont').addEventListener('change', e => {   // checklist: actualizar contador
+            const c = e.target.closest('.hc-chk'); if (!c) return;
+            const k = c.dataset.key;
+            this.el('badge_' + k).textContent = this.el('hijosCont').querySelectorAll('.hc-chk[data-key="' + k + '"]:checked').length;
+        });
     },
 
     hijoCols(h) {
@@ -133,6 +151,12 @@ const App = {
 
     renderHijo(h, rows) {
         rows = rows || [];
+        if (h.tipo === 'check') {   // checklist: marcar los tildados
+            const set = new Set(rows.map(String));
+            this.el('hijosCont').querySelectorAll('.hc-chk[data-key="' + h.key + '"]').forEach(c => { c.checked = set.has(c.value); });
+            this.el('badge_' + h.key).textContent = set.size;
+            return;
+        }
         const tb = this.el('tb_' + h.key);
         tb.innerHTML = rows.map(r => this.rowHtml(h, r)).join('');
         Array.from(tb.children).forEach((tr, i) => this.fillRow(tr, rows[i], h));
@@ -261,6 +285,10 @@ const App = {
     collectHijos() {
         const out = {};
         (this.DEF.hijos || []).forEach(h => {
+            if (h.tipo === 'check') {
+                out[h.key] = Array.from(this.el('hijosCont').querySelectorAll('.hc-chk[data-key="' + h.key + '"]:checked')).map(c => c.value);
+                return;
+            }
             const rows = [];
             this.el('tb_' + h.key).querySelectorAll('tr').forEach(tr => {
                 const o = {};
@@ -310,6 +338,8 @@ const App = {
         this.el('mainForm').classList.toggle('mode-view', !editing);
         const cod = this.el('f__cod');   // strpk: el código se edita sólo al crear
         if (cod && this.DEF.strpk) cod.disabled = (mode !== 'create');
+        // altaonly: campos que sólo se editan al crear (ej. capacitación del usuario)
+        this.DEF.campos.forEach(c => { if (c.altaonly) { const el = this.el('f_' + c.col); if (el) el.disabled = (mode === 'edit'); } });
     },
 
     // ---------- utilidades ----------

@@ -15,6 +15,7 @@ $action = (isset($_GET['action']) ? $_GET['action'] : '');
 $m = (isset($_GET['m']) ? $_GET['m'] : '');
 $def = (isset($DEFS[$m]) ? $DEFS[$m] : null);
 if (!$def) { fail('Maestro inválido: ' . $m); exit; }
+if (!empty($def['admin']) && !auth_is_admin()) { fail('Requiere administrador', 403); exit; }   // maestros sensibles (Usuarios)
 
 try {
     switch ($action) {
@@ -34,6 +35,15 @@ try {
 function opciones($lk) {
     $w = isset($lk['where']) ? ' WHERE ' . $lk['where'] : '';   // scope opcional, ej. "CODORI='D'"
     return db_query("SELECT [{$lk['pk']}] AS id, [{$lk['den']}] AS den FROM [{$lk['tabla']}]$w ORDER BY [{$lk['den']}];");
+}
+
+/** Opciones para un hijo 'check' (checklist), con agrupador opcional ('group'). */
+function opcionesGroup($lk) {
+    $grp = isset($lk['group']) ? $lk['group'] : null;
+    $w = isset($lk['where']) ? ' WHERE ' . $lk['where'] : '';
+    $sel = "[{$lk['pk']}] AS id, [{$lk['den']}] AS den" . ($grp ? ", [$grp] AS grp" : '');
+    $ord = ($grp ? "[$grp], " : '') . "[{$lk['den']}]";
+    return db_query("SELECT $sel FROM [{$lk['tabla']}]$w ORDER BY $ord;");
 }
 
 /** Literal SQL para un valor según tipo. Setea $err si falta un requerido. */
@@ -190,9 +200,14 @@ function defs($def) {
     foreach ($def['campos'] as $c) {
         // 'big' (ej. Localidades, 19k filas) → NO precargar opciones; el JS usa autocomplete server-side.
         if ($c['tipo'] === 'select' && isset($c['lookup']) && empty($c['big'])) $c['options'] = opciones($c['lookup']);
+        if ($c['tipo'] === 'select' && isset($c['fixed'])) $c['options'] = $c['fixed'];   // opciones inline (lista fija, ej. categoría O/S/C/A)
         $out['campos'][] = $c;
     }
     foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) {
+        if (isset($h['tipo']) && $h['tipo'] === 'check') {   // checklist (M:N): todas las opciones con checkbox
+            $out['hijos'][] = ['key' => $h['key'], 'titulo' => $h['titulo'], 'tipo' => 'check', 'col' => $h['col'], 'options' => opcionesGroup($h['lookup'])];
+            continue;
+        }
         $clave = ['tipo' => $h['clave']['tipo'], 'col' => $h['clave']['col']];
         if ($h['clave']['tipo'] === 'select') {
             $clave['label'] = $h['clave']['label'];
@@ -279,8 +294,17 @@ function obtener($def) {
         if ($c['tipo'] === 'date') $row[$c['col']] = to_disp_date($row[$c['col']]);
         elseif ($c['tipo'] === 'decimal') $row[$c['col']] = number_format((float) $row[$c['col']], 2, '.', ',');  // convención app: punto decimal, coma miles
     }
+    foreach ($def['campos'] as $c) if ($c['tipo'] === 'password' && array_key_exists($c['col'], $row)) $row[$c['col']] = '';   // nunca exponer la clave al navegador
     $row['__hijos'] = [];
-    foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) $row['__hijos'][$h['key']] = childRows($h, $idSql);
+    foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) {
+        if (isset($h['tipo']) && $h['tipo'] === 'check') {   // checklist: devuelve los ids tildados
+            $ids = array();
+            foreach (db_query("SELECT [{$h['col']}] AS k FROM [{$h['tabla']}] WHERE [{$h['fk']}]=$idSql;") as $x) $ids[] = (string) $x['k'];
+            $row['__hijos'][$h['key']] = $ids;
+        } else {
+            $row['__hijos'][$h['key']] = childRows($h, $idSql);
+        }
+    }
     ok($row);
 }
 
@@ -315,13 +339,25 @@ function guardar($def) {
     if (db_readonly()) { fail('Sistema en modo solo-lectura', 403); return; }
     $pk = $def['pk'];
     $id = trim((isset($_POST['__id']) ? $_POST['__id'] : ''));
-    $cols = []; $vals = [];
+    $cols = []; $vals = []; $upd = [];   // $cols/$vals = INSERT ; $upd = sets del UPDATE
     foreach ($def['campos'] as $c) {
         if (!empty($c['ro'])) continue;   // read-only: no se graba (saldos, fechas calculadas)
+        $raw = isset($_POST[$c['col']]) ? $_POST[$c['col']] : '';
+        if ($c['tipo'] === 'password') {   // clave: nunca se lee del server; en edición blank = mantener
+            $pw = trim((string) $raw);
+            if ($id === '') {
+                if ($pw === '' && !empty($c['req'])) { fail("Falta: {$c['label']}"); return; }
+                $cols[] = $c['col']; $vals[] = ($pw === '' ? 'Null' : "'" . db_esc($pw) . "'");
+            } elseif ($pw !== '') {
+                $upd[] = "[{$c['col']}]='" . db_esc($pw) . "'";
+            }
+            continue;
+        }
         $err = null;
-        $lit = val_sql($c, (isset($_POST[$c['col']]) ? $_POST[$c['col']] : ''), $err);
+        $lit = val_sql($c, $raw, $err);
         if ($err) { fail($err); return; }
         $cols[] = $c['col']; $vals[] = $lit;
+        if (empty($c['altaonly'])) $upd[] = "[{$c['col']}]=$lit";   // altaonly: editable sólo al alta
     }
     $ue = check_unico($def, $id);
     if ($ue) { fail($ue); return; }
@@ -345,9 +381,7 @@ function guardar($def) {
         $nuevo = true;
     } else {
         $pid = !empty($def['strpk']) ? $id : intval($id);
-        $sets = [];
-        foreach ($cols as $k => $col) $sets[] = "[$col]={$vals[$k]}";
-        db_exec("UPDATE [{$def['tabla']}] SET " . implode(',', $sets) . " WHERE [$pk]=" . pk_lit($def, $id) . ";");
+        if ($upd) db_exec("UPDATE [{$def['tabla']}] SET " . implode(',', $upd) . " WHERE [$pk]=" . pk_lit($def, $id) . ";");
         $nuevo = false;
     }
     guardarHijos($def, $pid);
@@ -363,6 +397,14 @@ function guardarHijos($def, $pid) {
     foreach (((isset($def['hijos']) ? $def['hijos'] : [])) as $h) {
         if (!array_key_exists($h['key'], $hijos)) continue;   // hijo no enviado → no tocar
         $rows = is_array($hijos[$h['key']]) ? $hijos[$h['key']] : [];
+        // 'check' (checklist M:N): borrar-reinsertar los ids tildados
+        if (isset($h['tipo']) && $h['tipo'] === 'check') {
+            db_exec("DELETE FROM [{$h['tabla']}] WHERE [{$h['fk']}]=$pid;");
+            $seen = array();
+            foreach ($rows as $v) { $iv = intval($v); if ($iv <= 0 || in_array($iv, $seen, true)) continue; $seen[] = $iv;
+                db_exec("INSERT INTO [{$h['tabla']}] ([{$h['fk']}],[{$h['col']}]) VALUES ($pid,$iv);"); }
+            continue;
+        }
         $fk = $h['fk']; $kc = $h['clave']['col']; $tabla = $h['tabla'];
         // 'entity': sub-entidad con PK propia (ej. Subrubros CODSUB) referenciada por otras tablas →
         // sync por upsert (NO borrar-reinsertar, que rompería las FKs); baja bloqueada por 'uso'.

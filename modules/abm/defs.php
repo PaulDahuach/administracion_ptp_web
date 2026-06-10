@@ -391,6 +391,27 @@ return [
         ],
     ],
 
+    // ── Varios: Usuarios (clave + categoría + restricciones de acceso). ADMIN-only ──
+    'usuarios' => [
+        'tabla'  => 'Tbl Usuarios', 'pk' => 'CODUSR', 'ult' => 'ULTUSR', 'admin' => true,
+        'titulo' => 'Usuarios', 'icono' => 'bi-people', 'orden' => 'DENUSR',
+        'unico'  => ['DENUSR', 'ACCUSR'],
+        'campos' => [
+            ['col' => 'DENUSR', 'label' => 'Denominación', 'tipo' => 'text', 'req' => true, 'size' => 50, 'list' => true],
+            ['col' => 'INIUSR', 'label' => 'Iniciales', 'tipo' => 'text', 'req' => true, 'size' => 5, 'ancho' => 'narrow', 'list' => true],
+            ['col' => 'ACCUSR', 'label' => 'Clave de Acceso', 'tipo' => 'password', 'req' => true],   // texto plano (como el legacy); nunca se expone; en edición blank = mantener
+            ['col' => 'CATUSR', 'label' => 'Categoría', 'tipo' => 'select', 'req' => true, 'strkey' => true, 'list' => true,
+                'fixed' => [['id' => 'O', 'den' => 'Operador'], ['id' => 'S', 'den' => 'Supervisor'], ['id' => 'C', 'den' => 'Capacitación'], ['id' => 'A', 'den' => 'Auditor']]],
+            ['col' => 'CAPUSR', 'label' => 'Capacitación', 'tipo' => 'bool', 'altaonly' => true],   // fija el libro → no se cambia en edición
+        ],
+        // Restricciones de acceso = checklist de las opciones de menú (Tbl Usuarios Menu M:N → Tbl Menu)
+        'hijos' => [[
+            'key' => 'restricciones', 'titulo' => 'Restricciones de Acceso', 'tabla' => 'Tbl Usuarios Menu', 'fk' => 'CODUSR',
+            'tipo' => 'check', 'col' => 'CODMEN',
+            'lookup' => ['tabla' => 'Tbl Menu', 'pk' => 'CODMEN', 'den' => 'DENMEN', 'group' => 'TABMEN'],
+        ]],
+    ],
+
     // ── Varios: Tipos de Movimientos Holistor (PK STRING manual, ej. "V01"/"CBU") ──
     'holistor' => [
         'tabla'  => 'Tbl Holistor', 'pk' => 'CODHOL', 'strpk' => true, 'codlabel' => 'Código',

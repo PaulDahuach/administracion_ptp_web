@@ -8,6 +8,7 @@ $DEFS = require __DIR__ . '/defs.php';
 $m = (isset($_GET['m']) ? $_GET['m'] : '');
 $def = (isset($DEFS[$m]) ? $DEFS[$m] : null);
 if (!$def) { module_head('Maestro', 'bi-table'); echo '<div class="alert alert-danger">Maestro inválido.</div>'; module_foot(); exit; }
+if (!empty($def['admin'])) auth_require_admin();   // maestros sensibles (ej. Usuarios)
 
 $ro = db_readonly();
 // Toolbar: Nuevo/Guardar/Cancelar + Buscar/Editar/Eliminar
@@ -26,7 +27,7 @@ $toolbar .= '</div>';
 module_head($def['titulo'], (isset($def['icono']) ? $def['icono'] : 'bi-table'), $toolbar);
 ?>
 <link href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-<link href="assets/css/abm.css?v=9" rel="stylesheet">
+<link href="assets/css/abm.css?v=10" rel="stylesheet">
 <script>window.ABM_M = <?= json_encode($m) ?>; window.ABM_RO = <?= $ro ? 'true' : 'false' ?>;</script>
 
 <div class="fc-form mode-view" id="mainForm" data-keynav data-keynav-submit="#btnGuardar">
@@ -87,5 +88,5 @@ module_foot('
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
-<script src="assets/js/abm.js?v=13"></script>
+<script src="assets/js/abm.js?v=14"></script>
 ');

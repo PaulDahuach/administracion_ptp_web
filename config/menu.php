@@ -166,7 +166,7 @@ return [
     'Varios' => [
         ['head' => 'Actualizaciones'],
         ['label' => 'Localidades', 'desc' => 'Alta/edición de localidades', 'icon' => 'bi-geo-alt', 'url' => '/modules/abm/?m=localidades'],
-        ['label' => 'Usuarios', 'disabled' => true],
+        ['label' => 'Usuarios', 'desc' => 'Usuarios: clave, categoría y restricciones de acceso (solo admin)', 'icon' => 'bi-people', 'url' => '/modules/abm/?m=usuarios', 'admin' => true],
         ['label' => 'Claves de Acceso', 'disabled' => true],
         ['label' => 'Período de Control', 'disabled' => true],
         ['label' => 'Período Predeterminado en Listados', 'disabled' => true],
