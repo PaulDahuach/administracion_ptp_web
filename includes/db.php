@@ -24,6 +24,10 @@ function sys($key = null, $default = null) {
     return array_key_exists($key, $cfg) ? $cfg[$key] : $default;
 }
 
+// Zona horaria de la app (logs de perf/uso, fechas de los listados, etc.). El server corre en UTC por
+// defecto → sin esto las horas salen +3hs. Default Argentina; override por config 'timezone'.
+date_default_timezone_set(sys('timezone', 'America/Argentina/Buenos_Aires'));
+
 /** True si el sistema está en modo solo-lectura. */
 function db_readonly() {
     return sys('mode', 'readonly') === 'readonly';
