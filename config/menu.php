@@ -59,7 +59,7 @@ return [
         ['label' => 'Cheques Diferidos a Devengar', 'desc' => 'Cheques diferidos por fecha de acreditación (año/mes/día) — imprimible', 'icon' => 'bi-calendar-check', 'url' => '/modules/list_cheques_fecha/?tipo=dif', 'opt' => 'Opción1574'],
         ['label' => 'Parte Diario de Caja', 'desc' => 'Caja del día: movimientos + cheques de terceros + cierre (efectivo/cheques) — imprimible', 'icon' => 'bi-cash-coin', 'url' => '/modules/list_parte_caja/', 'opt' => 'optIC470'],
         ['head' => 'Imputaciones Contables'],
-        ['label' => 'x Operación', 'disabled' => true],
+        ['label' => 'x Operación', 'desc' => 'Movimientos agrupados por operación, con total por operación y período — imprimible', 'icon' => 'bi-journal-text', 'url' => '/modules/list_imput_operacion/', 'opt' => 'optIC400'],
         ['label' => 'x Cuenta', 'desc' => 'Mayor por cuenta y período (Fec.Mov/Com)', 'icon' => 'bi-book', 'url' => '/modules/mayor/', 'opt' => 'optIC410'],
         ['head' => 'Gastos'],
         ['label' => 'x Fecha Movimiento', 'disabled' => true],
