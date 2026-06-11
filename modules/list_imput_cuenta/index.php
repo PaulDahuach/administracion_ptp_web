@@ -24,6 +24,12 @@ $mesIni = substr($hoyIso, 0, 7) . '-01';
 $desdeIso = isset($_GET['desde']) && $_GET['desde'] !== '' ? $_GET['desde'] : $mesIni;
 $hastaIso = isset($_GET['hasta']) && $_GET['hasta'] !== '' ? $_GET['hasta'] : date('Y-m-t', strtotime($mesIni));
 $sd = sp_serial($desdeIso); $sh = sp_serial($hastaIso);
+// variante: fecha=mov (FEXMOV) | com (CEFMOV); hist=0 periódico (saldo desde 0) | 1 histórico (<=hasta, sin desde)
+$fecha = (isset($_GET['fecha']) && $_GET['fecha'] === 'com') ? 'com' : 'mov';
+$hist = !empty($_GET['hist']);
+$dcol = $fecha === 'com' ? 'CEFMOV' : 'FEXMOV';   // fecha primaria (filtro/orden/columna)
+$ocol = $fecha === 'com' ? 'FEXMOV' : 'CEFMOV';   // la otra (se muestra en comprobante)
+$dateW = $hist ? "M.$dcol <= $sh" : "M.$dcol >= $sd AND M.$dcol <= $sh";
 
 // cuentas (imputables → combos de rango) + nombres; centros + operaciones
 $cuentas = array(); $impList = array();
@@ -51,8 +57,8 @@ $rows = db_query("SELECT MI.CODCUE, M.FEXMOV, M.NUMMOV, MI.ORDMOV, MI.CONMOV, O.
     FROM (([Tbl Operaciones] AS O INNER JOIN [Tbl Movimientos] AS M ON O.CODOPE=M.CODOPE)
       INNER JOIN (([Tbl Bancos] AS B RIGHT JOIN ([Tbl Movimientos Imputaciones] AS MI
         LEFT JOIN [Tbl Cheques] AS C ON MI.CODCHQ=C.CODCHQ) ON B.CODBAN=C.CODBAN)) ON M.NUMMOV=MI.NUMMOV)
-    WHERE $rng AND M.FEXMOV >= $sd AND M.FEXMOV <= $sh$wOpe$est
-    ORDER BY MI.CODCUE, M.FEXMOV, M.NUMMOV, MI.ORDMOV;");
+    WHERE $rng AND $dateW$wOpe$est
+    ORDER BY MI.CODCUE, M.$dcol, M.NUMMOV, MI.ORDMOV;");
 
 $grp = array(); $seen = array();   // dedup por imputación = DISTINCTROW del legacy
 foreach ($rows as $r) {
@@ -61,8 +67,10 @@ foreach ($rows as $r) {
 }
 ksort($grp);
 
+$titFecha = $fecha === 'com' ? 'COMPROBANTE' : 'MOVIMIENTO';
+$titMod = $hist ? 'HISTÓRICO' : 'PERIÓDICO';
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
-module_head('Listado de Imputaciones x Cuenta (Fec. Mov.)', 'bi-book', $toolbar);
+module_head('Listado de Imputaciones x Cuenta (Fec. ' . ($fecha === 'com' ? 'Com' : 'Mov') . '.) ' . ucfirst(strtolower($titMod)), 'bi-book', $toolbar);
 $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) ? $_SESSION['uid'] : '');
 function cue_opts($list, $sel) { $o = ''; foreach ($list as $k => $v) $o .= '<option value="' . h($k) . '"' . ($k === $sel ? ' selected' : '') . '>' . h($v) . '</option>'; return $o; }
 $tD = 0; $tH = 0; $tSal = 0;
@@ -76,18 +84,21 @@ $tD = 0; $tH = 0; $tSal = 0;
     <label>Hasta</label><select name="hascue" class="form-select form-select-sm lst-cue"><?= cue_opts($impList, $hasCue) ?></select>
   </div>
   <select name="ope" class="form-select form-select-sm lst-cue"><option value="0">Todas las operaciones</option><?php foreach ($operaciones as $o): ?><option value="<?= (int) $o['CODOPE'] ?>"<?= ((int) $o['CODOPE'] === $ope) ? ' selected' : '' ?>><?= h(trim((string) $o['DENOPE'])) ?></option><?php endforeach; ?></select>
+  <select name="fecha" class="form-select form-select-sm" style="width:auto"><option value="mov"<?= $fecha === 'mov' ? ' selected' : '' ?>>Fecha Movimiento</option><option value="com"<?= $fecha === 'com' ? ' selected' : '' ?>>Fecha Comprobante</option></select>
+  <select name="hist" class="form-select form-select-sm" style="width:auto"><option value="0"<?= !$hist ? ' selected' : '' ?>>Periódico</option><option value="1"<?= $hist ? ' selected' : '' ?>>Histórico</option></select>
   <button class="btn btn-primary btn-sm"><i class="bi bi-search me-1"></i>Ver</button>
 </form>
 <div class="lst-doc lst-doc-wide">
   <div class="lst-head">
     <div class="lst-emp"><?= h(sys('empresa', 'PROCESADORA TEXTIL PARQUE S.A.')) ?></div>
-    <div class="lst-tit">IMPUTACIONES CONTABLES x CUENTA [FECHA MOVIMIENTO]</div>
+    <div class="lst-tit">IMPUTACIONES CONTABLES x CUENTA [FECHA <?= $titFecha ?>]<?= $hist ? ' — HISTÓRICO' : '' ?></div>
     <div class="lst-fecha"><?= date('d/m/Y H:i:s') ?></div>
   </div>
   <div class="lst-params">
     <span>USUARIO</span><span>:</span><span class="v"><?= h($me) ?></span>
     <span>CUENTAS</span><span>:</span><span class="v"><?= h(lo_niv($desCue)) ?> - <?= h(lo_niv($hasCue)) ?></span>
-    <span>PERÍODO</span><span>:</span><span class="v"><?= h(fecha_serial($sd)) ?> - <?= h(fecha_serial($sh)) ?></span>
+    <?php if ($hist): ?><span>HASTA FECHA</span><span>:</span><span class="v"><?= h(fecha_serial($sh)) ?></span>
+    <?php else: ?><span>PERÍODO</span><span>:</span><span class="v"><?= h(fecha_serial($sd)) ?> - <?= h(fecha_serial($sh)) ?></span><?php endif; ?>
   </div>
   <table class="lst-tbl lst-jer">
     <colgroup><col style="width:1.6cm"><col style="width:1.5cm"><col style="width:2.2cm"><col style="width:2.2cm"><col style="width:2.7cm"><col style="width:3cm"><col style="width:1.5cm"><col style="width:1.8cm"><col style="width:1.8cm"><col style="width:1.9cm"></colgroup>
@@ -98,9 +109,9 @@ $tD = 0; $tH = 0; $tSal = 0;
       <?php foreach ($movs as $m):
         $d = (float) nz($m['DEBMOV'], 0); $c = (float) nz($m['CREMOV'], 0); $sal += $d - $c; $sD += $d; $sH += $c;
         $chq = trim((string) nz($m['CHQBAN'], '')); if ($chq !== '') { $chq .= ' ' . chq_serie($m['SYNCHQ']); $lb = trim((string) nz($m['LIBCHQ'], '')); if ($lb !== '') $chq .= ' · ' . $lb; }
-        $cf = ($m['CEFMOV'] !== null && (int) $m['CEFMOV'] > 0) ? fecha_serial($m['CEFMOV']) : ''; ?>
+        $cf = ($m[$ocol] !== null && (int) $m[$ocol] > 0) ? fecha_serial($m[$ocol]) : ''; ?>
       <tr>
-        <td><?= h(fecha_serial($m['FEXMOV'])) ?></td><td class="mono"><?= str_pad((string) (int) $m['NUMMOV'], 8, '0', STR_PAD_LEFT) ?></td>
+        <td><?= h(fecha_serial($m[$dcol])) ?></td><td class="mono"><?= str_pad((string) (int) $m['NUMMOV'], 8, '0', STR_PAD_LEFT) ?></td>
         <td><?= h(trim((string) nz($m['DENOPE'], ''))) ?></td>
         <td class="mono"><?= h(comp($m['CICMOV'], $m['CIIMOV'], $m['CIPMOV'], $m['CINMOV'])) ?><?= $cf !== '' ? ' <span class="text-muted">' . h($cf) . '</span>' : '' ?></td>
         <td><?= h(trim((string) nz($m['DETMOV'], ''))) ?></td>
