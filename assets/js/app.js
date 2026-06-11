@@ -293,3 +293,53 @@
     window.IWK = window.IWK || {};
     window.IWK.combo = { enhance: enhance, enhanceForm: enhanceForm };
 })();
+
+/* Zoom de la hoja-preview de los Listados (sólo si hay .lst-doc). Estilo visor PDF: −/+, ajustar
+   al ancho, Ctrl+rueda y Ctrl +/−/0. Se persiste en localStorage. No imprime (clase no-print). */
+(function () {
+    var doc = document.querySelector('.lst-doc');
+    if (!doc) return;
+    var KEY = 'iwk-lst-zoom';
+    var SHEET = 816;                 // ancho hoja Carta (216mm ≈ 816px @96dpi) para "ajustar al ancho"
+    var z = parseFloat(localStorage.getItem(KEY)) || 1;
+    var val;
+    function clamp(n) { return Math.min(3, Math.max(0.4, Math.round(n * 100) / 100)); }
+    function apply() {
+        doc.style.zoom = z;
+        if (val) val.textContent = Math.round(z * 100) + '%';
+        try { localStorage.setItem(KEY, z); } catch (e) {}
+    }
+    function setZ(n) { z = clamp(n); apply(); }
+
+    var bar = document.createElement('div');
+    bar.className = 'lst-zoom no-print';
+    bar.innerHTML =
+        '<button type="button" data-z="out" title="Alejar (Ctrl −)"><i class="bi bi-dash-lg"></i></button>' +
+        '<span class="lst-zoom-val">100%</span>' +
+        '<button type="button" data-z="in" title="Acercar (Ctrl +)"><i class="bi bi-plus-lg"></i></button>' +
+        '<button type="button" data-z="fit" title="Ajustar al ancho"><i class="bi bi-arrows-angle-expand"></i></button>' +
+        '<button type="button" data-z="reset" title="Tamaño real (Ctrl 0)">1:1</button>';
+    document.body.appendChild(bar);
+    val = bar.querySelector('.lst-zoom-val');
+
+    bar.addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        var a = b.getAttribute('data-z');
+        if (a === 'in') setZ(z + 0.1);
+        else if (a === 'out') setZ(z - 0.1);
+        else if (a === 'reset') setZ(1);
+        else if (a === 'fit') setZ((window.innerWidth - 48) / SHEET);
+    });
+    window.addEventListener('wheel', function (e) {
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        setZ(z + (e.deltaY < 0 ? 0.1 : -0.1));
+    }, { passive: false });
+    window.addEventListener('keydown', function (e) {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        if (e.key === '+' || e.key === '=') { e.preventDefault(); setZ(z + 0.1); }
+        else if (e.key === '-') { e.preventDefault(); setZ(z - 0.1); }
+        else if (e.key === '0') { e.preventDefault(); setZ(1); }
+    });
+    apply();
+})();

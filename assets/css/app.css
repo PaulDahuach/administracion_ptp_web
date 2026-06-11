@@ -134,3 +134,11 @@ a.kpi:hover { transform:translateY(-2px); box-shadow:0 8px 22px -8px var(--c); }
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .iwk-combo-opt.active, .iwk-combo-opt:hover { background:var(--fc-primary); color:#fff; }
 .iwk-combo-empty { padding:.3rem .6rem; color:var(--bs-secondary-color); font-size:.8rem; }
+
+/* Zoom de la hoja-preview de los Listados (control flotante; lo arma assets/js/app.js si hay .lst-doc) */
+.lst-zoom { position:fixed; right:18px; bottom:18px; z-index:1040; display:flex; align-items:center; gap:.15rem;
+    background:#1e293b; color:#f1f5f9; padding:.25rem .35rem; border-radius:2rem; box-shadow:0 4px 16px rgba(0,0,0,.35); }
+.lst-zoom button { background:transparent; border:0; color:#f1f5f9; width:1.9rem; height:1.9rem; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-size:.8rem; line-height:1; padding:0; }
+.lst-zoom button:hover { background:rgba(255,255,255,.18); }
+.lst-zoom .lst-zoom-val { min-width:3rem; text-align:center; font-size:.8rem; font-variant-numeric:tabular-nums; user-select:none; }

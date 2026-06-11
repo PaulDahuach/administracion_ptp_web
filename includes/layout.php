@@ -29,7 +29,7 @@ function module_head($title, $icon = 'bi-app', $buttons_html = '') {
     <title><?= h($title) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="<?= bu('/assets/css/app.css') ?>?v=2" rel="stylesheet">
+    <link href="<?= bu('/assets/css/app.css') ?>?v=3" rel="stylesheet">
     <style>:root{ --fc-primary: <?= h($primary) ?>; }</style>
     <script>window.IWK_BASE = '<?= rtrim(sys('base_url',''),'/') ?>';</script>
 </head>
@@ -63,7 +63,7 @@ function module_foot($extra_html = '') {
     ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="<?= bu('/assets/js/app.js') ?>?v=4"></script>
+<script src="<?= bu('/assets/js/app.js') ?>?v=5"></script>
 <?= $extra_html ?>
 </body>
 </html>
