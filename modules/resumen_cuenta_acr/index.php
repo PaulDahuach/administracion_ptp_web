@@ -42,7 +42,7 @@ module_head('Resumen de Cuenta — Proveedores', 'bi-journal-text',
 <div class="card card-filtros mb-2">
     <div class="card-body">
         <div class="row g-2 align-items-end">
-            <div class="col-md-6">
+            <div class="col-md-5">
                 <label class="form-label mb-1">Proveedor</label>
                 <div class="ac-wrap">
                     <input type="text" id="txtCliente" class="form-control" placeholder="Buscar por nombre o CUIT..." autocomplete="off">
@@ -68,6 +68,13 @@ module_head('Resumen de Cuenta — Proveedores', 'bi-journal-text',
                 </select>
             </div>
             <?php endif; ?>
+            <div class="col-md-1">
+                <label class="form-label mb-1" title="Nivel de detalle de la impresión">Nivel</label>
+                <select id="cboNivel" class="form-select">
+                    <option value="D" selected>Detalle</option>
+                    <option value="P">Producto</option>
+                </select>
+            </div>
             <div class="col-md-1">
                 <label class="form-label mb-1 d-none d-md-block">&nbsp;</label>
                 <button id="btnConsultar" class="btn btn-primary w-100" disabled><i class="bi bi-search"></i></button>
@@ -129,4 +136,4 @@ module_head('Resumen de Cuenta — Proveedores', 'bi-journal-text',
     </div>
 </div>
 
-<?php module_foot('<script src="assets/js/resumen.js"></script>'); ?>
+<?php module_foot('<script src="assets/js/resumen.js?v=3"></script>'); ?>

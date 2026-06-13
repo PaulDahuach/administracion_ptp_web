@@ -10,7 +10,7 @@ auth_require_login();
 
 function lo_niv($s) { $s = trim((string) $s); if ($s === '' || !ctype_digit($s)) return $s; $L = array(1, 1, 1, 2, 2); $out = array(); $i = 0; foreach ($L as $n) { if ($i >= strlen($s)) break; $out[] = substr($s, $i, $n); $i += $n; } if ($i < strlen($s)) $out[] = substr($s, $i); return implode('.', $out); }
 function f2($v) { return ($v === null || $v === '') ? '' : number_format((float) $v, 2, '.', ','); }
-function sp_serial($iso) { if (!$iso) return null; $d = DateTime::createFromFormat('Y-m-d', $iso); if (!$d) return null; return (int) (new DateTime('1899-12-30'))->diff($d)->days; }
+function sp_serial($iso) { if (!$iso) return null; $d = DateTime::createFromFormat('!Y-m-d', $iso, new DateTimeZone('UTC')); if (!$d) return null; return (int) (new DateTime('1899-12-30', new DateTimeZone('UTC')))->diff($d)->days; }
 function chq_serie($syn) { $s = trim((string) $syn); return (strlen($s) >= 2 && ctype_digit($s)) ? substr($s, 0, 1) . '-' . substr($s, 1) : $s; }
 function comp($cic, $cii, $cip, $cin) { $c = trim((string) nz($cic, '')); if ($c === '') return ''; $i = trim((string) nz($cii, '')); return $c . ($i !== '' ? ' ' . $i : '') . ' ' . str_pad((string) (int) nz($cip, 0), 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) (int) nz($cin, 0), 8, '0', STR_PAD_LEFT); }
 
@@ -68,7 +68,7 @@ module_head('Listado de Movimientos de Cheques', 'bi-cash-coin', $toolbar);
 $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) ? $_SESSION['uid'] : '');
 $banName = 'Todos'; foreach ($bancos as $b) if ((int) $b['CODBAN'] === $ban) $banName = trim((string) $b['DENBAN']);
 ?>
-<link href="../../assets/css/listado.css?v=23" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=24" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
   <div class="lst-fgrid">
     <label>Banco</label><select name="banco" class="form-select form-select-sm lst-cue"><option value="0">Todos</option><?php foreach ($bancos as $b): ?><option value="<?= (int) $b['CODBAN'] ?>"<?= ((int) $b['CODBAN'] === $ban) ? ' selected' : '' ?>><?= h(trim((string) $b['DENBAN'])) ?></option><?php endforeach; ?></select>

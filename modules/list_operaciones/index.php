@@ -43,7 +43,7 @@ $ops = db_query("SELECT CODOPE, DENOPE, ICCOPE, ICIOPE, ICPOPE, ICNOPE, IVAOPE, 
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Operaciones', 'bi-gear-wide-connected', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=23" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=24" rel="stylesheet">
 <div class="lst-doc lst-doc-wide">
   <div class="lst-head">
     <div class="lst-emp"><?= h(sys('empresa', 'PROCESADORA TEXTIL PARQUE S.A.')) ?></div>

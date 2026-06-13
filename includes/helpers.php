@@ -66,6 +66,33 @@ function fecha_serial($v) {
     return $d->format('d/m/Y');
 }
 
+/**
+ * 'Y-m-d' → serial Access (OLE, base 1899-12-30). Inverso EXACTO de fecha_serial().
+ * OJO: usa UTC + hora reseteada ('!Y-m-d') a propósito: createFromFormat('Y-m-d') sin hora toma la
+ * hora ACTUAL y, con la timezone histórica de Argentina (offset raro en 1899), el diff() salía
+ * off-by-one de forma NO determinística (según la hora del día). Esto rompía el borde de los períodos.
+ */
+function iso_serial($iso) {
+    if (!$iso) return null;
+    $d = DateTime::createFromFormat('!Y-m-d', $iso, new DateTimeZone('UTC'));
+    if (!$d) return null;
+    return (int) (new DateTime('1899-12-30', new DateTimeZone('UTC')))->diff($d)->days;
+}
+
+/** Serial Access (OLE, base 1899-12-30) → 'Y-m-d' (para inputs date). '' si vacío/0. */
+function fecha_iso($v) {
+    $f = fecha_serial($v);
+    if (!$f || strpos($f, '/') === false) return '';
+    $p = explode('/', $f);
+    return $p[2] . '-' . $p[1] . '-' . $p[0];
+}
+
+/** Período predeterminado de TODOS los listados = Rec Control.DESFEC/HASFEC. Devuelve [desdeIso, hastaIso]. */
+function rec_periodo() {
+    $r = db_row("SELECT DESFEC, HASFEC FROM [Rec Control];");
+    return array($r ? fecha_iso($r['DESFEC']) : '', $r ? fecha_iso($r['HASFEC']) : '');
+}
+
 /** 'dd/mm/YYYY' del usuario → 'mm/dd/YYYY' que entiende Access en SQL. */
 function fecha_access($ddmmyyyy) {
     $p = explode('/', $ddmmyyyy);

@@ -9,7 +9,7 @@ require_once __DIR__ . '/../../includes/layout.php';
 auth_require_login();
 
 function f2($v) { return ($v === null || $v === '') ? '' : number_format((float) $v, 2, '.', ','); }
-function sp_serial($iso) { if (!$iso) return null; $d = DateTime::createFromFormat('Y-m-d', $iso); if (!$d) return null; return (int) (new DateTime('1899-12-30'))->diff($d)->days; }
+function sp_serial($iso) { if (!$iso) return null; $d = DateTime::createFromFormat('!Y-m-d', $iso, new DateTimeZone('UTC')); if (!$d) return null; return (int) (new DateTime('1899-12-30', new DateTimeZone('UTC')))->diff($d)->days; }
 function ser_ymd($serial) { if ($serial === null || $serial === '') return array(0, 0, 0); $d = new DateTime('1899-12-30'); $d->modify('+' . (int) $serial . ' days'); return array((int) $d->format('Y'), (int) $d->format('n'), (int) $d->format('j')); }
 function chq_serie($syn) { $s = trim((string) $syn); return (strlen($s) >= 2 && ctype_digit($s)) ? substr($s, 0, 1) . '-' . substr($s, 1) : $s; }
 $MESES = array(1 => 'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE');
@@ -53,7 +53,7 @@ $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm
 module_head('Listado de ' . ($tipo === 'dif' ? 'Cheques Diferidos a Devengar' : 'Valores a Depositar'), 'bi-cash-stack', $toolbar);
 $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) ? $_SESSION['uid'] : '');
 ?>
-<link href="../../assets/css/listado.css?v=23" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=24" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
   <input type="hidden" name="tipo" value="<?= h($tipo) ?>">
   <div class="lst-fgrid">

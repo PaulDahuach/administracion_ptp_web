@@ -67,20 +67,22 @@ function resumen() {
     if ($libro === 'blanco')     $base .= " AND ESTMOV=True";
     elseif ($libro === 'capacitacion')  $base .= " AND ESTMOV=False";
 
+    // Período por CEFMOV (fecha del comprobante del proveedor) / orden por NUMMOV — igual que el
+    // resumen legacy y el print.php (consistencia: misma cuenta corriente en pantalla y en papel).
     $saldoAnterior = 0;
     if ($sDesde !== null) {
         $r = db_row("SELECT SUM(DEBMOV) AS D, SUM(CREMOV) AS C FROM [Tbl Movimientos]
-            WHERE $base AND FEXMOV < $sDesde");
+            WHERE $base AND CEFMOV < $sDesde");
         $saldoAnterior = (float) nz($r['D'], 0) - (float) nz($r['C'], 0);
     }
 
     $w = $base;
-    if ($sDesde !== null) $w .= " AND FEXMOV >= $sDesde";
-    if ($sHasta !== null) $w .= " AND FEXMOV <= $sHasta";
+    if ($sDesde !== null) $w .= " AND CEFMOV >= $sDesde";
+    if ($sHasta !== null) $w .= " AND CEFMOV <= $sHasta";
 
     $rows = db_query("SELECT NUMMOV, CODOPE, CICMOV, CIIMOV, CIPMOV, CINMOV, FEXMOV,
         DEBMOV, CREMOV, DETMOV, DENMOV, ESTMOV
-        FROM [Tbl Movimientos] WHERE $w ORDER BY FEXMOV, NUMMOV");
+        FROM [Tbl Movimientos] WHERE $w ORDER BY NUMMOV");
 
     $movs = array();
     $totalDebe = 0; $totalHaber = 0;

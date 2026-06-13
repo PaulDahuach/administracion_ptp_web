@@ -10,7 +10,7 @@ $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm
 module_head('Listado de Cuentas Bancarias', 'bi-bank2', $toolbar);
 function cbx($b) { return ($b === true || $b == -1) ? '<span class="cbx on"></span>' : '<span class="cbx"></span>'; }
 ?>
-<link href="../../assets/css/listado.css?v=23" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=24" rel="stylesheet">
 <div class="lst-doc">
   <div class="lst-head">
     <div class="lst-emp"><?= h(sys('empresa', 'PROCESADORA TEXTIL PARQUE S.A.')) ?></div>

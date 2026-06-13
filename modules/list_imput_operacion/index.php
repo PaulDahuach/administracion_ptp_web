@@ -11,7 +11,7 @@ auth_require_login();
 
 function f2($v) { return number_format((float) $v, 2, '.', ','); }
 function f2z($v) { return ((float) $v == 0.0) ? '0.00' : number_format((float) $v, 2, '.', ','); }
-function sp_serial($iso) { if (!$iso) return null; $d = DateTime::createFromFormat('Y-m-d', $iso); if (!$d) return null; return (int) (new DateTime('1899-12-30'))->diff($d)->days; }
+function sp_serial($iso) { if (!$iso) return null; $d = DateTime::createFromFormat('!Y-m-d', $iso, new DateTimeZone('UTC')); if (!$d) return null; return (int) (new DateTime('1899-12-30', new DateTimeZone('UTC')))->diff($d)->days; }
 function comp_ext($cod, $ide, $pdv, $num) {
     $c = trim((string) nz($cod, '')); if ($c === '') return '';
     $i = trim((string) nz($ide, ''));
@@ -52,7 +52,7 @@ module_head('Listado de Imputaciones x Operación', 'bi-journal-text', $toolbar)
 $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) ? $_SESSION['uid'] : '');
 $opeName = 'Todas'; foreach ($operaciones as $o) if ((int) $o['CODOPE'] === $ope) $opeName = trim((string) $o['DENOPE']);
 ?>
-<link href="../../assets/css/listado.css?v=23" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=24" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
   <div class="lst-fgrid">
     <label>Desde</label><input type="date" name="desde" value="<?= h($desdeIso) ?>" class="form-control form-control-sm">

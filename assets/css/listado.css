@@ -75,6 +75,16 @@ body { background: #e9edf2; }
 /* barra de filtro (período / rango) — fuera de la hoja, no se imprime. Siempre clara (como la preview). */
 .lst-filter { max-width: 216mm; margin: 0 auto .5rem; display: flex; align-items: center; gap: .4rem .6rem; flex-wrap: wrap; }
 .lst-filter label { font-size: .82rem; font-weight: 600; color: #333; margin: 0; }
+/* cada label + campo viajan juntos al hacer wrap → nunca se separa el caption de su control */
+.lst-filter .lst-fpair { display: inline-flex; align-items: center; gap: .3rem; }
+.lst-filter .lst-fpair > label { white-space: nowrap; }
+/* parámetros en grilla: 3 columnas, caption a la DERECHA + campo a la IZQUIERDA, alineados para leer */
+.lst-fgrid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem 1.4rem; width: 100%; }
+.lst-fgrid3 .lst-fpair { display: grid; grid-template-columns: 6.5rem 1fr; align-items: center; gap: .45rem; }
+.lst-fgrid3 .lst-fpair > label { text-align: right; white-space: nowrap; }
+.lst-fgrid3 .lst-fpair > select,
+.lst-fgrid3 .lst-fpair > input,
+.lst-fgrid3 .lst-fpair > .iwk-combo { width: 12rem; max-width: 100%; justify-self: start; }
 .lst-filter .form-control, .lst-filter .form-select { background: #fff; color: #111; border-color: #ced4da; }
 .lst-filter .form-control { width: auto; max-width: 10rem; }
 .lst-filter .lst-cue { width: auto; max-width: 12rem; }

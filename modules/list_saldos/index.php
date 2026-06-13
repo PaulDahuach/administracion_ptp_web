@@ -56,7 +56,7 @@ $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm
 module_head('Listado de Saldos Actuales', 'bi-clipboard-data', $toolbar);
 $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) ? $_SESSION['uid'] : '');
 ?>
-<link href="../../assets/css/listado.css?v=23" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=24" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
   <div class="lst-fgrid">
     <label>Cuenta Desde</label><select name="descue" class="form-select form-select-sm lst-cue"><?= cue_opts($impList, $desCue) ?></select>

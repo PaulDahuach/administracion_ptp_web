@@ -40,7 +40,9 @@ y los no portados como `'disabled'=>true` (gris, badge "pronto"). Sub-secciones 
 (config `admin_users`; vacía = nadie). Contador de la solapa = construidos/total. El `menu` vive en
 `config/system.php` (NO versionado → replicar a mano en deploy); flags documentados en
 `system.example.php`. **Mapa legacy completo poblado** en las 6 solapas (orden Access, omitiendo
-Producción/Sucursales vacías): Imputaciones Contables (4/28), Stock (0/18), Acreedores (2/15),
+Producción/Sucursales vacías): Imputaciones Contables (4/28), Stock (18/18 = 5 actualizaciones +
+13 listados; ver memoria [[listados-reportes]]), Acreedores (Listados/Saldos completos: 7 reportes
+Rpt CA — ver [[listados-reportes]]),
 Deudores (3/35), Resumen (3/8), Varios (3/22) = 15 módulos construidos. IVA Ventas vive en Deudores
 e IVA Compras en Varios (no hay solapa IVA aparte, como el legacy). "Búsqueda de Comprobantes" y
 "Estadísticas de Uso" (admin) van como extras web bajo sub-encabezados "(versión web)". Un
@@ -66,7 +68,38 @@ sub-encabezado que queda sin opciones (p.ej. tras filtrar admin) no se renderiza
   DECMOV; join por NUMMOV, GROUP BY CICMOV/CODOPE/ALIMOV — `resumen_alicuotas()`). Reconcilia: Σ IVA
   por alícuota = IVA del header. Validado vs PDF Ago-2023 al centavo (los 60 comps que existen; 2 FV
   del PDF ya no existen en el backend 2025 = data drift, NO bug). PDFs: `_ProcesadoraTextilParque\
-  2023-08 IVA Ventas *.pdf`. (OJO: en ACE NO usar `NZ()`/`CCur()` vía ADO → com_exception.)
+  2023-08 IVA Ventas *.pdf`. (OJO: en ACE NO usar `NZ()`/`CCur()` vía ADO → com_exception.) Es la
+  **CONSULTA** interactiva (vive en la solapa Deudores → Consultas).
+- `modules/list_iva_ventas/` — **Listado** fiel del `Rpt CD IVA` (imprimible). Espejo del Consulta con
+  los parámetros "ocultos" del panel legacy: **Cuenta Corriente** (opcional, vacío=todas) · Desde/Hasta
+  (default `rec_periodo`) · **Nivel** Detalle/**Total** (T oculta el detalle y la línea antes del total,
+  como el VBA `Report_Open`) · **Agrupamientos** (muestra/oculta los cuadros resumen) · **Fecha y Hora**
+  (timestamp). El **"Desde Hoja Nº"** del legacy + la rúbrica top-right (`=[Page]+txtHojIVA-1`, Courier 18pt
+  que avanza por hoja física impresa) NO se portan: en flujo web no se puede numerar por hoja confiablemente
+  (Chrome no soporta bien los contadores `@page`) y mostrar un único "00000001" sería engañoso → se omite.
+  Loader+render en `_iva_doc.php` (`iva_load`/`iva_styles`/`iva_body`).
+- `modules/list_pendientes_facturacion/` — **Listado** Operaciones Pendientes de Facturación (Rpt CD
+  Operaciones Pendientes de Facturacion). Remitos de venta **CODOPE=410 + SRPMOV=True** (no facturados),
+  agrupados 3 niveles **Cuenta → Movimiento (remito) → Producto**. Join `Tbl Movimientos` + `Tbl Movimientos
+  Stock` + `Tbl Cuentas Corrientes` + `Tbl Unidades de Medida`. Cant.: **qryRemitido = EGRMOV (o −SVCMOV si
+  null)**, qryFacturado=CFVMOV, qryPendiente=rem−fac, **qryTot=PUNMOV·pendiente** (Valorizado; 0 acá porque
+  los remitos no se valorizan). Cols: N° Mov · Comprobante(PDV/Núm/Emisión) · Detalle(Producto=CODPRO+DENMOV
+  /O.Corte=ODCMOV/O.Proceso=ODPMOV, blanco si 0) · Unidad · Remitido/Facturado/Pendiente · Valorizado. NIVEL
+  D/S/T (S oculta productos, T sólo TOTAL; como el VBA `Report_Open`). TOTAL = **cantidad de movimientos**
+  (no de líneas). Filtra por libro (`auth_libro_unico`): validado vs PDF — blanco da los 6 movs del PDF (2 más
+  son capacitación). Geometría/fuentes fieles (twips÷567, portrait, tabla 18,8cm dentro de `.lst-doc` 216mm).
+  Agrega los dos subreportes: **LOCALIDADES** (x provincia/localidad, `Rpt CD IVA_Localidades` — subtotal
+  de provincia en la cabecera del grupo + localidades debajo) y **CATEGORIAS** (categoría→comprobante→
+  alícuota desde `Tbl Movimientos IVA`, `Rpt CD IVA_Categorias`). Geometría portrait Letter (contenido
+  19,0cm, twips del .report ÷567); fuentes captions 7pt / detalle 8pt / grupos 8pt bold. Anchos: se
+  respetan los del .report SALVO los de importe (el bold Univers Condensed web es más ancho que el real
+  → no entran las magnitudes), que se ensanchan al MÍNIMO medido para tope 1.000M en NETO/TOTAL (2,05cm),
+  100M en IVA/NO GRAV (1,88cm), 1M en PERCEP (1,62cm); AJUSTES queda original (1,05). El extra se le resta
+  a DENOMINACIÓN (2,37cm) que pasa a **wordwrap** (razones sociales no se cortan). Captions centrados (como
+  el original). OJO ANCHO HOJA: NO sobreescribir el `width` de `.lst-doc` (216mm con padding 13mm → interior
+  19,0cm exacto); forzarlo a 19cm lo desbordaba. La tabla va a 18,8cm (aire para bordes) + resúmenes indent
+  2,2cm, alineados con el detalle. Validado vs PDF Ene-2023: detalle 20 comps + LOCALIDADES + CATEGORIAS
+  reconcilian al centavo (NETO 6.032.872,37 · IVA 1.266.903,20 · AJUSTES −0,01 · TOTAL 7.464.350,11).
 - `modules/iva_compras/` — Libro **I.V.A. Compras** (Crédito Fiscal). Porta `Rpt 00 IVA` (Caption
   "I.V.A. Compras"). Diferencias vs ventas: fecha=**FIXMOV**, **CODORI IN ('A','I')** (acreedores +
   internos), inclusión=**A.IVAAUX=True OR O.IVAOPE=True** (join a Tbl Operaciones por CODOPE),

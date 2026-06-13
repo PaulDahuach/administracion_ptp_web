@@ -11,7 +11,7 @@ auth_require_login();
 
 function f2($v) { return number_format((float) $v, 2, '.', ','); }
 function f2z($v) { return ((float) $v == 0.0) ? '' : number_format((float) $v, 2, '.', ','); }
-function sp_serial($iso) { if (!$iso) return null; $d = DateTime::createFromFormat('Y-m-d', $iso); if (!$d) return null; return (int) (new DateTime('1899-12-30'))->diff($d)->days; }
+function sp_serial($iso) { if (!$iso) return null; $d = DateTime::createFromFormat('!Y-m-d', $iso, new DateTimeZone('UTC')); if (!$d) return null; return (int) (new DateTime('1899-12-30', new DateTimeZone('UTC')))->diff($d)->days; }
 function chq_serie($syn) { $s = trim((string) $syn); return (strlen($s) >= 2 && ctype_digit($s)) ? substr($s, 0, 1) . '-' . substr($s, 1) : $s; }
 function comp($cic, $cii, $cip, $cin) { $c = trim((string) nz($cic, '')); if ($c === '') return ''; $i = trim((string) nz($cii, '')); return $c . ($i !== '' ? ' ' . $i : '') . ' ' . str_pad((string) (int) nz($cip, 0), 4, '0', STR_PAD_LEFT) . '-' . str_pad((string) (int) nz($cin, 0), 8, '0', STR_PAD_LEFT); }
 
@@ -41,7 +41,7 @@ $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm
 module_head('Listado de Parte Diario de Caja', 'bi-cash-coin', $toolbar);
 $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) ? $_SESSION['uid'] : '');
 ?>
-<link href="../../assets/css/listado.css?v=23" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=24" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
   <div class="lst-fgrid"><label>Fecha</label><input type="date" name="fecha" value="<?= h($fecIso) ?>" class="form-control form-control-sm"></div>
   <button class="btn btn-primary btn-sm"><i class="bi bi-search me-1"></i>Ver</button>

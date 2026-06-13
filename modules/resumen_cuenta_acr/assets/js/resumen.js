@@ -27,7 +27,12 @@ const App = {
         this.el('txtCliente').addEventListener('focus', e => { if (e.target.value.length >= 2) this.autocomplete(e.target.value); });
         document.addEventListener('click', e => { if (!e.target.closest('.ac-wrap')) this.el('acList').classList.remove('show'); });
         this.el('btnConsultar').addEventListener('click', () => this.consultar());
-        this.el('btnImprimir').addEventListener('click', () => window.print());
+        this.el('btnImprimir').addEventListener('click', () => {
+            const cc = this.el('hdnCodcue').value;
+            if (!cc) return;
+            const p = new URLSearchParams({ codcue: cc, desde: this.el('txtDesde').value, hasta: this.el('txtHasta').value, libro: (this.el('cboLibro') ? this.el('cboLibro').value : 'todos'), nivel: (this.el('cboNivel') ? this.el('cboNivel').value : 'D') });
+            window.open('print.php?' + p.toString(), '_blank');   // hoja imprimible legacy → window.print()
+        });
         if (this.el('cboLibro')) this.el('cboLibro').addEventListener('change', () => { if (this.el('hdnCodcue').value) this.consultar(); });
         ['txtDesde', 'txtHasta'].forEach(id => this.el(id).addEventListener('keydown', e => { if (e.key === 'Enter') this.consultar(); }));
     },
