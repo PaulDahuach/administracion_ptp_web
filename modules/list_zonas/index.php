@@ -9,7 +9,7 @@ $rows = db_query("SELECT DENZON, CODZON FROM [Tbl Zonas] ORDER BY DENZON;");
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Zonas', 'bi-geo', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <style>.cd-tbl thead th { text-align: center; }</style>
 <div class="lst-doc">
   <div class="lst-head">

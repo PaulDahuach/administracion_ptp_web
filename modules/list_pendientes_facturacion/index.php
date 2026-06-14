@@ -88,7 +88,7 @@ $prov = db_query("SELECT CODCUE, DENCUE FROM [Tbl Cuentas Corrientes] WHERE CODO
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Operaciones Pendientes de Facturación', 'bi-clipboard-x', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <style>
   @media print { @page { size: Letter portrait; margin: 12mm; } .lst-doc { width: auto; box-shadow: none; } }
   /* Rpt CD Operaciones Pendientes de Facturacion — portrait Letter (216mm, interior 19,0cm). Tabla 18,8cm. */

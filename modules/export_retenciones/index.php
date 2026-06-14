@@ -31,7 +31,7 @@ module_head('Exportación ' . $cf['label'], 'bi-file-earmark-arrow-up', $toolbar
 
 $tabs = array('iibb' => 'Ingresos Brutos', 'iva' => 'I.V.A.', 'ganancias' => 'Ganancias', 'suss' => 'S.U.S.S.');
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <ul class="nav nav-pills nav-sm mb-2 no-print">
   <?php foreach ($tabs as $k => $lbl): ?>
   <li class="nav-item"><a class="nav-link py-1 px-2<?= $k === $tipo ? ' active' : '' ?>" href="?tipo=<?= $k ?>&desde=<?= h($desIso) ?>&hasta=<?= h($hasIso) ?>"><?= h($lbl) ?></a></li>

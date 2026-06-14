@@ -95,8 +95,15 @@ body { background: #e9edf2; }
 
 @page { size: Letter; margin: 12mm 13mm; }
 @media print {
+    /* OJO modo oscuro: data-bs-theme="dark" deja color-scheme:dark → el "papel" de impresión queda oscuro
+       y, como Chrome no pinta fondos por defecto, el blanco de la hoja NO se imprime y se ve el oscuro
+       detrás (la hoja "invisible" + el sombreado expuesto). Forzamos esquema claro + print-color-adjust
+       para que la hoja (blanca) y los captions grises se impriman siempre, sin depender del toggle. */
+    :root, [data-bs-theme] { color-scheme: light !important; }
     .fc-topbar, .no-print { display: none !important; }
-    body, .container-fluid { padding: 0 !important; margin: 0 !important; background: #fff !important; }
-    .lst-doc { box-shadow: none; width: auto; min-height: 0; margin: 0; padding: 0; }   /* @page maneja los márgenes */
+    html, body, .container-fluid { padding: 0 !important; margin: 0 !important; background: #fff !important; color: #000 !important; }
+    .lst-doc { background: #fff !important; color: #000 !important; box-shadow: none !important;
+        width: auto; min-height: 0; margin: 0; padding: 0; }   /* @page maneja los márgenes */
+    .lst-doc, .lst-doc * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .lst-tbl { font-size: 9pt; }
 }

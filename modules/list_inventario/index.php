@@ -69,7 +69,7 @@ if ($tipo === 'actual') {
     $sumKeys = array('rmc','exi','fis','rmv','dsp','vfis','vdsp','val');
     foreach ($rows as &$rr) { $rr['val'] = $rr['vfis']; } unset($rr);
     ?>
-    <link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+    <link href="../../assets/css/listado.css?v=26" rel="stylesheet">
     <form method="get" class="lst-filter no-print" data-bs-theme="light">
       <input type="hidden" name="tipo" value="actual">
       <div class="lst-fgrid3">
@@ -167,7 +167,7 @@ if ($tipo === 'actual') {
     );
     $sumKeys = array('ex','val');
     ?>
-    <link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+    <link href="../../assets/css/listado.css?v=26" rel="stylesheet">
     <form method="get" class="lst-filter no-print" data-bs-theme="light">
       <input type="hidden" name="tipo" value="periodico">
       <div class="lst-fgrid3">

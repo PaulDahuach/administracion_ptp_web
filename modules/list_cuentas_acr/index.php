@@ -10,7 +10,7 @@ $rows = db_query("SELECT DENCUE, CODCUE FROM [Tbl Cuentas Corrientes] WHERE CODO
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Cuentas Corrientes Acreedoras', 'bi-person-vcard', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <div class="lst-doc">
   <div class="lst-head">
     <div class="lst-emp"><?= h(sys('empresa', 'PROCESADORA TEXTIL PARQUE S.A.')) ?></div>

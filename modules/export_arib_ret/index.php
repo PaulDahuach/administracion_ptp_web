@@ -32,7 +32,7 @@ $dl = 'export.php?desde=' . urlencode($desIso) . '&hasta=' . urlencode($hasIso);
 $toolbar = '<a href="' . h($dl) . '" class="btn btn-success btn-sm' . (count($rows) ? '' : ' disabled') . '"><i class="bi bi-download me-1"></i>Descargar .zip (ARBA)</a>';
 module_head('Exportación A.R.I.B. — Retenciones IIBB', 'bi-file-earmark-arrow-up', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
   <div class="lst-fgrid3">
     <span class="lst-fpair"><label>Desde</label><input type="date" name="desde" value="<?= h($desIso) ?>" class="form-control form-control-sm"></span>

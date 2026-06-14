@@ -26,7 +26,7 @@ $totG = 0.0;
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Reposiciones', 'bi-arrow-repeat', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
   <div class="lst-fgrid3">
     <?= sl_select('cat', 'cat', $p['cat'], 'Categoría') ?>

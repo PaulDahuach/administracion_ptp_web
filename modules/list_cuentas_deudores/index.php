@@ -60,7 +60,7 @@ $titulo = 'Cuentas Corrientes Deudoras ' . $cfg['lbl'];
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head($titulo, 'bi-person-vcard', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <style>
   /* pixel-perfect Rpt CD Cuentas x ... — fuentes EXACTAS del .report (Univers Condensed):
      caption 7pt · group-by 9pt BOLD · detalle 9pt. Alineaciones del .report. SIN truncar

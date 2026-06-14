@@ -22,7 +22,7 @@ $cab = $d['cab'];
 $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) ? $_SESSION['uid'] : '');
 ?><!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>Resumen de Cuenta</title>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <?php rcd_styles(); ?>
 <style>
   @media print { @page { size: Letter landscape; margin: 10mm; } .lst-doc.lst-land { width: auto; } }

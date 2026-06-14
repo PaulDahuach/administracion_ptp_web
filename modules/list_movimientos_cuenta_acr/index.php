@@ -59,7 +59,7 @@ $showHdr = ($niv === 'D'); $showDet = ($niv === 'D'); $showSub = ($niv !== 'T');
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Movimientos Acreedores x Cuenta', 'bi-journal-bookmark', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <style>
   @media print { @page { size: Letter portrait; margin: 12mm; } .lst-doc { width: auto; box-shadow: none; } }
   .mc-doc { font-family: "Univers Condensed", "Arial Narrow", sans-serif; }

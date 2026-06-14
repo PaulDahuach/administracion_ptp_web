@@ -22,7 +22,7 @@ $rows = db_query("SELECT E.CODCUE, C.DENCUE, E.CODPRO, P.DENPRO, U.DENUDM, M.SIM
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Precios de Venta Exclusivos', 'bi-cash-coin', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
   <div class="lst-fgrid3">
     <span class="lst-fpair"><label>Cuenta (código)</label>

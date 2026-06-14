@@ -51,7 +51,7 @@ $titulo = $hist ? 'Saldos Deudores Históricos' : 'Saldos Deudores Periódicos';
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de ' . $titulo, 'bi-calendar-range', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <style>
   .lst-fgrid3 .lst-fpair.rc-prov { grid-column: 1 / -1; grid-template-columns: 6.5rem 1fr; }
   .lst-fgrid3 .lst-fpair.rc-prov > select,

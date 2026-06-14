@@ -28,7 +28,7 @@ $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) 
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"' . ($cab ? '' : ' disabled') . '><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Resumen de Cuenta (Listado) — Clientes', 'bi-journal-text', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <?php rcd_styles(); ?>
 <style>
   @media print { @page { size: Letter landscape; margin: 10mm; } .lst-doc.lst-land { width: auto; } }

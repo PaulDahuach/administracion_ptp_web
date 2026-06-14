@@ -32,7 +32,7 @@ $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) 
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Saldos Acreedores', 'bi-cash-stack', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <style>.sac-tbl thead th { text-align: center; vertical-align: middle; }</style>
 <div class="lst-doc">
   <div class="lst-head">

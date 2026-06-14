@@ -39,7 +39,7 @@ $rows = db_query("SELECT P.CODPRO, P.CODRUB, P.DENPRO, P.CODMON, P.PLVPRO
 $toolbar = '<button onclick="window.print()" class="btn btn-outline-light btn-sm"><i class="bi bi-printer me-1"></i>Imprimir</button>';
 module_head('Listado de Precios de Venta', 'bi-cash', $toolbar);
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
   <input type="hidden" name="f" value="1">
   <div class="lst-fgrid3">

@@ -57,7 +57,7 @@ module_head('Movimientos de Stock x Producto', 'bi-arrow-left-right', $toolbar);
 $me = isset($_SESSION['uname']) ? $_SESSION['uname'] : (isset($_SESSION['uid']) ? $_SESSION['uid'] : '');
 $tot = array('ic'=>0,'ec'=>0,'ing'=>0,'egr'=>0,'iv'=>0,'ev'=>0,'svc'=>0,'t'=>0); $nmov = 0;
 ?>
-<link href="../../assets/css/listado.css?v=25" rel="stylesheet">
+<link href="../../assets/css/listado.css?v=26" rel="stylesheet">
 <form method="get" class="lst-filter no-print" data-bs-theme="light">
   <div class="lst-fgrid3">
     <span class="lst-fpair"><label>Producto (cód.)</label><input type="text" name="pro" value="<?= h($pro) ?>" class="form-control form-control-sm" placeholder="(Todos)"></span>
